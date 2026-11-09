@@ -29,8 +29,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Policy grants GetObject to Principal "*" with Block Public Access off', 'The ACL is private, which overrides nothing', 'Versioning is off'],
         answer: 0,
-        explain: 'Anyone can read any object. The private ACL does not matter: the policy grants it and nothing blocks it.',
-      },
+        explain: 'Anyone can read any object. The private ACL does not matter: the policy grants it and nothing blocks it.', concept: 'bucket-policy-public' },
       {
         id: 'r2',
         name: 'northgate-static-site',
@@ -43,8 +42,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['Policy grants GetObject to a wildcard', 'Block Public Access is off', 'The CloudFront principal is public'],
         answer: -1,
-        explain: 'Only one CloudFront distribution may read it, and Block Public Access is on. This is the right way to serve a static site.',
-      },
+        explain: 'Only one CloudFront distribution may read it, and Block Public Access is on. This is the right way to serve a static site.', concept: 'block-public-access' },
       {
         id: 'r3',
         name: 'northgate-backups',
@@ -53,8 +51,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['No policy means no access control', 'The ACL grants READ to AllUsers (everyone)', 'Backups should be encrypted'],
         answer: 1,
-        explain: 'The AllUsers grantee is the whole internet. With Block Public Access off, the listing and the objects are readable.',
-      },
+        explain: 'The AllUsers grantee is the whole internet. With Block Public Access off, the listing and the objects are readable.', concept: 'bucket-acl-public' },
       {
         id: 'r4',
         name: 'northgate-reports-archive',
@@ -67,8 +64,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['Policy grants GetObject to a wildcard', 'Block Public Access is on but ACL is private', 'The archive is unencrypted'],
         answer: -1,
-        explain: 'The policy is public, but Block Public Access is on, so it is ignored. Not public today; still, the policy should be removed before someone turns the setting off.',
-      },
+        explain: 'The policy is public, but Block Public Access is on, so it is ignored. Not public today; still, the policy should be removed before someone turns the setting off.', concept: 'block-public-access' },
       {
         id: 'r5',
         name: 'northgate-app-logs',
@@ -81,8 +77,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['PutObject is granted to everyone', 'Block Public Access is off', 'The log-writer role is a wildcard'],
         answer: -1,
-        explain: 'One role may write; nobody public may read. Private.',
-      },
+        explain: 'One role may write; nobody public may read. Private.', concept: 'bucket-policy-public' },
     ],
   },
   {
@@ -109,8 +104,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Full administrator access on a CI user', 'IAM users should not have policies', 'The policy is missing a Sid'],
         answer: 0,
-        explain: 'Action "*" on Resource "*" is administrator. A leaked CI key is then the whole account.',
-      },
+        explain: 'Action "*" on Resource "*" is administrator. A leaked CI key is then the whole account.', concept: 'iam-admin-wildcard' },
       {
         id: 'i2',
         name: 'sg-web-alb, inbound rules',
@@ -119,8 +113,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['443 open to the world', 'IPv6 should be blocked', 'Port 80 should be closed'],
         answer: -1,
-        explain: 'A public load balancer serves the public. 80 for the redirect and 443 for the site is the normal shape.',
-      },
+        explain: 'A public load balancer serves the public. 80 for the redirect and 443 for the site is the normal shape.', concept: 'sg-admin-port-open' },
       {
         id: 'i3',
         name: 'sg-app-servers, inbound rules',
@@ -129,8 +122,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['8080 should be 443', 'SSH open to the whole internet', 'The ALB rule is too broad'],
         answer: 1,
-        explain: 'SSH from anywhere invites brute force. Restrict 22 to a bastion, a VPN or the office range.',
-      },
+        explain: 'SSH from anywhere invites brute force. Restrict 22 to a bastion, a VPN or the office range.', concept: 'sg-admin-port-open' },
       {
         id: 'i4',
         name: 'sg-database, inbound rules',
@@ -139,8 +131,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['The database port should be changed', '5432 open to the world', 'Needs a rule for 22'],
         answer: -1,
-        explain: 'Only the application servers\' security group may reach PostgreSQL. This is the model.',
-      },
+        explain: 'Only the application servers\' security group may reach PostgreSQL. This is the model.', concept: 'sg-admin-port-open' },
       {
         id: 'i5',
         name: 'root user',
@@ -149,8 +140,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Root is used daily with an access key and has no MFA', 'The password is too old', 'Root should be deleted'],
         answer: 0,
-        explain: 'Root should have MFA and no access keys at all. Daily use of a root key means a leak is the whole account with no second factor.',
-      },
+        explain: 'Root should have MFA and no access keys at all. Daily use of a root key means a leak is the whole account with no second factor.', concept: 'root-mfa-keys' },
       {
         id: 'i6',
         name: 'role/report-reader, trust policy',
@@ -159,8 +149,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Any AWS account can assume this role', 'The role name is too generic', 'sts:AssumeRole is deprecated'],
         answer: 0,
-        explain: 'A trust policy with Principal "*" lets any AWS account in the world assume the role. Name the exact accounts or roles.',
-      },
+        explain: 'A trust policy with Principal "*" lets any AWS account in the world assume the role. Name the exact accounts or roles.', concept: 'role-trust-wildcard' },
       {
         id: 'i7',
         name: 'role/invoice-service, attached policy',
@@ -169,8 +158,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['PutObject is too much', 'Should be Resource "*"', 'Missing s3:ListBucket'],
         answer: -1,
-        explain: 'Two actions on one bucket. This is least privilege.',
-      },
+        explain: 'Two actions on one bucket. This is least privilege.', concept: 'least-privilege' },
     ],
   },
   {
@@ -186,6 +174,8 @@ export const CLOUD_MISSIONS: Mission[] = [
     codex: ['idor', 'api-security'],
     debrief:
       'Broken object level authorization is found by changing an id. It is fixed by checking, on the server, that the object belongs to the caller before returning it. Being logged in is not being allowed; random ids only hide the door.',
+    concept: 'ownership-check',
+    fixConcept: 'ownership-check',
     request: { method: 'GET', path: '/api/v1/orders/{id}', headers: ['Host: api.northgate-books.io', 'Authorization: Bearer <your session token>'] },
     you: { id: '2041', label: 'You are customer 2041 (Mara Lindqvist)' },
     ids: [
@@ -244,10 +234,10 @@ export const CLOUD_MISSIONS: Mission[] = [
           '+dist',
         ],
         targets: [
-          { line: 1, reason: 'The .env file is committed with the database password inside.' },
-          { line: 2, reason: 'An AWS access key id in the repository. Rotate it now.' },
-          { line: 3, reason: 'The matching secret key. With both, the account is open.' },
-          { line: 6, reason: 'A live payment key hard-coded in source. It should come from the environment.' },
+          { line: 1, reason: 'The .env file is committed with the database password inside.', concept: 'secret-in-repo' },
+          { line: 2, reason: 'An AWS access key id in the repository. Rotate it now.', concept: 'secret-in-repo' },
+          { line: 3, reason: 'The matching secret key. With both, the account is open.', concept: 'secret-in-repo' },
+          { line: 6, reason: 'A live payment key hard-coded in source. It should come from the environment.', concept: 'secret-in-repo' },
         ],
       },
       {
@@ -264,8 +254,8 @@ export const CLOUD_MISSIONS: Mission[] = [
           'CMD ["node", "dist/server.js"]',
         ],
         targets: [
-          { line: 5, reason: 'ENV bakes the password into the image layers. Anyone who can pull the image can read it.' },
-          { line: 6, reason: 'A private SSH key copied into the image. It belongs in a runtime secret, not in a layer.' },
+          { line: 5, reason: 'ENV bakes the password into the image layers. Anyone who can pull the image can read it.', concept: 'secret-in-image' },
+          { line: 6, reason: 'A private SSH key copied into the image. It belongs in a runtime secret, not in a layer.', concept: 'secret-in-image' },
         ],
       },
     ],
@@ -287,12 +277,12 @@ export const CLOUD_MISSIONS: Mission[] = [
     fixLabel: 'Fixes on the belt',
     seconds: 180,
     bugs: [
-      { id: 'b1', text: 'npm audit reports a dependency with a known prototype-pollution CVE', fix: 'f1', explain: 'A known vulnerability in a library: update it and keep the check in CI so it never silently returns.' },
-      { id: 'b2', text: 'The container runs as root', fix: 'f2', explain: 'A breakout from a root process is far worse. Add a USER line.' },
-      { id: 'b3', text: 'Base image is an end-of-life Node version', fix: 'f3', explain: 'No more security patches. Move to a supported image and rebuild on a schedule.' },
-      { id: 'b4', text: 'A secret passed as a build argument ends up in a layer', fix: 'f4', explain: 'Build arguments are stored in the image history. Inject at runtime.' },
-      { id: 'b5', text: 'CI pulls a third-party step by a mutable tag', fix: 'f5', explain: 'A tag can be moved to malicious code. Pin by commit and verify.' },
-      { id: 'b6', text: 'The CI runner mounts the host Docker socket', fix: 'f6', explain: 'The socket is root on the host. Use a rootless or remote builder.' },
+      { id: 'b1', text: 'npm audit reports a dependency with a known prototype-pollution CVE', fix: 'f1', explain: 'A known vulnerability in a library: update it and keep the check in CI so it never silently returns.', concept: 'sca-update' },
+      { id: 'b2', text: 'The container runs as root', fix: 'f2', explain: 'A breakout from a root process is far worse. Add a USER line.', concept: 'container-privilege' },
+      { id: 'b3', text: 'Base image is an end-of-life Node version', fix: 'f3', explain: 'No more security patches. Move to a supported image and rebuild on a schedule.', concept: 'base-image-eol' },
+      { id: 'b4', text: 'A secret passed as a build argument ends up in a layer', fix: 'f4', explain: 'Build arguments are stored in the image history. Inject at runtime.', concept: 'build-arg-secret' },
+      { id: 'b5', text: 'CI pulls a third-party step by a mutable tag', fix: 'f5', explain: 'A tag can be moved to malicious code. Pin by commit and verify.', concept: 'pin-pipeline-steps' },
+      { id: 'b6', text: 'The CI runner mounts the host Docker socket', fix: 'f6', explain: 'The socket is root on the host. Use a rootless or remote builder.', concept: 'container-privilege' },
     ],
     fixes: [
       { id: 'f1', label: 'Update the dependency; keep SCA in CI' },
@@ -343,8 +333,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Wildcard principal with Block Public Access off', 'ListBucket is always wrong', 'The ACL should be public-read'],
         answer: 0,
-        explain: 'Listing and reading, for everyone.',
-      },
+        explain: 'Listing and reading, for everyone.', concept: 'bucket-policy-public' },
       {
         id: 'a2',
         name: 'sg-redis',
@@ -353,8 +342,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Redis should use port 6380', 'The cache is open to the internet', 'Needs an IPv6 rule'],
         answer: 1,
-        explain: 'An unauthenticated cache open to the world.',
-      },
+        explain: 'An unauthenticated cache open to the world.', concept: 'sg-admin-port-open' },
       {
         id: 'a3',
         name: 'role/lambda-thumbnails',
@@ -363,8 +351,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['Two buckets is too many', 'Should be Action "*"', 'PutObject is risky'],
         answer: -1,
-        explain: 'Read one bucket, write another. Least privilege.',
-      },
+        explain: 'Read one bucket, write another. Least privilege.', concept: 'least-privilege' },
       {
         id: 'a4',
         name: 'user/alice (IAM user)',
@@ -373,8 +360,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: false,
         reasons: ['Needs an access key', 'MFA is not enough', 'Read-only is too much'],
         answer: -1,
-        explain: 'MFA, no keys, scoped group. Fine.',
-      },
+        explain: 'MFA, no keys, scoped group. Fine.', concept: 'root-mfa-keys' },
       {
         id: 'a5',
         name: 'CloudTrail',
@@ -383,8 +369,7 @@ export const CLOUD_MISSIONS: Mission[] = [
         exposed: true,
         reasons: ['Nobody can see who did what', 'CloudTrail costs too much', 'Trails should be per user'],
         answer: 0,
-        explain: 'Without CloudTrail there is no record of API calls, so no investigation and no alerting.',
-      },
+        explain: 'Without CloudTrail there is no record of API calls, so no investigation and no alerting.', concept: 'cloudtrail-logging' },
     ],
   },
   {
@@ -398,6 +383,8 @@ export const CLOUD_MISSIONS: Mission[] = [
     xp: 0,
     codex: [],
     debrief: '',
+    concept: 'ownership-check',
+    fixConcept: 'ownership-check',
     request: { method: 'GET', path: '/api/v1/invoices/{id}/pdf', headers: ['Host: api.harborline.dev', 'Authorization: Bearer <your session token>'] },
     you: { id: '7781', label: 'You are account 7781 (Harborline customer)' },
     ids: [
