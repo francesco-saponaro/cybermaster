@@ -108,9 +108,9 @@ export function parseNmap(args: string[]): { ok: true; opts: NmapOptions } | { o
       const spec = a === '-p' ? args[++i] : a.slice(2);
       if (!spec) return { ok: false, error: 'nmap: option -p needs a port list, like -p 21,22,80 or -p 1-1000' };
       const ports = parsePorts(spec);
-      if (!ports) return { ok: false, error: `nmap: could not read the port list "${spec}"` };
+      if (!ports) return { ok: false, error: `nmap: could not read the port list "${spec}". Use numbers and commas, like -p 21,22,80` };
       opts.ports = ports;
-    } else if (a.startsWith('-')) return { ok: false, error: `nmap: unrecognized option '${a}'. See: man nmap` };
+    } else if (a.startsWith('-')) return { ok: false, error: `nmap: unrecognized option '${a}'. Copy the command from the step, or type man nmap for the options.` };
     else opts.targets.push(a);
   }
   if (opts.targets.length === 0) return { ok: false, error: 'nmap: no target given. Example: nmap 10.0.8.12' };
@@ -272,7 +272,7 @@ function nmap(args: string[], net: Network): CommandResult {
       return {
         out: [`Stopped: ${blocked.ip} is not in the scope you were given. Scanning it is not a test, it is an attack on someone else's server.`],
         facts: ['out-of-scope-scan'],
-        fail: `${blocked.ip} is out of scope: nothing gets scanned without permission.`,
+        fail: `${blocked.ip} is out of scope: nothing gets scanned without permission. Run cat scope.txt and only scan what it lists.`,
       };
     }
     if (opts.pingOnly) facts.push(`sweep:${target}`);
@@ -328,7 +328,7 @@ function curl(args: string[], net: Network): CommandResult {
     else if (a === '-i') include = true;
     else if (a === '-v') verbose = true;
     else if (a === '-s' || a === '-k' || a === '-L') continue;
-    else if (a.startsWith('-')) return { out: [`curl: option ${a}: is unknown. See: man curl`], facts: [], fail: `curl does not know ${a}.` };
+    else if (a.startsWith('-')) return { out: [`curl: option ${a}: is unknown. See: man curl`], facts: [], fail: `curl does not know ${a}. Use curl -I followed by the address, like curl -I http://10.0.8.15.` };
     else url = a;
   }
   if (!url) return { out: ['curl: no URL specified. Example: curl -I http://10.0.8.15'], facts: [] };
@@ -341,7 +341,7 @@ function curl(args: string[], net: Network): CommandResult {
   }
   const host = findHost(u.hostname, net);
   const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
-  if (host?.outOfScope) return { out: [`Stopped: ${host.ip} is not in scope.`], facts: ['out-of-scope-scan'], fail: `${host.ip} is out of scope: nothing gets touched without permission.` };
+  if (host?.outOfScope) return { out: [`Stopped: ${host.ip} is not in scope.`], facts: ['out-of-scope-scan'], fail: `${host.ip} is out of scope: nothing gets touched without permission. Run cat scope.txt and only touch what it lists.` };
   const svc = host?.ports.find((p) => p.port === port);
   if (!host) return { out: [`curl: (6) Could not resolve host: ${u.hostname}`], facts: [] };
   if (!svc) return { out: [`curl: (7) Failed to connect to ${u.hostname} port ${port} after 2 ms: Couldn't connect to server`], facts: [] };
@@ -374,7 +374,7 @@ function nc(args: string[], net: Network): CommandResult {
   if (!target || !portArg) return { out: ['usage: nc [-v] <host> <port>'], facts: [] };
   const host = findHost(target, net);
   const port = Number(portArg);
-  if (host?.outOfScope) return { out: [`Stopped: ${host.ip} is not in scope.`], facts: ['out-of-scope-scan'], fail: `${host.ip} is out of scope: nothing gets touched without permission.` };
+  if (host?.outOfScope) return { out: [`Stopped: ${host.ip} is not in scope.`], facts: ['out-of-scope-scan'], fail: `${host.ip} is out of scope: nothing gets touched without permission. Run cat scope.txt and only touch what it lists.` };
   const svc = host?.ports.find((p) => p.port === port);
   if (!host || !svc) return { out: [`nc: connect to ${target} port ${port} (tcp) failed: Connection refused`], facts: [] };
   const out: string[] = [];

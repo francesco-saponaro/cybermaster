@@ -60,21 +60,21 @@ export function parseRequest(raw: string): ParseResult {
   const first = (lines.shift() ?? '').trim();
   const parts = first.split(/\s+/);
   if (parts.length < 2 || !parts[0] || !parts[1]) {
-    return { ok: false, error: 'The first line needs a method and a path, like GET / HTTP/1.1.' };
+    return { ok: false, error: 'The first line needs a method and a path, like GET / HTTP/1.1. Put that back as the first line and Send again.' };
   }
   const method = parts[0].toUpperCase();
   if (!METHODS.includes(method)) {
-    return { ok: false, error: `${parts[0]} is not an HTTP method. Try GET or POST.` };
+    return { ok: false, error: `${parts[0]} is not an HTTP method. Start the first line with GET or POST and Send again.` };
   }
   const target = parts[1];
   if (!target.startsWith('/')) {
-    return { ok: false, error: 'The path must start with a slash, like /robots.txt.' };
+    return { ok: false, error: 'The path must start with a slash, like /robots.txt. Add the slash and Send again.' };
   }
   const headers: [string, string][] = [];
   for (const line of lines) {
     if (!line.trim()) continue;
     const i = line.indexOf(':');
-    if (i <= 0) return { ok: false, error: `This header line has no colon: "${line.trim().slice(0, 40)}".` };
+    if (i <= 0) return { ok: false, error: `This header line has no colon: "${line.trim().slice(0, 40)}". Put a colon after the header name, or delete the line.` };
     headers.push([line.slice(0, i).trim(), line.slice(i + 1).trim()]);
   }
   const [path = '/', qs = ''] = target.split('?');
@@ -136,11 +136,11 @@ export function parseResponseHead(raw: string): { ok: true; status: number; head
   const lines = raw.replace(/\r\n/g, '\n').split('\n').filter((l) => l.trim() !== '');
   const first = lines.shift() ?? '';
   const m = /^HTTP\/[\d.]+\s+(\d{3})/.exec(first.trim());
-  if (!m) return { ok: false, error: 'The first line must be a status line, like HTTP/1.1 200 OK.' };
+  if (!m) return { ok: false, error: 'The first line must be a status line, like HTTP/1.1 200 OK. Put that line back at the top and Forward again.' };
   const headers: [string, string][] = [];
   for (const line of lines) {
     const i = line.indexOf(':');
-    if (i <= 0) return { ok: false, error: `This header line has no colon: "${line.trim().slice(0, 40)}".` };
+    if (i <= 0) return { ok: false, error: `This header line has no colon: "${line.trim().slice(0, 40)}". Put a colon after the header name, or delete the line.` };
     headers.push([line.slice(0, i).trim(), line.slice(i + 1).trim()]);
   }
   return { ok: true, status: Number(m[1]), headers };

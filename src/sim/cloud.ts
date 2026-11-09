@@ -39,15 +39,15 @@ export function parsePolicy(text: string): ParsedPolicy {
     const line = pos ? text.slice(0, Number(pos[1])).split('\n').length : null;
     return { ok: false, error: `Not valid JSON${line ? ` (around line ${line})` : ''}: check commas, quotes and brackets.` };
   }
-  if (!raw || typeof raw !== 'object' || !('Statement' in raw)) return { ok: false, error: 'A policy needs a "Statement" list.' };
+  if (!raw || typeof raw !== 'object' || !('Statement' in raw)) return { ok: false, error: 'A policy needs a "Statement" list. Compare your text with the example in the step.' };
   const st = (raw as { Statement: unknown }).Statement;
   const list = Array.isArray(st) ? st : [st];
   for (const [i, s] of list.entries()) {
-    if (!s || typeof s !== 'object') return { ok: false, error: `Statement ${i + 1} is not an object.` };
+    if (!s || typeof s !== 'object') return { ok: false, error: `Statement ${i + 1} is not an object. Each statement goes between { and }.` };
     const o = s as Record<string, unknown>;
-    if (o.Effect !== 'Allow' && o.Effect !== 'Deny') return { ok: false, error: `Statement ${i + 1} needs "Effect": "Allow" or "Deny".` };
-    if (!o.Action) return { ok: false, error: `Statement ${i + 1} needs an "Action".` };
-    if (!o.Resource) return { ok: false, error: `Statement ${i + 1} needs a "Resource".` };
+    if (o.Effect !== 'Allow' && o.Effect !== 'Deny') return { ok: false, error: `Statement ${i + 1} needs "Effect": "Allow" or "Deny". Add that line back.` };
+    if (!o.Action) return { ok: false, error: `Statement ${i + 1} needs an "Action". Add one, like "Action": "s3:GetObject".` };
+    if (!o.Resource) return { ok: false, error: `Statement ${i + 1} needs a "Resource". Add the path it applies to.` };
   }
   return { ok: true, policy: { ...(raw as Policy), Statement: list as Statement[] } };
 }
@@ -149,8 +149,8 @@ export function bucketChecks(text: string, blockPublicAccess: boolean): { valid:
       error: parsed.error,
       checks: [
         { id: 'no-public', pass: false, detail: parsed.error },
-        { id: 'app-reads', pass: false, detail: 'The policy has to parse first.' },
-        { id: 'bpa', pass: blockPublicAccess, detail: blockPublicAccess ? 'On.' : 'Off.' },
+        { id: 'app-reads', pass: false, detail: 'The policy has to be valid JSON first: fix the error above.' },
+        { id: 'bpa', pass: blockPublicAccess, detail: blockPublicAccess ? 'On.' : 'Off: click the Block all public access switch.' },
       ],
       anonymousStatus: 403,
       appStatus: 403,
@@ -164,9 +164,9 @@ export function bucketChecks(text: string, blockPublicAccess: boolean): { valid:
   return {
     valid: true,
     checks: [
-      { id: 'no-public', pass: pub.length === 0, detail: pub.length ? `Statement "${pub[0]!.Sid ?? 'unnamed'}" still allows Principal "*".` : 'No statement grants anything to everyone.' },
-      { id: 'app-reads', pass: app === 'allow', detail: app === 'allow' ? 'The billing app can read invoices.' : 'The billing app lost access: allow its role to s3:GetObject.' },
-      { id: 'bpa', pass: blockPublicAccess, detail: blockPublicAccess ? 'Block Public Access is on.' : 'Block Public Access is off.' },
+      { id: 'no-public', pass: pub.length === 0, detail: pub.length ? `Statement "${pub[0]!.Sid ?? 'unnamed'}" still allows Principal "*": delete that whole statement.` : 'No statement grants anything to everyone.' },
+      { id: 'app-reads', pass: app === 'allow', detail: app === 'allow' ? 'The billing app can read invoices.' : 'The billing app lost access: put the BillingApp statement back, as in the example.' },
+      { id: 'bpa', pass: blockPublicAccess, detail: blockPublicAccess ? 'Block Public Access is on.' : 'Block Public Access is off: click its switch in the Settings and test panel.' },
     ],
     anonymousStatus: anonAllowed ? 200 : 403,
     appStatus: app === 'allow' ? 200 : 403,
@@ -211,10 +211,10 @@ export function iamChecks(text: string): { valid: boolean; error?: string; check
   return {
     valid: true,
     checks: [
-      { id: 'task', pass: taskOk, detail: taskOk ? 'The export job can read the monthly data and write its PDF.' : 'The export job can no longer do its work.' },
-      { id: 'no-star-action', pass: !starAction, detail: starAction ? `"${starAction}" grants every action.` : 'Every action is named.' },
-      { id: 'no-star-resource', pass: !starResource, detail: starResource ? `"${starResource}" covers every resource.` : 'Every resource is named.' },
-      { id: 'denied', pass: deniedOk, detail: firstLeak ? `Still allowed: ${firstLeak.label.toLowerCase()}.` : 'Everything else is denied.' },
+      { id: 'task', pass: taskOk, detail: taskOk ? 'The export job can read the monthly data and write its PDF.' : 'The export job can no longer do its work: check the two Needed rows and fix the action or path that says Denied.' },
+      { id: 'no-star-action', pass: !starAction, detail: starAction ? `"${starAction}" grants every action: name s3:GetObject and s3:PutObject instead.` : 'Every action is named.' },
+      { id: 'no-star-resource', pass: !starResource, detail: starResource ? `"${starResource}" covers every resource: name the monthly/ and exports/ paths instead.` : 'Every resource is named.' },
+      { id: 'denied', pass: deniedOk, detail: firstLeak ? `Still allowed: ${firstLeak.label.toLowerCase()}. Remove the action or path that allows it.` : 'Everything else is denied.' },
     ],
     probes,
   };
@@ -266,11 +266,11 @@ export function sgChecks(rules: SgRule[]): Check[] {
   const office = reach(rules, 22, OFFICE_IP);
   const bad = rules.find((r) => !validCidr(r.source) || !/^(\d+(\s*-\s*\d+)?|all)$/i.test(r.ports.trim()));
   return [
-    { id: 'ssh', pass: !ssh, detail: ssh ? `${ssh.ports === '22' ? 'Port 22' : `Ports ${ssh.ports}`} open to ${ssh.source}.` : 'SSH is closed to the internet.' },
-    { id: 'rdp', pass: !rdp, detail: rdp ? `Port 3389 open to ${rdp.source}.` : 'RDP is closed to the internet.' },
-    { id: 'db', pass: !db, detail: db ? `PostgreSQL (5432) open to ${db.source}.` : 'The database is closed to the internet.' },
+    { id: 'ssh', pass: !ssh, detail: ssh ? `${ssh.ports === '22' ? 'Port 22' : `Ports ${ssh.ports}`} open to ${ssh.source}: change that Source to 203.0.113.64/27.` : 'SSH is closed to the internet.' },
+    { id: 'rdp', pass: !rdp, detail: rdp ? `Port 3389 open to ${rdp.source}: press Remove on that rule.` : 'RDP is closed to the internet.' },
+    { id: 'db', pass: !db, detail: db ? `PostgreSQL (5432) open to ${db.source}: press Remove on that rule.` : 'The database is closed to the internet.' },
     { id: 'web', pass: !!web, detail: web ? 'Customers reach the site on 443.' : 'Customers can no longer reach the site: keep 443 open to 0.0.0.0/0.' },
-    { id: 'office', pass: !!office && !bad, detail: bad ? `Rule "${bad.ports} from ${bad.source}" is not valid.` : office ? `The office (${OFFICE_IP}) still reaches SSH.` : `The ops team in the office (${OFFICE_IP}) lost SSH: allow 22 from 203.0.113.64/27.` },
+    { id: 'office', pass: !!office && !bad, detail: bad ? `Rule "${bad.ports} from ${bad.source}" is not valid: use a port number like 22 and a range like 203.0.113.64/27.` : office ? `The office (${OFFICE_IP}) still reaches SSH.` : `The ops team in the office (${OFFICE_IP}) lost SSH: allow 22 from 203.0.113.64/27.` },
   ];
 }
 
@@ -302,14 +302,14 @@ export function keyChecks(s: KeyState): Check[] {
   const ci = key(s.ciKey);
   const backup = key(s.backupKey);
   return [
-    { id: 'found', pass: s.found, detail: s.found ? `Found ${LEAKED_KEY} in commit 9c2e41a.` : 'Find the key in the repository first.' },
-    { id: 'revoked', pass: !leaked || leaked.status === 'Inactive', detail: !leaked ? 'The leaked key is deleted.' : leaked.status === 'Inactive' ? 'The leaked key is deactivated.' : 'The leaked key still works for anyone who copied it.' },
+    { id: 'found', pass: s.found, detail: s.found ? `Found ${LEAKED_KEY} in commit 9c2e41a.` : 'Not found yet: click commit 9c2e41a in the Repository panel.' },
+    { id: 'revoked', pass: !leaked || leaked.status === 'Inactive', detail: !leaked ? 'The leaked key is deleted.' : leaked.status === 'Inactive' ? 'The leaked key is deactivated.' : 'The leaked key still works for anyone who copied it: press Deactivate on it once the pipeline uses the new key.' },
     {
       id: 'deploys',
       pass: !!ci && ci.status === 'Active' && ci.id !== LEAKED_KEY,
-      detail: !ci || ci.status !== 'Active' ? 'Deploys fail: the pipeline secret points at a key that no longer works.' : ci.id === LEAKED_KEY ? 'Deploys still use the leaked key.' : 'Deploys run with the new key.',
+      detail: !ci || ci.status !== 'Active' ? 'Deploys fail: the pipeline secret points at a key that no longer works. Pick an active new key in the pipeline secret drop-down.' : ci.id === LEAKED_KEY ? 'Deploys still use the leaked key: press Create key, then pick the new key in the pipeline secret drop-down.' : 'Deploys run with the new key.',
     },
-    { id: 'backups', pass: !!backup && backup.status === 'Active', detail: backup && backup.status === 'Active' ? 'Nightly backups still run.' : 'Backups fail: that key belonged to the backup job.' },
+    { id: 'backups', pass: !!backup && backup.status === 'Active', detail: backup && backup.status === 'Active' ? 'Nightly backups still run.' : 'Backups fail: that key belonged to the backup job. Press Activate on it.' },
   ];
 }
 
@@ -338,8 +338,8 @@ export function triageChecks(findings: ScanFinding[], verdicts: Record<string, V
   const realOk = real.filter((f) => verdicts[f.id] === 'fix').length;
   const noiseOk = noise.filter((f) => verdicts[f.id] === 'dismiss').length;
   return [
-    { id: 'real', pass: realOk === real.length, detail: `${realOk} of ${real.length} real problems sent to fix.` },
-    { id: 'noise', pass: noiseOk === noise.length, detail: `${noiseOk} of ${noise.length} false alarms dismissed.` },
+    { id: 'real', pass: realOk === real.length, detail: `${realOk} of ${real.length} real problems sent to fix so far.` },
+    { id: 'noise', pass: noiseOk === noise.length, detail: `${noiseOk} of ${noise.length} false alarms dismissed so far.` },
   ];
 }
 
@@ -360,13 +360,13 @@ export function parseGateway(text: string): ParsedGateway {
   try {
     raw = JSON.parse(text);
   } catch {
-    return { ok: false, error: 'Not valid JSON: check commas, quotes and brackets.' };
+    return { ok: false, error: 'Not valid JSON: check the commas, quotes and brackets around your last change.' };
   }
   const routes = (raw as { routes?: unknown })?.routes;
-  if (!Array.isArray(routes)) return { ok: false, error: 'The config needs a "routes" list.' };
+  if (!Array.isArray(routes)) return { ok: false, error: 'The config needs a "routes" list. Put back the "routes": [ ... ] around the routes.' };
   for (const [i, r] of routes.entries()) {
     const o = r as Record<string, unknown>;
-    if (typeof o?.path !== 'string' || typeof o?.method !== 'string' || typeof o?.auth !== 'string') return { ok: false, error: `Route ${i + 1} needs "path", "method" and "auth".` };
+    if (typeof o?.path !== 'string' || typeof o?.method !== 'string' || typeof o?.auth !== 'string') return { ok: false, error: `Route ${i + 1} needs "path", "method" and "auth". Put back whichever one is missing.` };
   }
   return { ok: true, routes: routes as GatewayRoute[] };
 }
@@ -430,11 +430,11 @@ export function gatewayChecks(text: string): { valid: boolean; error?: string; c
       {
         id: 'export',
         pass: anonExport.status === 401 && jobExport.status === 200,
-        detail: anonExport.status === 200 ? 'Anyone can download the full customer export.' : jobExport.status !== 200 ? 'The nightly export job can no longer reach /internal/export: require a token, do not remove the route.' : 'The export needs a token.',
+        detail: anonExport.status === 200 ? 'Anyone can download the full customer export.' : jobExport.status !== 200 ? 'The nightly export job can no longer reach /internal/export: set its auth to "service-token" instead of removing the route.' : 'The export needs a token.',
       },
-      { id: 'bola', pass: other.status === 404 || other.status === 403, detail: other.status === 200 ? 'Sam can open order 7003, which is not his.' : 'Orders are checked against their owner.' },
-      { id: 'ratelimit', pass: rate !== null && rate <= 10, detail: rate === null ? 'Login has no rate limit: passwords can be guessed at full speed.' : rate > 10 ? `${login?.rateLimit} is still a lot of guesses: keep it to 10 a minute or fewer.` : `Login is limited to ${login?.rateLimit}.` },
-      { id: 'customers', pass: brokenFlow === -1, detail: brokenFlow === -1 ? 'Customers can log in and see their orders.' : `Customers are stuck ${flowNames[brokenFlow]}.` },
+      { id: 'bola', pass: other.status === 404 || other.status === 403, detail: other.status === 200 ? 'Sam can open order 7003, which is not his: set "ownerCheck": true on /v1/orders/{id}.' : 'Orders are checked against their owner.' },
+      { id: 'ratelimit', pass: rate !== null && rate <= 10, detail: rate === null ? 'Login has no rate limit, so passwords can be guessed at full speed: add "rateLimit": "5/min" to /v1/login.' : rate > 10 ? `${login?.rateLimit} is still a lot of guesses: use "5/min", 10 a minute or fewer.` : `Login is limited to ${login?.rateLimit}.` },
+      { id: 'customers', pass: brokenFlow === -1, detail: brokenFlow === -1 ? 'Customers can log in and see their orders.' : `Customers are stuck ${flowNames[brokenFlow]}: undo the change that blocks them and try that call as Sam.` },
     ],
   };
 }

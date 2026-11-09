@@ -4,6 +4,7 @@ import { ARENA_APPS, runApp, testFix, listing, markupInPage, pageText, type FixR
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import type { SandboxProps } from '../types';
+import { StartHint } from '../StartHint';
 
 interface Run {
   nonce: number;
@@ -14,11 +15,11 @@ interface Run {
 }
 
 const WRONG: Record<string, string> = {
-  head: 'That line only declares the route. Follow the input further down.',
-  pre: 'That line just reads the request. Follow where the value goes next.',
-  post: 'By this line the damage is already done. Look a little earlier.',
-  foot: 'That is the end of the handler. Look where the input is used.',
-  edit: 'Close, but this line is not where the input does its harm.',
+  head: 'That line only declares the route. Look further down and click the line number the current step names.',
+  pre: 'That line just reads the request. Follow where the value goes next and click the line the current step names.',
+  post: 'By this line the damage is already done. Click a line a little higher up, the one the current step names.',
+  foot: 'That is the end of the handler. Click the line the current step names, where the input is used.',
+  edit: 'Close, but this line is not where the input does its harm. Click the line the current step names.',
 };
 
 export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaLevel, ArenaAct>) {
@@ -120,6 +121,7 @@ export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaL
 
   const codePane = (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      {!found ? <StartHint text="Click the line of code the first step names." /> : null}
       <ol className="codelist" aria-label="Server code">
         {view.lines.map((l, i) => {
           const no = i + 1;
@@ -161,7 +163,7 @@ export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaL
         })}
       </ol>
       <div className="pane-pad small muted" style={{ marginTop: 'auto', borderTop: '1px solid var(--line)' }}>
-        {found ? 'The red region is yours to rewrite. Replay attack runs the recorded attack, its variants and a normal visitor against it.' : 'Click the line where the input does its damage.'}
+        {found ? 'The red box is yours to rewrite. Replay attack runs the recorded attack, its variants and a normal visitor against it.' : 'Click the line where the input does its damage.'}
       </div>
     </div>
   );
@@ -169,6 +171,7 @@ export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaL
   return (
     <Panes
       focus={focus}
+      hint="code"
       grid={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.15fr)' }}
       panes={[
         { id: 'app', label: 'App and replay', body: appPane, dot: !!runState },

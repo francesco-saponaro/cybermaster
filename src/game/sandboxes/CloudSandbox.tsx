@@ -22,6 +22,7 @@ import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import { Editor } from '../Editor';
 import type { SandboxProps, CheckState } from '../types';
+import { StartHint } from '../StartHint';
 
 const toChecks = (cs: Check[]): Record<string, CheckState> => Object.fromEntries(cs.map((c) => [c.id, { pass: c.pass, detail: c.detail }]));
 
@@ -77,9 +78,21 @@ function BucketPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct
   }, [act]);
   return (
     <Panes
+      hint="policy"
       grid={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}
       panes={[
-        { id: 'policy', label: 'Bucket policy', head: <><h2>harbor-invoices: bucket policy</h2><span className="spacer" />{r.error ? <span className="status" data-tone="bad">Invalid</span> : <span className="status">JSON</span>}</>, body: <Editor label="Bucket policy JSON" value={text} onChange={setText} errorLine={errorLine(r.error)} />, bodyClass: 'term-body' },
+        {
+          id: 'policy',
+          label: 'Bucket policy',
+          head: <><h2>harbor-invoices: bucket policy</h2><span className="spacer" />{r.error ? <span className="status" data-tone="bad">Invalid</span> : <span className="status">JSON</span>}</>,
+          body: (
+            <>
+              <StartHint text="This is the policy editor. Click into it and edit the text as the first step says." />
+              <Editor label="Bucket policy JSON" value={text} onChange={setText} errorLine={errorLine(r.error)} />
+            </>
+          ),
+          bodyClass: 'term-body',
+        },
         {
           id: 'try',
           label: 'Settings and test',
@@ -259,8 +272,8 @@ function KeysPanel({ onChecks, fail, act }: SandboxProps<CloudLevel, CloudAct>) 
   const setStatus = (id: string, status: 'Active' | 'Inactive' | 'Deleted') => {
     const cur = s.keys.find((k) => k.id === id);
     if (status !== 'Active' && cur?.status === 'Active') {
-      if (id === s.backupKey) fail('Backups just failed: that key belonged to the nightly backup job.');
-      else if (id === s.ciKey) fail('Deploys just broke: move the pipeline to a new key before switching the old one off.');
+      if (id === s.backupKey) fail('Backups just failed: that key belonged to the nightly backup job. Press Activate on it to bring backups back.');
+      else if (id === s.ciKey) fail('Deploys just broke: the pipeline still uses that key. Press Activate on it, create a new key, point the pipeline secret at the new one, then deactivate the old one.');
     }
     setS((x) => ({ ...x, keys: status === 'Deleted' ? x.keys.filter((k) => k.id !== id) : x.keys.map((k) => (k.id === id ? { ...k, status } : k)) }));
   };
@@ -393,7 +406,7 @@ function ScanPanel({ level, onChecks, fail, act }: SandboxProps<CloudLevel, Clou
   const decide = (v: Verdict) => {
     if (!f) return;
     setVerdicts((x) => ({ ...x, [f.id]: v }));
-    if (v !== f.truth) fail(f.why);
+    if (v !== f.truth) fail(`${f.why} Press ${f.truth === 'fix' ? 'Send to fix' : 'Dismiss as false alarm'} on it instead.`);
     else play('blip');
   };
   return (

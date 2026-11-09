@@ -20,6 +20,7 @@ import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import { Editor } from '../Editor';
 import type { SandboxProps } from '../types';
+import { StartHint } from '../StartHint';
 
 // ---- The model: a reducer so Show me can replay several steps in order ----
 
@@ -27,12 +28,16 @@ interface Intercepted {
   req: HttpRequest;
   res: HttpResponse;
   text: string;
+  /** The text starts from the player's last forwarded edits, not the server's original. */
+  kept: boolean;
 }
 
 interface Model {
   reqText: string;
   exchanges: WireExchange[];
   forwarded: HttpResponse[];
+  /** The last response head the player forwarded, and for which path: the proxy re-applies it. */
+  lastEdit: { path: string; text: string } | null;
   console: ConsoleRun[];
   jar: StoredCookie[];
   page: { url: string; res: HttpResponse } | null;
@@ -98,19 +103,22 @@ function makeReducer(level: WireLevel) {
         const ex = { req: p.req, res };
         const sends = m.sends + 1;
         if (level.mode === 'response') {
-          return { ...m, sends, exchanges: [...m.exchanges, ex], intercepted: { req: p.req, res, text: serializeResponseHead(res) }, focus: { id: 'response', nonce: sends } };
+          // Like a proxy's match-and-replace rule: your last edits to this path's response are applied again.
+          const original = serializeResponseHead(res);
+          const kept = m.lastEdit && m.lastEdit.path === p.req.path && m.lastEdit.text !== original ? m.lastEdit.text : null;
+          return { ...m, sends, exchanges: [...m.exchanges, ex], intercepted: { req: p.req, res, text: kept ?? original, kept: kept !== null }, focus: { id: 'response', nonce: sends } };
         }
         return { ...m, sends, exchanges: [...m.exchanges, ex], page: { url: level.host + p.req.target, res }, focus: { id: 'browser', nonce: sends } };
       }
       case 'resp':
         return m.intercepted ? { ...m, intercepted: { ...m.intercepted, text: a.text } } : m;
       case 'forward': {
-        if (!m.intercepted) return fail(m, 'Nothing is waiting in the proxy: Send the request first.');
+        if (!m.intercepted) return fail(m, 'Nothing is waiting in the proxy. Press Send in the Request panel first, then Forward.');
         const head = parseResponseHead(m.intercepted.text);
         if (!head.ok) return fail(m, head.error);
         const final: HttpResponse = { ...m.intercepted.res, status: head.status, headers: head.headers };
         const jar = applySetCookies(m.jar, head.headers);
-        let next: Model = { ...m, forwarded: [...m.forwarded, final], jar, intercepted: null, page: { url: level.host + m.intercepted.req.target, res: final }, focus: { id: 'browser', nonce: m.sends + 1000 } };
+        let next: Model = { ...m, forwarded: [...m.forwarded, final], lastEdit: { path: m.intercepted.req.path, text: m.intercepted.text }, jar, intercepted: null, page: { url: level.host + m.intercepted.req.target, res: final }, focus: { id: 'browser', nonce: m.sends + 1000 } };
         // After a login the browser loads the account page, sending every cookie it holds.
         if (level.server === 'httponly' && m.intercepted.req.path === '/login') {
           const raw = `GET /account HTTP/1.1\nHost: ${level.host}\nCookie: ${cookieHeader(jar)}`;
@@ -160,6 +168,7 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
     reqText: level.request,
     exchanges: [],
     forwarded: [],
+    lastEdit: null,
     console: [],
     jar: [],
     page: null,
@@ -210,6 +219,7 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
 
   const request = (
     <div className="stack-12" style={{ padding: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <StartHint text="Press Send to send this request to the server." arrow="up" align="end" />
       {level.captured ? (
         <div className="pane-pad" style={{ paddingBottom: 0 }}>
           <p className="lbl">Proxy history</p>
@@ -258,6 +268,7 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
   return (
     <Panes
       focus={m.focus}
+      hint="request"
       grid={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gridTemplateRows: level.jwt ? 'minmax(0, 1.5fr) minmax(0, 1fr)' : 'minmax(0, 1fr) minmax(0, 1fr)' }}
       panes={[
         { id: 'browser', label: 'Browser', body: browser, style: { gridRow: '1 / span 2' }, dot: !!m.page },
@@ -333,7 +344,7 @@ function InterceptPane({ model, onEdit, onForward }: { model: Model; onEdit: (t:
         <Editor label="Held response headers" value={it.text} onChange={onEdit} minRows={6} />
       </div>
       <div className="row pane-pad" style={{ borderTop: '1px solid var(--line)' }}>
-        <span className="grow small muted">Body: {it.res.body.length} bytes, unchanged</span>
+        <span className="grow small muted">{it.kept ? 'Your edits from last time are kept. ' : ''}Body: {it.res.body.length} bytes, unchanged</span>
         <button type="button" className="cbtn cbtn-go cbtn-sm" onClick={onForward}>
           Forward
         </button>

@@ -226,7 +226,7 @@ const login: ArenaApp = {
     if (correct) return loggedInAs(reply) === input.name;
     return reply.status === 401;
   },
-  variantReason: 'Another input of the same kind still changes the query. Send the values as parameters so no input can become SQL.',
+  variantReason: 'Another input of the same kind still changes the query. Use ? placeholders and pass [name, pass] to db.query, as in the example, and replay.',
 };
 
 /** The developers' first attempt at a fix, for the Report zone's retest: it rejects one category only. */
@@ -304,7 +304,7 @@ const search: ArenaApp = {
     if (reply.status !== 200 || typeof reply.body !== 'string') return false;
     return pageText(reply.body).includes(`Results for ${(input.q ?? '').trim()}`) && !markupInPage(reply.body);
   },
-  variantReason: 'Another kind of markup still reaches the page. Encode the whole value for HTML.',
+  variantReason: 'Another kind of markup still reaches the page. Wrap the whole q in escapeHtml(q), as in the example, and replay.',
 };
 
 // ---- 3. Invoices: an id nobody checks ------------------------------------------
@@ -366,7 +366,7 @@ const invoices: ArenaApp = {
     if (input.id === '9999') return reply.status === 404 || reply.status === 403;
     return reply.status === 200 && !!b && b.id === Number(input.id);
   },
-  variantReason: "Another customer's invoice still opens. Compare the invoice's owner with req.user.id for every id.",
+  variantReason: "Another customer's invoice still opens. Answer 404 whenever invoice.ownerId !== req.user.id, as in the example, and replay.",
 };
 
 // ---- 4. Ping: input in a shell command line -------------------------------------
@@ -429,7 +429,7 @@ const ping: ArenaApp = {
   normalText: 'Pinging 9.9.9.9 still works.',
   exploited: (_i, reply) => typeof reply.body === 'string' && reply.body.includes(SECOND_COMMAND),
   normalOk: (_i, reply) => reply.status === 200 && typeof reply.body === 'string' && reply.body.includes('1 received'),
-  variantReason: 'Another shell trick still runs a second command. Pass the host as an argument with execFile, or allow only an address.',
+  variantReason: "Another shell trick still runs a second command. Use execFile('ping', ['-c', '1', host]) instead of exec, as in the example, and replay.",
 };
 
 // ---- 5. Link previews: the server fetches what you ask -----------------------------
@@ -499,7 +499,7 @@ const preview: ArenaApp = {
     const b = reply.body as { title?: string } | null;
     return reply.status === 200 && !!b && typeof b.title === 'string' && b.title.includes('foundry');
   },
-  variantReason: 'Another internal address still gets through. Allow the hosts you need instead of blocking the ones you thought of.',
+  variantReason: 'Another internal address still gets through. Instead of blocking addresses, answer 400 unless ALLOWED_HOSTS.includes(target.hostname), as in the example, and replay.',
 };
 
 // ---- 6. Sign-up: the whole body saved as a record ------------------------------------
@@ -565,7 +565,7 @@ const signup: ArenaApp = {
     const sent = JSON.parse(input.body ?? '{}') as Record<string, unknown>;
     return reply.status === 201 && !!u && u.name === sent.name && u.email === sent.email && u.role === 'customer';
   },
-  variantReason: 'Another extra field still goes straight into the database. Copy only the fields a user may set.',
+  variantReason: 'Another extra field still goes straight into the database. Pull out only name and email and create the user from those, as in the example, and replay.',
 };
 
 export const ARENA_APPS: Record<ArenaAppId, ArenaApp> = { login, search, invoices, ping, preview, signup };
@@ -608,7 +608,7 @@ export interface FixReport {
 export function testFix(id: ArenaAppId, edit: string): FixReport {
   const app = ARENA_APPS[id];
   const atk = runApp(id, edit, app.attack);
-  if (atk.error) return { error: atk.error, attackBlocked: false, variantsBlocked: false, normalWorks: false, reason: atk.error };
+  if (atk.error) return { error: atk.error, attackBlocked: false, variantsBlocked: false, normalWorks: false, reason: `${atk.error} Fix that in the code box, comparing it with the example in the step, and press Replay attack again.` };
   const attackBlocked = !atk.harmed;
   const variantsBlocked = app.variants.every((v) => !runApp(id, edit, v).harmed);
   let normalWorks = true;
@@ -622,11 +622,11 @@ export function testFix(id: ArenaAppId, edit: string): FixReport {
     }
   }
   const reason = !attackBlocked
-    ? 'The recorded attack still works against this code.'
+    ? 'The recorded attack still works against this code. Change the code box to match the example in the step, then press Replay attack again.'
     : !variantsBlocked
       ? app.variantReason
       : !normalWorks
-        ? normalError || 'The fix stops the attack but also breaks normal use.'
+        ? `${normalError ? normalError + ' ' : ''}The attack is stopped but normal use broke. Keep the rest of the code as it was, change only what the step says, and replay.`
         : '';
   return { attackBlocked, variantsBlocked, normalWorks, reason };
 }

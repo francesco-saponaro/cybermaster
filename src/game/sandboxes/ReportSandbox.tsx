@@ -9,6 +9,7 @@ import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import { Editor } from '../Editor';
 import type { SandboxProps, CheckState } from '../types';
+import { StartHint } from '../StartHint';
 
 export function ReportSandbox(props: SandboxProps<ReportLevel, ReportAct>) {
   switch (props.level.panel) {
@@ -62,6 +63,7 @@ function PhasesPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, R
   return (
     <Panes
       focus={focus}
+      hint="tray"
       grid={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.4fr)' }}
       panes={[
         {
@@ -69,6 +71,8 @@ function PhasesPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, R
           label: 'Work products',
           head: <h2>What the engagement produced</h2>,
           body: (
+            <>
+            <StartHint text="Click an item here, then click its phase on the Timeline." />
             <ul className="rowlist">
               {tray.map((a) => (
                 <li key={a.id}>
@@ -90,6 +94,7 @@ function PhasesPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, R
               ))}
               {tray.length === 0 ? <li className="pane-pad small muted">Everything is on the timeline.</li> : null}
             </ul>
+            </>
           ),
         },
         {
@@ -160,8 +165,8 @@ function CvssPanel({ level, onChecks, act }: SandboxProps<ReportLevel, ReportAct
   useEffect(() => {
     const groupOk = (ms: MetricName[]) => ms.every((m) => v[m] === target[m]);
     onChecks({
-      exploitability: { pass: groupOk(['AV', 'AC', 'PR', 'UI']), detail: groupOk(['AV', 'AC', 'PR', 'UI']) ? undefined : 'At least one of these does not match the evidence yet.' },
-      impact: { pass: groupOk(['S', 'C', 'I', 'A']), detail: groupOk(['S', 'C', 'I', 'A']) ? undefined : 'At least one of these does not match the evidence yet.' },
+      exploitability: { pass: groupOk(['AV', 'AC', 'PR', 'UI']), detail: groupOk(['AV', 'AC', 'PR', 'UI']) ? undefined : 'At least one of these four does not match the evidence yet: click the options this step names.' },
+      impact: { pass: groupOk(['S', 'C', 'I', 'A']), detail: groupOk(['S', 'C', 'I', 'A']) ? undefined : 'At least one of these four does not match the evidence yet: click the options this step names.' },
     });
   }, [v, target, onChecks]);
   useEffect(() => {
@@ -353,7 +358,7 @@ function RetestPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, R
   };
   const choose = (s: 'open' | 'fixed' | 'not-fixed') => {
     setStatus(s);
-    if (s === 'fixed') fail(bypass ? 'A variant still got in: the query is still built from the input.' : 'You have only replayed the one attack they filtered. Try its variants first.');
+    if (s === 'fixed') fail(bypass ? 'A variant still got in, so the query is still built from the input. Set the status to Not fixed.' : 'You have only replayed the one attack they filtered. Press the Variant buttons first, then set the status.');
   };
   useEffect(() => {
     if (!act) return;
@@ -436,7 +441,7 @@ function LabPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, Repo
   const r = useMemo(() => labChecks(text), [text]);
   useEffect(() => {
     const map: Record<string, CheckState> = Object.fromEntries(r.checks.map((c) => [c.id, { pass: c.pass, detail: c.detail }]));
-    map.run = { pass: !!ran?.ok, detail: ran && !ran.ok ? 'The last run failed: fix the file and run again.' : undefined };
+    map.run = { pass: !!ran?.ok, detail: ran && !ran.ok ? 'The last run failed: finish the steps above, then press Run again.' : undefined };
     onChecks(map);
   }, [r, ran, onChecks]);
 

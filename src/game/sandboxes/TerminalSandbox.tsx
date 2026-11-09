@@ -5,6 +5,7 @@ import { evaluateTerminal, judgeAnswer } from '../evaluate';
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import type { SandboxProps } from '../types';
+import { StartHint } from '../StartHint';
 
 interface Line {
   id: number;
@@ -129,6 +130,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
           ),
         )}
       </div>
+      <StartHint text="Click this prompt, type the command from the step and press Enter." />
       <form
         className="term-input"
         onSubmit={(e) => {
@@ -198,6 +200,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
   return (
     <Panes
       focus={focus}
+      hint="terminal"
       grid={{ gridTemplateColumns: 'minmax(0, 2fr) minmax(240px, 1fr)' }}
       panes={[
         { id: 'terminal', label: 'Terminal', body: terminal, bodyClass: 'term-body' },

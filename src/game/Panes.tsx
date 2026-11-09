@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
+import { useStartHint } from './StartHint';
 
 export interface PaneDef {
   id: string;
@@ -15,9 +16,12 @@ export interface PaneDef {
 /**
  * Side by side on wide screens (laid out by `grid`), one at a time with tabs on
  * a phone. `focus` switches the phone tab when something happens elsewhere.
+ * `hint` names the pane holding the control a new player starts with: on the
+ * first level of a zone its phone tab is marked "Start here".
  */
-export function Panes({ panes, grid, focus }: { panes: PaneDef[]; grid: CSSProperties; focus?: { id: string; nonce: number } | null }) {
+export function Panes({ panes, grid, focus, hint }: { panes: PaneDef[]; grid: CSSProperties; focus?: { id: string; nonce: number } | null; hint?: string }) {
   const [active, setActive] = useState(panes[0]?.id ?? '');
+  const start = useStartHint();
   useEffect(() => {
     if (focus) setActive(focus.id);
   }, [focus]);
@@ -27,7 +31,7 @@ export function Panes({ panes, grid, focus }: { panes: PaneDef[]; grid: CSSPrope
         {panes.map((p) => (
           <button key={p.id} type="button" role="tab" className="tab" aria-selected={active === p.id} onClick={() => setActive(p.id)}>
             {p.label}
-            {p.dot && active !== p.id ? <span className="dot" aria-label="(updated)" /> : null}
+            {start.show && hint === p.id && active !== p.id ? <span className="tab-start">Start here</span> : p.dot && active !== p.id ? <span className="dot" aria-label="(updated)" /> : null}
           </button>
         ))}
       </div>

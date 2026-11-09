@@ -48,23 +48,23 @@ export function readFinding(d: FindingDraft): Check[] {
     {
       id: 'severity',
       pass: sevOk,
-      detail: sevOk ? 'The score matches what you describe.' : 'This score does not match the evidence: no account is needed, nobody has to click anything, and the database can be read and changed.',
+      detail: sevOk ? 'The score matches what you describe.' : 'This score does not match the evidence: no account is needed, nobody has to click anything, and the database can be read and changed. Set Privileges required and User interaction to None, and Confidentiality and Integrity to High.',
     },
     {
       id: 'description',
       pass: descOk,
-      detail: descOk ? 'I understand how it works.' : sentences < 2 ? 'Two or three sentences, please: which input, and what it does to the query.' : 'Which field is it, and what happens to the SQL query? Name the name field and the query.',
+      detail: descOk ? 'I understand how it works.' : sentences < 2 ? 'Two or three sentences, please: say which input it is, and what it does to the query.' : 'Which field is it, and what happens to the SQL query? Mention the name field and the query in your sentences.',
     },
-    { id: 'impact', pass: impactOk, detail: impactOk ? 'I see what we stand to lose.' : 'So what? Tell me what an attacker gets: whose accounts, which data, read or change.' },
+    { id: 'impact', pass: impactOk, detail: impactOk ? 'I see what we stand to lose.' : 'So what? Tell me what an attacker gets, like signing in as admin, and which data they can read or change.' },
     {
       id: 'evidence',
       pass: evidenceOk,
-      detail: evidenceOk ? 'I can reproduce it from your evidence.' : onlyScanner ? 'A scanner line is not proof. Attach the request and response that show it working.' : 'Attach the evidence that proves it: the request you sent and what came back.',
+      detail: evidenceOk ? 'I can reproduce it from your evidence.' : onlyScanner ? 'A scanner line is not proof. Attach "Login bypass: the request and the response" from the locker.' : 'Attach the evidence that proves it: press Attach on "Login bypass: the request and the response" in the locker.',
     },
     {
       id: 'fix',
       pass: fixParam,
-      detail: fixParam ? 'My developers know what to change.' : fixBandage ? 'A filter is a bandage that the next quote trick gets past. Tell us to use parameterised queries.' : 'What exactly do we change? Name the fix a developer can apply and check.',
+      detail: fixParam ? 'My developers know what to change.' : fixBandage ? 'A filter is a bandage that the next quote trick gets past. Tell us to use parameterised queries instead.' : 'What exactly do we change? Name a fix a developer can apply and check, like parameterised queries.',
     },
   ];
 }
@@ -86,10 +86,11 @@ export const PHASES = ['Scope and authorisation', 'Reconnaissance', 'Vulnerabili
 /** Placing an artifact in a slot: right, or the consequence of doing it at that point. */
 export function placeArtifact(a: Artifact, slot: number, placed: (string | null)[]): { ok: boolean; reason: string } {
   if (a.phase === slot) return { ok: true, reason: '' };
+  const tryInstead = slot < a.phase ? 'Try a later phase for it.' : 'Try an earlier phase for it.';
   if (slot < a.phase && placed[0] === null && a.phase > 0) {
-    return { ok: false, reason: `Nothing is signed yet. ${a.consequence}` };
+    return { ok: false, reason: `Nothing is signed yet. ${a.consequence} ${tryInstead}` };
   }
-  return { ok: false, reason: a.consequence };
+  return { ok: false, reason: `${a.consequence} ${tryInstead}` };
 }
 
 // ---- A small YAML reader for the lab's compose file ---------------------------
@@ -197,7 +198,7 @@ export function labChecks(src: string): { valid: boolean; error?: string; checks
   try {
     doc = parseYaml(src);
   } catch (e) {
-    const err = e instanceof YamlError ? `Line ${e.line}: ${e.message}` : 'The file could not be read.';
+    const err = e instanceof YamlError ? `Line ${e.line}: ${e.message} Line it up with the example in the step, using two spaces per level.` : 'The file could not be read. Compare it with the example in the step.';
     return { valid: false, error: err, services: [], checks: ['juice', 'local', 'zap', 'target', 'network'].map((id) => ({ id, pass: false, detail: err })) };
   }
   const services = (doc && typeof doc === 'object' && !Array.isArray(doc) ? (doc.services as Record<string, Svc> | undefined) : undefined) ?? {};
@@ -212,19 +213,19 @@ export function labChecks(src: string): { valid: boolean; error?: string; checks
   const cmd = asStrings(zap?.command).join(' ');
   const target = /-t\s+(\S+)/.exec(cmd)?.[1] ?? '';
   let targetOk = false;
-  let targetDetail = 'ZAP has no target: add -t http://<juice service>:3000 to its command.';
+  let targetDetail = 'ZAP has no target: end its command with -t http://juice-shop:3000.';
   if (target) {
     try {
       const u = new URL(target);
-      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') targetDetail = 'Inside the ZAP container, localhost is ZAP itself. Point it at the Juice Shop service by name.';
-      else if (u.hostname !== juiceName) targetDetail = `There is no service called "${u.hostname}" in this file.`;
-      else if ((u.port || '80') !== '3000') targetDetail = 'Juice Shop listens on port 3000 inside its container.';
+      if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') targetDetail = 'Inside the ZAP container, localhost is ZAP itself. Change http://localhost:3000 to http://juice-shop:3000.';
+      else if (u.hostname !== juiceName) targetDetail = `There is no service called "${u.hostname}" in this file. Use the Juice Shop service name: http://${juiceName ?? 'juice-shop'}:3000.`;
+      else if ((u.port || '80') !== '3000') targetDetail = 'Juice Shop listens on port 3000 inside its container: end the address with :3000.';
       else {
         targetOk = true;
         targetDetail = `ZAP scans ${target}.`;
       }
     } catch {
-      targetDetail = `"${target}" is not a URL.`;
+      targetDetail = `"${target}" is not a URL. Use http://juice-shop:3000.`;
     }
   }
   const nets = (s?: Svc) => {
@@ -239,15 +240,15 @@ export function labChecks(src: string): { valid: boolean; error?: string; checks
     valid: true,
     services: names,
     checks: [
-      { id: 'juice', pass: !!juice, detail: juice ? `Juice Shop runs as "${juiceName}".` : 'No service runs the bkimminich/juice-shop image.' },
+      { id: 'juice', pass: !!juice, detail: juice ? `Juice Shop runs as "${juiceName}".` : 'No service runs the bkimminich/juice-shop image. Put the juice-shop service back with image: bkimminich/juice-shop.' },
       {
         id: 'local',
         pass: !!juice && hasLocal && !exposed,
-        detail: exposed ? `"${exposed}" publishes Juice Shop on every network card. Bind it to 127.0.0.1.` : hasLocal ? 'Only this machine can reach Juice Shop.' : 'Publish port 3000 on 127.0.0.1, like "127.0.0.1:3000:3000".',
+        detail: exposed ? `"${exposed}" publishes Juice Shop to every network this computer is on. Change it to "127.0.0.1:3000:3000".` : hasLocal ? 'Only this machine can reach Juice Shop.' : 'Publish port 3000 on 127.0.0.1: add a ports line - "127.0.0.1:3000:3000" under juice-shop.',
       },
-      { id: 'zap', pass: !!zap, detail: zap ? `ZAP runs as "${zapName}".` : 'No service runs the ZAP image (ghcr.io/zaproxy/zaproxy:stable).' },
+      { id: 'zap', pass: !!zap, detail: zap ? `ZAP runs as "${zapName}".` : 'No service runs the ZAP image. Put the zap service back with image: ghcr.io/zaproxy/zaproxy:stable.' },
       { id: 'target', pass: targetOk, detail: targetDetail },
-      { id: 'network', pass: shared, detail: shared ? 'Both containers share a network.' : 'The two services are on different networks, so ZAP cannot reach Juice Shop.' },
+      { id: 'network', pass: shared, detail: shared ? 'Both containers share a network.' : 'The two services are on different networks, so ZAP cannot reach Juice Shop. Add networks: and - scan under juice-shop, as under zap.' },
     ],
   };
 }
