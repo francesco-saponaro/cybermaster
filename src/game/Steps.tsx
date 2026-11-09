@@ -3,6 +3,7 @@ import type { Ref } from 'react';
 import type { LevelCheck } from '../content/types';
 import type { CheckState } from './types';
 import { Rich } from './Rich';
+import { Burst } from './Live';
 
 const Tick = () => (
   <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
@@ -39,7 +40,7 @@ function StepDo({ step, detail }: { step: LevelCheck; detail?: string }) {
  * exactly what to do; done steps show a tick and the one line they taught;
  * later steps show their label and open on a tap.
  */
-export function StepList({ steps, checks, together, currentRef }: { steps: LevelCheck[]; checks: Record<string, CheckState>; together?: boolean; currentRef?: Ref<HTMLLIElement> }) {
+export function StepList({ steps, checks, together, currentRef, burst }: { steps: LevelCheck[]; checks: Record<string, CheckState>; together?: boolean; currentRef?: Ref<HTMLLIElement>; burst?: { id: string; nonce: number } | null }) {
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [fresh, setFresh] = useState<string | null>(null);
   const prev = useRef<Record<string, boolean> | null>(null);
@@ -80,6 +81,7 @@ export function StepList({ steps, checks, together, currentRef }: { steps: Level
             >
               <span className="step-mark" aria-hidden="true">
                 {pass ? <Tick /> : i + 1}
+                {pass && burst?.id === c.id ? <Burst key={burst.nonce} /> : null}
               </span>
               <span className="step-label">
                 <span className="sr-only">{pass ? 'Done: ' : isCurrent ? 'Now: ' : 'Later: '}</span>

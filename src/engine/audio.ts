@@ -1,7 +1,7 @@
 // Sound effects made with the Web Audio API. No files: every sound is a
 // short envelope on an oscillator, so the whole set weighs nothing.
 
-type SoundName = 'blip' | 'hit' | 'miss' | 'shoot' | 'boom' | 'clear' | 'levelup' | 'tick' | 'unlock';
+type SoundName = 'blip' | 'hit' | 'miss' | 'shoot' | 'boom' | 'clear' | 'levelup' | 'tick' | 'unlock' | 'alert' | 'break' | 'hint' | 'lock' | 'breach' | 'contain';
 
 let context: AudioContext | null = null;
 let muted = false;
@@ -92,7 +92,39 @@ export function play(name: SoundName): void {
       tone(c, { freq: 660, length: 0.12, type: 'sine', gain: 0.06 });
       tone(c, { freq: 990, length: 0.2, start: 0.1, type: 'sine', gain: 0.06 });
       break;
+    case 'alert':
+      // Two low notes, like a console alarm heard from the next room.
+      tone(c, { freq: 440, length: 0.16, type: 'triangle', gain: 0.06 });
+      tone(c, { freq: 330, length: 0.22, start: 0.18, type: 'triangle', gain: 0.06 });
+      break;
+    case 'break':
+      tone(c, { freq: 660, to: 220, length: 0.22, type: 'triangle', gain: 0.06 });
+      break;
+    case 'hint':
+      tone(c, { freq: 740, length: 0.08, type: 'sine', gain: 0.04 });
+      tone(c, { freq: 554, length: 0.12, start: 0.07, type: 'sine', gain: 0.04 });
+      break;
+    case 'lock':
+      // The reticle closing: a quick rising sweep and a bright click.
+      tone(c, { freq: 220, to: 880, length: 0.28, type: 'sine', gain: 0.06 });
+      tone(c, { freq: 1760, length: 0.06, start: 0.28, type: 'square', gain: 0.03 });
+      break;
+    case 'breach':
+      tone(c, { freq: 196, to: 98, length: 0.6, type: 'sawtooth', gain: 0.05 });
+      break;
+    case 'contain':
+      [392, 523, 784].forEach((f, i) => tone(c, { freq: f, start: i * 0.1, length: 0.26, type: 'sine', gain: 0.06 }));
+      break;
     default:
       break;
   }
+}
+
+/** A combo step: the same soft note, a little higher each time (up to an octave). */
+export function playCombo(n: number): void {
+  if (muted || n < 2) return;
+  const c = ctx();
+  if (!c) return;
+  const f = 880 * Math.pow(2, Math.min(12, (n - 2) * 2) / 12);
+  tone(c, { freq: f, length: 0.07, type: 'sine', gain: 0.035, start: 0.12 });
 }

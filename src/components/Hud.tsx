@@ -23,11 +23,14 @@ export function TopBar() {
       <div className="wrap topbar-inner">
         <Link to="/" className="brand" style={{ color: 'var(--ink)' }}>
           <Scope size={30} filled spin />
-          CyberMaster
+          <span className="brand-name">CyberMaster</span>
         </Link>
         <nav className="navlinks" aria-label="Main">
           <Link to="/" className="navlink" data-active={is('/') && path === '/'}>
             Zones
+          </Link>
+          <Link to="/case" className="navlink" data-active={is('/case')}>
+            Case
           </Link>
           <Link to="/codex" className="navlink" data-active={is('/codex')}>
             Codex
@@ -68,7 +71,7 @@ export function TopBar() {
   );
 }
 
-function MuteIcon({ muted }: { muted: boolean }) {
+export function MuteIcon({ muted }: { muted: boolean }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" />

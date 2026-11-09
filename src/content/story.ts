@@ -157,3 +157,12 @@ export const ENDING: Line[] = [
   { who: 'Yasmin', text: 'And the lab is running. Theo already broke into it twice.' },
   { who: 'Ines', text: 'Good work. You followed it from a café Wi-Fi to a bucket, and proved each step. Welcome to the Watch.' },
 ];
+
+/** The boss levels run as live incidents: what the attacker is after, and what they leave with if they win. */
+export const INCIDENTS: Record<string, { threat: string; records: number; unit: string; loot: string }> = {
+  'wire-cors': { threat: 'A page on another site is reading customer accounts right now.', records: 1204, unit: 'accounts read', loot: 'account details, IBANs and balances, read through the customers\' own browsers' },
+  'arena-mass': { threat: 'Someone is signing up accounts with roles the form never offers, as you watch.', records: 312, unit: 'accounts made', loot: 'new accounts with staff rights, each one a way back in' },
+  'perimeter-boss': { threat: 'The attacker is moving through the dock network looking for one more way in.', records: 2400, unit: 'files copied', loot: "the dock file server's shared folder, copied file by file" },
+  'cloud-gateway': { threat: 'The export route is being called again from an address nobody knows.', records: 48211, unit: 'customers out', loot: 'customer records: names, emails and delivery addresses' },
+  'report-lab': { threat: 'Your lab is reachable from the office Wi-Fi, and something on the network has found it.', records: 96, unit: 'probes answered', loot: 'a foothold on your laptop, through the lab you left open' },
+};

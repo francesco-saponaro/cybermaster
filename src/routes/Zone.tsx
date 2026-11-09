@@ -1,19 +1,27 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from '@tanstack/react-router';
 import { useStore, zoneShapes } from '../state/store';
 import { ZONE_BY_ID, ZONES } from '../content/zones';
 import { LEVEL_BY_ID } from '../content/index';
 import { Scope } from '../components/Scope';
 import { Stars } from '../components/Stars';
-import { levelUnlocked, nextLevelIn, zoneUnlocked } from '../engine/progress';
+import { levelUnlocked, nextLevelIn, zoneUnlocked, challengeUnlocked } from '../engine/progress';
+import { BeatCard } from '../components/Beat';
+import type { ZoneId } from '../content/types';
 import { formatSeconds } from '../engine/scoring';
 import { plain } from '../game/Rich';
 
 /** The zone's levels as stations on a winding path. The line is drawn between the measured node centres, so it fits any width. */
 export function ZonePage() {
   const { zoneId } = useParams({ strict: false }) as { zoneId: string };
-  const { save } = useStore();
+  const { save, markBeat } = useStore();
   const zone = ZONE_BY_ID[zoneId];
+  // The zone's briefing shows once on the first visit to an open zone, and again on request.
+  const [beatOpen, setBeatOpen] = useState(() => !!zone && zoneUnlocked(save, zoneShapes, zone.id) && !save.story.beats.includes(zone.id));
+  const closeBeat = useCallback(() => {
+    setBeatOpen(false);
+    if (zone) markBeat(zone.id);
+  }, [zone, markBeat]);
   const mapRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const [path, setPath] = useState<{ d: string; w: number; h: number; done: string }>({ d: '', w: 0, h: 0, done: '' });
@@ -83,6 +91,8 @@ export function ZonePage() {
                 const unlocked = open && levelUnlocked(save, zoneShapes, l.id);
                 const run = save.levels[l.id];
                 const isNext = unlocked && l.id === nextId && !cleared(l.id);
+                const chal = save.challenges[l.id];
+                const chalOpen = challengeUnlocked(save, l.id);
                 const inner = (
                   <>
                     <span className="znode" ref={(el) => { nodeRefs.current[i] = el; }} data-next={isNext}>
@@ -91,17 +101,38 @@ export function ZonePage() {
                     <span className="zlabel">
                       <span className="zmeta">{l.boss ? 'Boss' : `Level ${i + 1}`}{run ? ` · best ${formatSeconds(run.bestSeconds)}` : ''}</span>
                       <span className="ztitle">{l.title}</span>
-                      {run ? <Stars count={run.stars} size={14} /> : <span className="zmeta">{unlocked ? l.goal : 'Locked'}</span>}
+                      {run ? null : <span className="zmeta">{unlocked ? l.goal : 'Locked'}</span>}
                     </span>
                   </>
                 );
                 return (
                   <li key={l.id} className="zstop" data-side={i % 2 ? 'right' : 'left'}>
-                    {unlocked ? (
-                      <Link to="/play/$levelId" params={{ levelId: l.id }} className="zlink" data-locked="false">{inner}</Link>
-                    ) : (
-                      <span className="zlink" data-locked="true" aria-disabled="true">{inner}</span>
-                    )}
+                    <div className="zcard">
+                      {unlocked ? (
+                        <Link to="/play/$levelId" params={{ levelId: l.id }} className="zlink" data-locked="false">{inner}</Link>
+                      ) : (
+                        <span className="zlink" data-locked="true" aria-disabled="true">{inner}</span>
+                      )}
+                      {unlocked ? (
+                        <div className="zmedals">
+                          <span className="medal" data-earned={!!run}>
+                            <span className="medal-k">Guided</span>
+                            {run ? <Stars count={run.stars} size={12} /> : <span className="medal-v">to do</span>}
+                          </span>
+                          {chalOpen ? (
+                            <Link to="/challenge/$levelId" params={{ levelId: l.id }} search={{}} className="medal medal-link" data-earned={!!chal} aria-label={`Challenge for ${l.title}${chal ? `, ${chal.stars} of 3 stars` : ', not cleared yet'}`}>
+                              <span className="medal-k">Challenge</span>
+                              {chal ? <Stars count={chal.stars} size={12} /> : <span className="medal-v">play</span>}
+                            </Link>
+                          ) : (
+                            <span className="medal" data-earned="false" title="Clear the guided level to open its challenge">
+                              <span className="medal-k">Challenge</span>
+                              <span className="medal-v">after the steps</span>
+                            </span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   </li>
                 );
               })}
@@ -115,7 +146,9 @@ export function ZonePage() {
             <div className="meter" style={{ marginTop: 16 }} role="progressbar" aria-label="Levels cleared" aria-valuenow={doneCount} aria-valuemin={0} aria-valuemax={levels.length}>
               <span style={{ width: `${(doneCount / levels.length) * 100}%` }} />
             </div>
-            <p className="tnum" style={{ color: 'var(--muted)', fontSize: 'var(--step-small)', margin: '8px 0 0' }}>{doneCount} of {levels.length} cleared</p>
+            <p className="tnum" style={{ color: 'var(--muted)', fontSize: 'var(--step-small)', margin: '8px 0 0' }}>
+              {doneCount} of {levels.length} cleared · {levels.filter((l) => (save.challenges[l.id]?.stars ?? 0) >= 1).length} of {levels.length} challenges
+            </p>
             {!open ? (
               <p style={{ margin: '16px 0 0', color: 'var(--muted)' }}>Clear the last level of {ZONES[zi - 1]?.name} to open this zone.</p>
             ) : next ? (
@@ -123,9 +156,15 @@ export function ZonePage() {
                 {cleared(next.id) ? `Replay ${next.title}` : `Play ${next.title}`}
               </Link>
             ) : null}
+            {open ? (
+              <button type="button" className="btn btn-ghost zone-beat" onClick={() => setBeatOpen(true)}>
+                Replay the briefing
+              </button>
+            ) : null}
           </div>
         </aside>
       </div>
+      {beatOpen && open ? <BeatCard zoneId={zone.id as ZoneId} onClose={closeBeat} /> : null}
     </div>
   );
 }

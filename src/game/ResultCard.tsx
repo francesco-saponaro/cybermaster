@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { XpBreakdown } from '../engine/combo';
 import { Link } from '@tanstack/react-router';
 import type { Level } from '../content/types';
 import type { LevelOutcome } from '../state/store';
@@ -13,12 +14,15 @@ export function ResultCard({
   nextId,
   zoneId,
   onReplay,
+  finale,
 }: {
   level: Level;
   outcome: LevelOutcome & { seconds: number; showMe: number; fails: number };
   nextId?: string;
   zoneId: string;
   onReplay: () => void;
+  /** The last level of the game: the result leads to the end of the case. */
+  finale?: boolean;
 }) {
   const primary = useRef<HTMLAnchorElement>(null);
   useEffect(() => {
@@ -30,22 +34,18 @@ export function ResultCard({
       <div className="result">
         <p className="lv-label" style={{ margin: 0 }}>{level.boss ? 'Boss cleared' : 'Level cleared'}</p>
         <h2 id="result-title">{level.title}</h2>
-        <div className="big-stars" aria-label={`${outcome.stars} of 3 stars`}>
-          {[0, 1, 2].map((i) => (
-            <svg key={i} width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 21.2l1.5-6.8L2.2 9.8l6.9-.7z" fill={i < outcome.stars ? 'var(--accent)' : 'none'} stroke={i < outcome.stars ? 'var(--accent)' : '#555'} strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-          ))}
-        </div>
+        <BigStars n={outcome.stars} />
         <p className="said">{level.didWhat}</p>
         <p className="named">
           In the real world this is called <strong>{level.realName}</strong>.
         </p>
         <dl className="result-stats">
-          <div>
-            <dt>XP</dt>
-            <dd>+{outcome.xpGained}</dd>
-          </div>
+          {outcome.breakdown ? null : (
+            <div>
+              <dt>XP</dt>
+              <dd>+{outcome.xpGained}</dd>
+            </div>
+          )}
           <div>
             <dt>Time</dt>
             <dd>{formatSeconds(outcome.seconds)}</dd>
@@ -55,6 +55,7 @@ export function ResultCard({
             <dd>{outcome.showMe}</dd>
           </div>
         </dl>
+        {outcome.breakdown ? <XpLines breakdown={outcome.breakdown} total={outcome.xpGained} /> : null}
         {notes.length > 0 && outcome.stars < 3 ? <p className="small muted" style={{ margin: '8px 0 0' }}>Stars lost to: {notes.join(', ')}.</p> : null}
         <div className="result-unlocks">
           {outcome.unlockedCodex.length > 0 ? (
@@ -67,7 +68,11 @@ export function ResultCard({
           {outcome.leveledUp ? <span>You levelled up.</span> : null}
         </div>
         <div className="result-actions">
-          {nextId ? (
+          {finale ? (
+            <Link ref={primary} to="/ending" className="cbtn cbtn-go">
+              Close the case
+            </Link>
+          ) : nextId ? (
             <Link ref={primary} to="/play/$levelId" params={{ levelId: nextId }} className="cbtn cbtn-go">
               Next level
             </Link>
@@ -86,6 +91,64 @@ export function ResultCard({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+export function BigStars({ n }: { n: number }) {
+  return (
+    <div className="big-stars" aria-label={`${n} of 3 stars`}>
+      {[0, 1, 2].map((i) => (
+        <svg key={i} width="30" height="30" viewBox="0 0 24 24" aria-hidden="true" data-on={i < n}>
+          <path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 21.2l1.5-6.8L2.2 9.8l6.9-.7z" fill={i < n ? 'var(--accent)' : 'none'} stroke={i < n ? 'var(--accent)' : '#555'} strokeWidth="1.5" strokeLinejoin="round" />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+/** XP that counts up, with the combo and clean-run bonuses on their own lines. */
+export function XpLines({ breakdown, total }: { breakdown: XpBreakdown; total: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setShown(total);
+      return undefined;
+    }
+    const start = performance.now();
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - start) / 700);
+      setShown(Math.round(total * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [total]);
+  return (
+    <div className="xp-lines">
+      <p className="xp-total tnum">
+        +{shown} <span>XP</span>
+      </p>
+      <ul>
+        <li>
+          <span>Clear</span>
+          <span className="tnum">+{breakdown.base}</span>
+        </li>
+        {breakdown.comboXp > 0 ? (
+          <li>
+            <span>Best combo, x{breakdown.multiplier.toFixed(1)}</span>
+            <span className="tnum">+{breakdown.comboXp}</span>
+          </li>
+        ) : null}
+        {breakdown.cleanXp > 0 ? (
+          <li>
+            <span>Clean run: no mistakes, no help</span>
+            <span className="tnum">+{breakdown.cleanXp}</span>
+          </li>
+        ) : null}
+      </ul>
     </div>
   );
 }

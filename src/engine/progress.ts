@@ -129,3 +129,8 @@ export function bumpStreak(streak: SaveFile['streak'], today: string): SaveFile[
   const dayGap = Math.round((now - last) / 86400000);
   return { count: dayGap === 1 ? streak.count + 1 : 1, lastDay: today };
 }
+
+/** Every level in the zones this save has open: where today's case can come from. */
+export function openLevels(save: SaveFile, zones: ZoneShape[]): string[] {
+  return zones.filter((z) => zoneUnlocked(save, zones, z.id)).flatMap((z) => z.levelIds);
+}
