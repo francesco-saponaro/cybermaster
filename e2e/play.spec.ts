@@ -28,6 +28,15 @@ async function cleared(page: Page) {
   await expect(page.getByRole('dialog')).toContainText(/cleared/);
 }
 
+/** A boss runs as a live incident: the attacker's track is on screen while you work, and contained once you win. */
+async function incidentRunning(page: Page) {
+  await expect(page.getByRole('region', { name: 'Live incident' })).toHaveAttribute('data-status', 'running');
+}
+async function bossCleared(page: Page) {
+  await cleared(page);
+  await expect(page.getByRole('region', { name: 'Live incident' })).toHaveAttribute('data-status', 'contained');
+}
+
 // ---- Reading the steps -------------------------------------------------------
 
 const stepEl = (page: Page, id: string) => page.locator(`.lv-aside .step[data-check="${id}"]`);
@@ -135,6 +144,7 @@ test('The Wire: all six levels, from the steps', async ({ page }) => {
   await cleared(page);
 
   await page.goto('/play/wire-cors');
+  await incidentRunning(page);
   s = await step(page, 'evil');
   await btn(page, 'Send').click();
   await btn(page, 'Forward').click();
@@ -152,7 +162,7 @@ test('The Wire: all six levels, from the steps', async ({ page }) => {
   await btn(page, 'Send').click();
   await editHeld(page, (r) => `${r.trimEnd()}\n${s.codes[1]!}`);
   await btn(page, 'Forward').click();
-  await cleared(page);
+  await bossCleared(page);
   expect(errors).toEqual([]);
 });
 
@@ -163,6 +173,7 @@ test('The Arena: all six levels, from the steps', async ({ page }) => {
   await seed(page);
   for (const id of ['arena-sqli', 'arena-xss', 'arena-idor', 'arena-cmdi', 'arena-ssrf', 'arena-mass']) {
     await page.goto(`/play/${id}`);
+    if (id === 'arena-mass') await incidentRunning(page);
     let s = await step(page, 'found');
     await btn(page, 'Play the recorded attack').click();
     await expect(page.locator('.replay-steps li[data-harm="true"]')).toBeVisible();
@@ -177,7 +188,8 @@ test('The Arena: all six levels, from the steps', async ({ page }) => {
     expect(s.hint, `${id}: step 2 shows the shape of the fix`).toBeTruthy();
     await page.getByLabel('Your fix (editable)').fill(s.hint);
     await btn(page, 'Replay attack').click();
-    await cleared(page);
+    if (id === 'arena-mass') await bossCleared(page);
+    else await cleared(page);
   }
   expect(errors).toEqual([]);
 });
@@ -222,6 +234,7 @@ test('The Perimeter: all six levels, from the steps', async ({ page }) => {
   };
   for (const [id, steps] of Object.entries(levels)) {
     await page.goto(`/play/${id}`);
+    if (id === 'perimeter-boss') await incidentRunning(page);
     for (const sid of steps) {
       const s = await step(page, sid);
       const commands = s.codes.filter((c) => COMMAND.test(c));
@@ -233,7 +246,8 @@ test('The Perimeter: all six levels, from the steps', async ({ page }) => {
       else if (s.codes.includes('submit')) await terminal(page, `submit ${answerFromTerminal(await page.locator('.term').innerText(), s.text)}`);
       if (sid !== steps[steps.length - 1]) await done(page, sid);
     }
-    await cleared(page);
+    if (id === 'perimeter-boss') await bossCleared(page);
+    else await cleared(page);
   }
   expect(errors).toEqual([]);
 });
@@ -302,6 +316,7 @@ test('The Cloud: all six levels, from the steps', async ({ page }) => {
   await cleared(page);
 
   await page.goto('/play/cloud-gateway');
+  await incidentRunning(page);
   const config = page.getByLabel('Gateway config JSON');
   s = await step(page, 'export');
   await page.getByRole('combobox').selectOption({ label: s.codes[0]! });
@@ -315,7 +330,7 @@ test('The Cloud: all six levels, from the steps', async ({ page }) => {
   await editJson(config, (d) => Object.assign(route(d, s.codes[0]!), pair(s.codes[2]!)));
   s = await step(page, 'ratelimit');
   await editJson(config, (d) => Object.assign(route(d, s.codes[0]!), pair(s.codes[1]!)));
-  await cleared(page);
+  await bossCleared(page);
   expect(errors).toEqual([]);
 });
 
@@ -377,6 +392,7 @@ test('The Report: all five levels, from the steps', async ({ page }) => {
   await cleared(page);
 
   await page.goto('/play/report-lab');
+  await incidentRunning(page);
   const compose = page.getByLabel('Compose file');
   s = await step(page, 'local');
   await compose.fill((await compose.inputValue()).replace(s.codes[1]!, s.codes[2]!));
@@ -386,7 +402,10 @@ test('The Report: all five levels, from the steps', async ({ page }) => {
   await compose.fill(s.hint);
   s = await step(page, 'run');
   await btn(page, s.codes[0]!).click();
-  await cleared(page);
+  await bossCleared(page);
+  // The last boss of the game closes the case.
+  await page.getByRole('link', { name: 'Close the case' }).click();
+  await expect(page.getByRole('heading', { name: 'The Lantern & Co. case' })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
