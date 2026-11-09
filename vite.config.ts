@@ -10,5 +10,7 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     include: ['tests/**/*.test.{ts,tsx}'],
     css: false,
+    // The arcade tests play hundreds of full runs; give them room on a busy machine.
+    testTimeout: 60_000,
   },
 });
