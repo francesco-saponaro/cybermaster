@@ -71,3 +71,48 @@ describe('scoring helpers', () => {
     expect(trustScore(['good', 'wrong'])).toBe(35); // (1 - 0.3)/2
   });
 });
+
+describe('hints, freezes and card streaks', () => {
+  it('a hint costs ten XP and never takes XP below zero', async () => {
+    const { applyHint, HINT_COST } = await import('../src/engine/scoring');
+    const { emptySave } = await import('../src/engine/save');
+    const save = emptySave();
+    save.xp = 25;
+    const once = applyHint(save);
+    expect(HINT_COST).toBe(10);
+    expect(once.xp).toBe(15);
+    expect(once.hints).toBe(1);
+    const twice = applyHint(once);
+    expect(twice.xp).toBe(5);
+    const thrice = applyHint(twice);
+    expect(thrice.xp).toBe(0);
+    expect(thrice.hints).toBe(3);
+    // the original is untouched
+    expect(save.xp).toBe(25);
+  });
+
+  it('freezing on the exact message is worth everything, one message off is worth half', async () => {
+    const { freezeScore } = await import('../src/engine/scoring');
+    expect(freezeScore(3, 3)).toBe(1);
+    expect(freezeScore(2, 3)).toBe(0.5);
+    expect(freezeScore(4, 3)).toBe(0.5);
+    expect(freezeScore(0, 3)).toBe(0);
+    expect(freezeScore(null, 3)).toBe(0);
+  });
+
+  it('a live round combines the freeze and the fix', async () => {
+    const { liveRoundScore } = await import('../src/engine/scoring');
+    expect(liveRoundScore(1, true)).toBe(100);
+    expect(liveRoundScore(0.5, true)).toBe(75);
+    expect(liveRoundScore(1, false)).toBe(50);
+    expect(liveRoundScore(0, false)).toBe(0);
+  });
+
+  it('a timed stream scores accuracy first and speed as a small bonus', async () => {
+    const { streamScore } = await import('../src/engine/scoring');
+    expect(streamScore(6, 6, 6)).toBe(100);
+    expect(streamScore(6, 6, 0)).toBe(90);
+    expect(streamScore(3, 6, 0)).toBe(45);
+    expect(streamScore(0, 6, 0)).toBe(0);
+  });
+});

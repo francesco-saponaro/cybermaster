@@ -38,6 +38,42 @@ describe('save file', () => {
     expect(migrate('not json')).toEqual(emptySave());
   });
 
+  it('migrate upgrades a version-2 save, keeping progress and adding the new fields', () => {
+    const v2 = {
+      version: 2,
+      name: 'Mara',
+      xp: 640,
+      missions: { 'wire-headers': { best: 88, stars: 2, clears: 2, lastPlayedAt: '2026-11-01T10:00:00.000Z' } },
+      codex: ['http-anatomy', 'cookie-flags'],
+      badges: ['first-clear'],
+      streak: { count: 2, lastDay: '2026-11-01' },
+      settings: { muted: false },
+    };
+    const out = migrate(v2);
+    expect(out.version).toBe(SAVE_VERSION);
+    expect(out.xp).toBe(640);
+    expect(out.missions['wire-headers']?.best).toBe(88);
+    expect(out.codex).toEqual(['http-anatomy', 'cookie-flags']);
+    expect(out.badges).toEqual(['first-clear']);
+    expect(out.streak).toEqual({ count: 2, lastDay: '2026-11-01' });
+    // a player with progress has seen the game open before, so the prologue does not play again
+    expect(out.prologueDone).toBe(true);
+    expect(out.hints).toBe(0);
+    expect(SaveSchema.safeParse(out).success).toBe(true);
+  });
+
+  it('a version-2 save with no progress still gets the prologue', () => {
+    const out = migrate({ version: 2, name: '', xp: 0, missions: {}, codex: [], badges: [], streak: { count: 0, lastDay: '' }, settings: { muted: true } });
+    expect(out.prologueDone).toBe(false);
+    expect(out.settings.muted).toBe(true);
+  });
+
+  it('the current version is 3 and a fresh save has the prologue ahead of it', () => {
+    expect(SAVE_VERSION).toBe(3);
+    expect(emptySave().prologueDone).toBe(false);
+    expect(emptySave().hints).toBe(0);
+  });
+
   it('migrate repairs an out-of-range score from a v1 save', () => {
     const out = migrate({ version: 1, completed: ['x'], scores: { x: 999 } });
     expect(out.missions['x']?.best).toBe(100);

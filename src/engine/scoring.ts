@@ -64,3 +64,29 @@ export function trustScore(qualities: ('good' | 'weak' | 'wrong')[]): number {
   const points = qualities.reduce((n, q) => n + (q === 'good' ? 1 : q === 'weak' ? 0.4 : -0.3), 0);
   return clampScore((points / qualities.length) * 100);
 }
+
+/** What a hint costs, in XP. */
+export const HINT_COST = 10;
+
+/** Spend a hint: XP goes down by the cost, never below zero, and the hint count goes up. */
+export function applyHint<T extends { xp: number; hints: number }>(save: T): T {
+  return { ...save, xp: Math.max(0, save.xp - HINT_COST), hints: save.hints + 1 };
+}
+
+/** Live session: how good the freeze was. Exact message is 1, one message off is 0.5, otherwise 0. */
+export function freezeScore(frozenAt: number | null, wrongAt: number): number {
+  if (frozenAt === null) return 0;
+  const gap = Math.abs(frozenAt - wrongAt);
+  return gap === 0 ? 1 : gap === 1 ? 0.5 : 0;
+}
+
+/** One live round: half for freezing at the right moment, half for the right fix. */
+export function liveRoundScore(freeze: number, fixCorrect: boolean): number {
+  return clampScore(freeze * 50 + (fixCorrect ? 50 : 0));
+}
+
+/** Timed streams (Cookie Jar, the card sorts): accuracy is 90 of the score, speed the last 10. */
+export function streamScore(correct: number, total: number, quick: number): number {
+  if (total <= 0) return 0;
+  return clampScore((correct / total) * 90 + (quick / total) * 10);
+}

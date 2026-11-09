@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { emptySave, loadSave, persistSave, clearSave, type SaveFile } from '../engine/save';
-import { xpForRun, stars as starsFor } from '../engine/scoring';
+import { xpForRun, stars as starsFor, applyHint } from '../engine/scoring';
 import { bumpStreak, earnedBadges, levelFromXp } from '../engine/progress';
 import { ZONES } from '../content/zones';
 import { CODEX } from '../content/codex';
@@ -23,6 +23,8 @@ interface Store {
   rename: (name: string) => void;
   toggleMute: () => void;
   completeMission: (missionId: string, score: number, today?: string) => MissionOutcome;
+  finishPrologue: () => void;
+  spendHint: () => boolean;
   reset: () => void;
 }
 
@@ -91,16 +93,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [save, write],
   );
 
+  const finishPrologue = useCallback(() => {
+    if (save.prologueDone) return;
+    write({ ...save, prologueDone: true });
+  }, [save, write]);
+
+  // Spend a hint if the player can afford it. Returns whether it was spent.
+  const spendHint = useCallback(() => {
+    if (save.xp < 10) return false;
+    write(applyHint(save));
+    play('blip');
+    return true;
+  }, [save, write]);
+
   const reset = useCallback(() => {
     clearSave();
     const fresh = emptySave();
     fresh.settings.muted = save.settings.muted;
+    fresh.prologueDone = true; // a manual reset keeps you past the prologue
     write(fresh);
   }, [save.settings.muted, write]);
 
   const value = useMemo(
-    () => ({ save, rename, toggleMute, completeMission, reset }),
-    [save, rename, toggleMute, completeMission, reset],
+    () => ({ save, rename, toggleMute, completeMission, finishPrologue, spendHint, reset }),
+    [save, rename, toggleMute, completeMission, finishPrologue, spendHint, reset],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
