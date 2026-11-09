@@ -7,6 +7,8 @@ import { REPORT_MISSIONS } from './missions/report';
 
 export { ZONES, ZONE_BY_ID } from './zones';
 export { CODEX, CODEX_BY_ID } from './codex';
+export { BRIEFINGS, BRIEFING_BY_MISSION, PROLOGUE } from './briefings';
+export { CONCEPTS, conceptsTested, conceptsTaught, teachingOrder } from './concepts';
 export type * from './types';
 
 export const ALL_MISSIONS: Mission[] = [
