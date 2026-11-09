@@ -3,24 +3,28 @@ import type { ReactNode } from 'react';
 import { CODEX_BY_ID } from '../content/codex';
 import { useStore } from '../state/store';
 
-/** Turns "[[codex-id|words]]" into hoverable, tappable terms. Everything else is plain text. */
+/**
+ * Turns "[[codex-id|words]]" into hoverable, tappable terms and `text` into a
+ * code span (something to type, click or look for). Everything else is plain text.
+ */
 export function Rich({ text }: { text: string }) {
   const parts: ReactNode[] = [];
-  const re = /\[\[([\w-]+)\|([^\]]+)\]\]/g;
+  const re = /\[\[([\w-]+)\|([^\]]+)\]\]|`([^`]+)`/g;
   let last = 0;
   let i = 0;
   for (let m = re.exec(text); m; m = re.exec(text)) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    parts.push(<Term key={i++} id={m[1]!}>{m[2]}</Term>);
+    if (m[3] !== undefined) parts.push(<code key={i++} className={m[3].length > 24 ? 'kbd kbd-long' : 'kbd'}>{m[3]}</code>);
+    else parts.push(<Term key={i++} id={m[1]!}>{m[2]}</Term>);
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
   return <>{parts}</>;
 }
 
-/** Strip the term markup, for places that need plain text. */
+/** Strip the term and code markup, for places that need plain text. */
 export function plain(text: string): string {
-  return text.replace(/\[\[[\w-]+\|([^\]]+)\]\]/g, '$1');
+  return text.replace(/\[\[[\w-]+\|([^\]]+)\]\]/g, '$1').replace(/`([^`]+)`/g, '$1');
 }
 
 export function Term({ id, children }: { id: string; children: ReactNode }) {

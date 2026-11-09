@@ -38,11 +38,20 @@ export interface Evidence {
   body: string;
 }
 
+/**
+ * One numbered step of a level. Each step is a check that turns green when the
+ * sandbox reaches a state, plus the words a beginner needs to get it there.
+ */
 export interface LevelCheck {
   id: string;
+  /** What the step achieves, in a few words. */
   label: string;
-  /** What to do for this check, shown under the instruction once earlier checks pass. */
-  next?: string;
+  /** Exactly what to do: which panel, which button, which line, what to type. `code` and [[codex-id|words]] work here. */
+  do: string;
+  /** One sentence shown once the step is done: what just happened and why it matters. */
+  learned: string;
+  /** Optional: the shape the result should have, shown as a small code block under `do`. */
+  hint?: string;
 }
 
 export interface ShowMeStep<A> {
@@ -61,6 +70,8 @@ interface LevelBase<A> {
   /** At most two sentences. [[codex-id|words]] become hoverable terms. */
   instruction: string;
   checks: LevelCheck[];
+  /** All steps are done together and checked at once (the finding): show every step open. */
+  stepsTogether?: boolean;
   showMe: ShowMeStep<A>[];
   /** The real-world name of what the player just did. */
   realName: string;

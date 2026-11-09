@@ -1,10 +1,33 @@
 import type { ArenaLevel, LevelCheck } from '../types';
+import { ARENA_APPS, type ArenaAppId } from '../../sim/arena';
 
-const CHECKS: LevelCheck[] = [
-  { id: 'found', label: 'Point at the line where the input becomes dangerous' },
-  { id: 'blocked', label: 'Replayed against your fix, the attack fails', next: 'Now rewrite the highlighted line in the code editor, then press Replay attack. If you are not sure what the fix looks like, the instruction names it, and Show me fills it in.' },
-  { id: 'works', label: 'Normal use still works', next: 'Your fix stopped the attack but broke the app for normal visitors. Make the line safer without removing what it does, and replay.' },
-];
+/**
+ * Every Arena level has the same three steps: click the faulty line, rewrite
+ * it, and keep normal use working. The words and the example fix differ.
+ */
+function checks(app: ArenaAppId, o: { find: string; found: string; fix: string; blocked: string; normal: string; works: string }): LevelCheck[] {
+  return [
+    {
+      id: 'found',
+      label: 'Click the line where the input does its damage',
+      do: `${o.find} To watch the attack first, press \`Play the recorded attack\` in the App and replay panel.`,
+      learned: o.found,
+    },
+    {
+      id: 'blocked',
+      label: 'Rewrite it so the attack fails',
+      do: `The faulty lines are now an editable box in the Server code panel. ${o.fix} Then press \`Replay attack\` at the top of that panel.`,
+      hint: ARENA_APPS[app].code.fix,
+      learned: o.blocked,
+    },
+    {
+      id: 'works',
+      label: 'Normal use still works',
+      do: `${o.normal} If this step stays open, your change broke that: make your box match the example in step 2 and press \`Replay attack\` again.`,
+      learned: o.works,
+    },
+  ];
+}
 
 const steps = (fixSay: string) => [
   { say: 'Play the incident replay, then look at the highlighted line: that is where the input does its damage.', act: { replay: true, pick: true } },
@@ -22,8 +45,15 @@ export const ARENA_LEVELS: ArenaLevel[] = [
     url: 'https://shop.lantern.example/login',
     title: 'Any password will do',
     goal: 'Find why someone got in as admin without a password, and fix it.',
-    instruction: 'Play the incident replay, then click the line of code where the name stops being data and becomes part of the query. Rewrite that line so the values go to the database as [[sqli|parameters]], and press Replay attack.',
-    checks: CHECKS,
+    instruction: 'Someone signed in to this staff login as admin without a password, using [[sqli|SQL injection]]. Your job is to find the line of server code that let them in and fix it, starting in the Server code panel.',
+    checks: checks('login', {
+      find: 'In the Server code panel, click line 3, the one that builds the query with `+ name +` and `+ pass +`.',
+      found: 'Gluing the name into the SQL text means a quote in the name can end the string and rewrite the query.',
+      fix: 'Replace the glued-together string with `?` placeholders, and pass `[name, pass]` as the second argument of `db.query`, as in the example below.',
+      blocked: 'With placeholders the database gets the query and the values separately, so no input can turn into SQL.',
+      normal: 'Replay attack also signs Alice in with her real password and checks a wrong password is refused.',
+      works: 'Right passwords still work, wrong ones are refused, and a name with an apostrophe is just a name.',
+    }),
     showMe: steps("Send the values separately from the query: db.query('SELECT * FROM users WHERE name = ? AND pass = ?', [name, pass])."),
     realName: 'SQL injection (login bypass)',
     didWhat: 'You found where input was glued into a SQL string and replaced it with a parameterised query.',
@@ -41,8 +71,15 @@ export const ARENA_LEVELS: ArenaLevel[] = [
     url: 'https://shop.lantern.example/search',
     title: 'Search that runs script',
     goal: "Find why a search link can run an attacker's script, and fix it.",
-    instruction: 'Watch the replay: the search words come back inside the page as HTML. Click the line that does it, wrap q in escapeHtml(...) so it becomes text, and replay the [[xss|attack]].',
-    checks: CHECKS,
+    instruction: "A search link made the shop run an attacker's script in a customer's browser, which is called [[xss|cross-site scripting]]. Find the line that puts the search words into the page and fix it, starting in the Server code panel.",
+    checks: checks('search', {
+      find: 'In the Server code panel, click line 4, the one that builds the results page with `+ q +`.',
+      found: 'The search words went into the page as HTML, so markup hidden in them became part of the page.',
+      fix: 'Wrap `q` in `escapeHtml(...)` so that part reads `+ escapeHtml(q) +`, as in the example below.',
+      blocked: 'Encoding turns characters like the angle bracket into text the browser shows instead of running.',
+      normal: 'Replay attack also runs two normal searches, one with an ampersand and quotes in it.',
+      works: 'Searches still show exactly what people typed, symbols included.',
+    }),
     showMe: steps("Encode the words for HTML: '<h2>Results for ' + escapeHtml(q) + '</h2>'."),
     realName: 'Reflected cross-site scripting',
     didWhat: 'You found where search words went into the page as HTML and encoded them as text.',
@@ -59,8 +96,15 @@ export const ARENA_LEVELS: ArenaLevel[] = [
     url: 'https://shop.lantern.example/api/invoices/1043',
     title: "Somebody else's invoice",
     goal: "Find why one customer could read another's invoice, and fix it.",
-    instruction: "The server checks that someone is signed in, never whose invoice it is. Click the line that hands the invoice over, add an [[idor|ownership check]] against req.user.id, and replay.",
-    checks: CHECKS,
+    instruction: "A signed-in customer opened someone else's invoice just by changing the number in the address, a flaw called [[idor|IDOR]]. Find where the server hands the invoice over and add the missing ownership check, starting in the Server code panel.",
+    checks: checks('invoices', {
+      find: 'In the Server code panel, click line 4, `return res.json(invoice);`, which hands the invoice over without asking whose it is.',
+      found: 'The server checked that someone was signed in, never that the invoice was theirs.',
+      fix: 'Change the `if` so it also answers 404 when `invoice.ownerId !== req.user.id`, as in the example below.',
+      blocked: 'Comparing the owner with the signed-in user on every request is what authorization means.',
+      normal: 'Replay attack also opens Sam\'s own invoice 1043 and a missing one.',
+      works: 'Sam still sees his own invoice, and nobody else\'s.',
+    }),
     showMe: steps("Answer 404 when the invoice is not the caller's: if (!invoice || invoice.ownerId !== req.user.id) return res.status(404)..."),
     realName: 'IDOR (broken object level authorization)',
     didWhat: "You found an object returned without an ownership check and made the server compare the owner first.",
@@ -78,8 +122,15 @@ export const ARENA_LEVELS: ArenaLevel[] = [
     url: 'https://tools.lantern.example/ping',
     title: 'One command, then another',
     goal: 'Find how the ping tool ran a second command, and close it for good.',
-    instruction: 'Something in this handler lets a [[command-injection|shell]] read the host as more than a host. Find it and fix it.',
-    checks: CHECKS,
+    instruction: 'The staff ping tool ran a second, hidden command on the server, a flaw called [[command-injection|command injection]]. Find the line that runs ping and change how it does it, starting in the Server code panel.',
+    checks: checks('ping', {
+      find: "In the Server code panel, click line 3, the one that runs `exec('ping -c 1 ' + host)`.",
+      found: 'exec hands the whole line to a shell, and a shell treats some characters in the host as its own commands.',
+      fix: "Replace `exec('ping -c 1 ' + host)` with `execFile('ping', ['-c', '1', host])`, as in the example below.",
+      blocked: 'execFile runs ping directly with the host as one argument, so there is no shell left to trick.',
+      normal: 'Replay attack also pings 9.9.9.9 the normal way.',
+      works: 'Normal pings still work: only the shell is gone.',
+    }),
     showMe: steps("Skip the shell: execFile('ping', ['-c', '1', host]) passes the host as one argument."),
     realName: 'OS command injection',
     didWhat: 'You took the shell out of the path, so the host can only ever be an argument to ping.',
@@ -96,8 +147,15 @@ export const ARENA_LEVELS: ArenaLevel[] = [
     url: 'https://shop.lantern.example/preview',
     title: 'Fetch me that',
     goal: "Find how a link preview leaked the server's cloud credentials, and fix it.",
-    instruction: 'The preview fetches links from inside the shop\'s own network. Decide which line needs a guard in front of it, using the [[ssrf|allow-list]] that is already there.',
-    checks: CHECKS,
+    instruction: "The link preview fetched an internal address and showed the server's cloud credentials, a flaw called [[ssrf|server-side request forgery]]. Find the line that fetches the link and put a guard in front of it, starting in the Server code panel.",
+    checks: checks('preview', {
+      find: 'In the Server code panel, click line 4, `const page = fetchPage(target.href);`, where the server fetches whatever link it was given.',
+      found: 'The server fetches from inside its own network, where internal addresses answer that the internet cannot reach.',
+      fix: 'Above the `fetchPage` line, add an `if` that answers 400 when `ALLOWED_HOSTS.includes(target.hostname)` is false, as in the example below.',
+      blocked: 'An allow-list names the sites you trust; a list of banned addresses always misses one.',
+      normal: 'Replay attack also previews a normal news.example article.',
+      works: 'Previews of the allowed sites still work.',
+    }),
     showMe: steps('Refuse anything not on the list: if (!ALLOWED_HOSTS.includes(target.hostname)) return res.status(400)...'),
     realName: 'Server-side request forgery',
     didWhat: "You put an allow-list in front of a server-side fetch, so internal addresses are out of reach.",
@@ -115,8 +173,15 @@ export const ARENA_LEVELS: ArenaLevel[] = [
     url: 'https://shop.lantern.example/api/signup',
     title: 'Sign up as anyone',
     goal: 'Find how a new account came out as admin, and fix sign-up.',
-    instruction: 'Sign-up should take a name and an email. Work out what else it takes.',
-    checks: CHECKS,
+    instruction: 'A brand-new account came out as admin because sign-up saved every field it was sent, a flaw called [[mass-assignment|mass assignment]]. Find the line that saves the new user and make it keep only the name and the email, starting in the Server code panel.',
+    checks: checks('signup', {
+      find: 'In the Server code panel, click line 2, `db.users.create(req.body)`, which saves the whole request body as the new user.',
+      found: 'Any field in the body, role included, went straight into the database.',
+      fix: 'First pull out the two allowed fields with `const { name, email } = req.body;`, then create the user from just those with `db.users.create({ name, email })`, as in the example below.',
+      blocked: 'Copying only named fields means extra ones like role are simply ignored.',
+      normal: 'Replay attack also signs up Ines with a name and an email.',
+      works: 'Ordinary sign-ups still work and come out as customers.',
+    }),
     showMe: steps('Copy only the fields a user may set: const { name, email } = req.body; then create({ name, email }).'),
     realName: 'Mass assignment',
     didWhat: 'You stopped the server saving whatever it was sent and made it copy only the allowed fields.',

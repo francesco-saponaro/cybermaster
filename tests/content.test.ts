@@ -62,7 +62,7 @@ describe('content integrity', () => {
     }
   });
   it('no level text shows a literal attack string', () => {
-    const text = JSON.stringify(ALL_LEVELS.map((l) => [l.instruction, l.goal, l.showMe.map((s) => s.say)]));
+    const text = JSON.stringify(ALL_LEVELS.map((l) => [l.instruction, l.goal, l.showMe.map((s) => s.say), l.checks.map((c) => [c.label, c.do, c.learned, c.hint ?? ''])]));
     expect(text).not.toMatch(/OR 1=1|onerror=|<script|\/etc\/passwd/i);
   });
 });

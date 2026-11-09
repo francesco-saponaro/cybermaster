@@ -10,6 +10,8 @@ import { Rich } from './Rich';
 import { ResultCard } from './ResultCard';
 import { Scope } from '../components/Scope';
 import type { CheckState } from './types';
+import { StepList, StepBar } from './Steps';
+import { StartHintContext, useStartHintState } from './StartHint';
 
 export interface ShellApi {
   onChecks: (c: Record<string, boolean | CheckState>) => void;
@@ -19,7 +21,7 @@ export interface ShellApi {
 
 /**
  * The frame every level runs in: the top bar, the instruction card with the
- * goal and the live checks, Show me, and the result card when every check is
+ * goal, the numbered steps, Show me, and the result card when every step is
  * green. The sandbox itself is rendered by the caller.
  */
 export function LevelShell({ level, children }: { level: Level; children: (api: ShellApi) => ReactNode }) {
@@ -39,6 +41,9 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
   const done = useRef(false);
   const mainRef = useRef<HTMLElement>(null);
   const prevPass = useRef<Record<string, boolean>>({});
+  const hint = useStartHintState(level.zone, index === 0);
+  const currentRef = useRef<HTMLLIElement | null>(null);
+  const [barVisible, setBarVisible] = useState(false);
 
   // Restart the shake animation on every failure without remounting the sandbox.
   useEffect(() => {
@@ -83,6 +88,27 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
     return undefined;
   }, [checks, level, completeLevel, shown, fails, started]);
 
+  // Doing the first step is as good as dismissing the start-here note.
+  const firstDone = !!(level.checks[0] && checks[level.checks[0].id]?.pass);
+  useEffect(() => {
+    if (firstDone && hint.show) hint.dismiss();
+  }, [firstDone, hint]);
+
+  // On narrow screens the steps sit above the sandbox; once the current step
+  // scrolls out of view, a bar at the top of the screen keeps it in sight.
+  const passedKey = level.checks.map((c) => (checks[c.id]?.pass ? 1 : 0)).join('');
+  useEffect(() => {
+    const el = currentRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setBarVisible(false);
+      return undefined;
+    }
+    // Shown as soon as the step's own heading has scrolled off the top.
+    const io = new IntersectionObserver(([e]) => setBarVisible(!!e && e.boundingClientRect.top < 0), { threshold: Array.from({ length: 21 }, (_, i) => i / 20) });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [passedKey]);
+
   const fail = useCallback((reason: string) => {
     if (done.current) return;
     setFails((f) => f + 1);
@@ -115,7 +141,6 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
 
   const api = useMemo<ShellApi>(() => ({ onChecks, fail, act }), [onChecks, fail, act]);
   const passed = level.checks.filter((c) => checks[c.id]?.pass).length;
-  const nextCheck = level.checks.find((c) => !checks[c.id]?.pass);
   const seconds = Math.max(0, Math.round(((outcome ? started + outcome.seconds * 1000 : now) - started) / 1000));
   const nextId = zone.levelIds[index + 1];
 
@@ -156,36 +181,14 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
               <p className="brief-say">
                 <Rich text={level.instruction} />
               </p>
-              {nextCheck?.next && passed > 0 ? (
-                <p key={nextCheck.id} className="brief-next slide-in" data-testid="next-step">
-                  <span className="lv-label">Next</span>
-                  <Rich text={nextCheck.next} />
-                </p>
-              ) : null}
             </section>
             <div className="stack-12">
               <section className="card brief" aria-live="polite">
                 <div className="row" style={{ marginBottom: 6 }}>
-                  <p className="lv-label grow" style={{ margin: 0 }}>Checks</p>
-                  <span className="small muted mono">{passed}/{level.checks.length}</span>
+                  <p className="lv-label grow" style={{ margin: 0 }}>Steps</p>
+                  <span className="small muted mono">{passed}/{level.checks.length} done</span>
                 </div>
-                <ul className="checks">
-                  {level.checks.map((c) => {
-                    const st = checks[c.id];
-                    return (
-                      <li key={c.id} className="check" data-pass={!!st?.pass} data-check={c.id}>
-                        <span className="check-mark" aria-hidden="true">
-                          <svg width="10" height="10" viewBox="0 0 12 12"><path d="M2 6.5l2.5 2.5L10 3.5" stroke="#06140b" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </span>
-                        <span>
-                          <span className="sr-only">{st?.pass ? 'Passed: ' : 'Not yet: '}</span>
-                          {c.label}
-                          {st?.detail && !st.pass ? <span className="check-detail">{st.detail}</span> : null}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <StepList steps={level.checks} checks={checks} together={level.stepsTogether} currentRef={currentRef} />
               </section>
               {failMsg ? (
                 <div key={failMsg.nonce} className="failline shake" role="alert">
@@ -208,9 +211,12 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
         </aside>
 
         <main className="lv-main" ref={mainRef} aria-label="Sandbox">
-          <div key={runKey} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-            {children(api)}
-          </div>
+          <StepBar steps={level.checks} checks={checks} visible={barVisible && !outcome} failure={failMsg} />
+          <StartHintContext.Provider value={hint}>
+            <div key={runKey} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              {children(api)}
+            </div>
+          </StartHintContext.Provider>
         </main>
       </div>
 

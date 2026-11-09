@@ -1,5 +1,5 @@
 import type { CloudLevel } from '../types';
-import type { ScanFinding, SgRule } from '../../sim/cloud';
+import { LEAKED_KEY, NEW_KEY, type ScanFinding, type SgRule } from '../../sim/cloud';
 
 const json = (x: unknown) => JSON.stringify(x, null, 2);
 
@@ -17,6 +17,8 @@ export const BUCKET_POLICY = json({
 });
 
 export const IAM_POLICY = json({ Version: '2012-10-17', Statement: [{ Sid: 'ExportJob', Effect: 'Allow', Action: '*', Resource: '*' }] });
+
+const BUCKET_FIXED = json({ Version: '2012-10-17', Statement: [BILLING_APP] });
 
 const IAM_FIXED = json({
   Version: '2012-10-17',
@@ -123,14 +125,30 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     policy: BUCKET_POLICY,
     title: 'The open bucket',
     goal: 'Nobody outside can download invoices; the billing app still can.',
-    instruction: 'The invoices bucket lets anyone on the internet download every PDF, because of one [[s3-public|policy]] statement. Delete the PublicRead statement, keep BillingApp, and switch Block Public Access on.',
+    instruction: "A storage bucket holds the shop's invoices, and one statement in its [[s3-public|bucket policy]] lets anyone on the internet download them. You fix it in the Bucket policy panel, a JSON text you can edit.",
     checks: [
-      { id: 'no-public', label: 'No statement grants Principal "*"' },
-      { id: 'app-reads', label: 'The billing app can still read invoices', next: 'Keep the BillingApp statement in the policy: only the PublicRead one has to go.' },
-      { id: 'bpa', label: 'Block Public Access is on', next: 'Now flip the Block Public Access switch above the policy editor.' },
+      {
+        id: 'no-public',
+        label: 'Remove the public statement',
+        do: 'In the Bucket policy panel, delete the whole statement whose `"Sid"` is `"PublicRead"`, from its `{` to the `},` after it, so only the BillingApp statement is left. The result should look like the example below.',
+        hint: BUCKET_FIXED,
+        learned: '`"Principal": "*"` means everyone, signed in or not, so that one statement made every invoice public.',
+      },
+      {
+        id: 'app-reads',
+        label: 'Keep the billing app working',
+        do: 'Leave the `"BillingApp"` statement as it is. If this step is open, put it back as in the example in step 1: it lets the billing-web role read invoices.',
+        learned: 'The app still reads invoices because its own role is named in the policy.',
+      },
+      {
+        id: 'bpa',
+        label: 'Turn on Block Public Access',
+        do: 'In the Settings and test panel, click the `Block all public access` switch so it turns on.',
+        learned: 'Block Public Access is a safety net: even if someone adds a public statement later, the bucket stays private.',
+      },
     ],
     showMe: [
-      { say: 'Delete the whole PublicRead statement, from { to },.', act: { text: json({ Version: '2012-10-17', Statement: [BILLING_APP] }) } },
+      { say: 'Delete the whole PublicRead statement, from { to },.', act: { text: BUCKET_FIXED } },
       { say: 'Turn on Block Public Access: it overrides any public policy someone adds later.', act: { bpa: true } },
     ],
     realName: 'Closing a public storage bucket',
@@ -148,12 +166,33 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     policy: IAM_POLICY,
     title: 'Just enough',
     goal: 'The export job keeps working with nothing more than it needs.',
-    instruction: 'The report export job runs with admin rights. Rewrite its [[iam-least-privilege|policy]] so it can only read monthly/ and write exports/ in the harbor-reports bucket.',
+    instruction: 'An [[iam-least-privilege|IAM policy]] lists what a program may do, and the report export job has been allowed everything. You cut it down in the Policy panel until it can only read monthly/ and write exports/ in the harbor-reports bucket.',
     checks: [
-      { id: 'task', label: 'The job can read monthly/ and write exports/' },
-      { id: 'no-star-action', label: 'No wildcard actions', next: 'Replace "s3:*" or "*" in Action with exactly the two actions it needs: s3:GetObject and s3:PutObject.' },
-      { id: 'no-star-resource', label: 'No wildcard resources', next: 'Replace "*" in Resource with the two paths: arn:aws:s3:::harbor-reports/monthly/* and arn:aws:s3:::harbor-reports/exports/*.' },
-      { id: 'denied', label: 'Delete, payroll and IAM are denied', next: 'Something still allows more than reading monthly/ and writing exports/. Remove any extra action or path.' },
+      {
+        id: 'no-star-action',
+        label: 'Name the two actions it needs',
+        do: 'In the Policy panel, `"Action": "*"` allows every action. Replace the whole policy with two statements: one allowing `s3:GetObject` (read), one allowing `s3:PutObject` (write), as in the example below.',
+        hint: IAM_FIXED,
+        learned: '"*" in Action meant every action in the account, deleting data and managing users included.',
+      },
+      {
+        id: 'no-star-resource',
+        label: 'Name the two folders',
+        do: 'Each statement needs its exact path instead of `"*"`: `arn:aws:s3:::harbor-reports/monthly/*` for reading and `arn:aws:s3:::harbor-reports/exports/*` for writing.',
+        learned: 'Naming the paths means the job can no longer touch anything else, like the payroll files.',
+      },
+      {
+        id: 'denied',
+        label: 'Everything else is denied',
+        do: 'Look at the Access simulator panel: every row that starts `Not needed` must say `Denied`. If one says `Allowed`, remove the action or path that allows it.',
+        learned: 'Anything a policy does not allow is denied by default.',
+      },
+      {
+        id: 'task',
+        label: 'The job still does its work',
+        do: 'In the Access simulator, the two rows that start `Needed` must say `Allowed`. If one says `Denied`, check the spelling of its action and path against the example in step 1.',
+        learned: 'That is least privilege: exactly what the job needs, and the job still runs.',
+      },
     ],
     showMe: [
       { say: 'Name the action and the path: s3:GetObject on arn:aws:s3:::harbor-reports/monthly/*, s3:PutObject on .../exports/*.', act: { text: IAM_FIXED } },
@@ -172,13 +211,38 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     rules: SG_RULES,
     title: 'Doors to the internet',
     goal: 'Close SSH, RDP and the database to the world; keep the website and the office.',
-    instruction: 'This server\'s [[security-groups|firewall]] lets the whole internet try SSH, RDP and the database. Fix the rules, keeping 443 for customers and SSH for the office range 203.0.113.64/27.',
+    instruction: 'A [[security-groups|security group]] is a cloud firewall: each rule opens a port to a range of addresses, and 0.0.0.0/0 means the whole internet. You change the rules in the Inbound rules panel, and Who can connect shows the effect.',
     checks: [
-      { id: 'ssh', label: 'SSH (22) closed to the internet' },
-      { id: 'rdp', label: 'RDP (3389) closed to the internet', next: 'Remove the rule that opens 3389 to 0.0.0.0/0: nobody needs remote desktop from the internet.' },
-      { id: 'db', label: 'PostgreSQL (5432) closed to the internet', next: 'Remove the rule that opens 5432 to 0.0.0.0/0: only the app talks to the database.' },
-      { id: 'web', label: 'Customers still reach 443', next: 'Put back a rule for port 443 from 0.0.0.0/0: that is the website itself.' },
-      { id: 'office', label: 'The office still reaches SSH', next: 'Keep a rule for port 22, with the source set to the office range 203.0.113.64/27 instead of the whole internet.' },
+      {
+        id: 'ssh',
+        label: 'Limit SSH (port 22) to the office',
+        do: 'In the Inbound rules panel, find the rule with Ports `22`. Change its Source from `0.0.0.0/0` to the office range `203.0.113.64/27`.',
+        learned: 'SSH open to the world gets password-guessing attempts within minutes; only the office needs it.',
+      },
+      {
+        id: 'rdp',
+        label: 'Close remote desktop (port 3389)',
+        do: 'Press `Remove` on the rule with Ports `3389`.',
+        learned: 'Remote desktop open to the internet is one of the most common ways attackers get in.',
+      },
+      {
+        id: 'db',
+        label: 'Close the database (port 5432)',
+        do: 'Press `Remove` on the rule with Ports `5432`.',
+        learned: 'Only the app talks to the database, from inside, so the internet needs no way in.',
+      },
+      {
+        id: 'web',
+        label: 'Keep the website open (port 443)',
+        do: 'Leave the rule for Ports `443` from `0.0.0.0/0` alone. If this step is open, press `Add rule` and enter Ports `443` and Source `0.0.0.0/0`.',
+        learned: 'Port 443 is the website itself, so it stays open to everyone.',
+      },
+      {
+        id: 'office',
+        label: 'Keep SSH for the office',
+        do: 'There must still be a rule with Ports `22` and Source `203.0.113.64/27`. If this step is open, press `Add rule` and enter exactly that.',
+        learned: 'The team can still log in, but only from the office.',
+      },
     ],
     showMe: [
       { say: 'Change the SSH rule\'s source from 0.0.0.0/0 to 203.0.113.64/27.', act: { rules: SG_RULES.map((r) => (r.id === 'r2' ? { ...r, source: '203.0.113.64/27', note: 'SSH from the office' } : r)) } },
@@ -197,12 +261,32 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     panel: 'keys',
     title: 'A key in the history',
     goal: 'The leaked key no longer works, and deploys and backups still run.',
-    instruction: 'Someone committed a cloud access key and deleted it in the next commit, so it is still in the history. Find it, then [[secrets|rotate]] it without breaking the pipeline.',
+    instruction: 'Someone committed a cloud access key to git and deleted it in the next commit, but old commits keep it readable. You will find it in the Repository panel, then [[secrets|rotate]] it in the Keys and pipeline panel without breaking anything.',
     checks: [
-      { id: 'found', label: 'Find the leaked key' },
-      { id: 'revoked', label: 'The leaked key is switched off', next: 'Order matters: create a new key first, point the pipeline secret at it, and only then deactivate the leaked one.' },
-      { id: 'deploys', label: 'Deploys still run', next: 'Deploys use the pipeline secret. Point it at the new key.' },
-      { id: 'backups', label: 'Backups still run', next: 'The key list shows one key used by the backup job. Leave that one alone and only deactivate the leaked key.' },
+      {
+        id: 'found',
+        label: 'Find the leaked key',
+        do: 'In the Repository panel, click commit `9c2e41a` (Add production env for deploys). Its change shows the key on the `AWS_ACCESS_KEY_ID=` line.',
+        learned: 'Deleting a file in a later commit does not remove it from git history: anyone who clones the repo can read it.',
+      },
+      {
+        id: 'deploys',
+        label: 'Move deploys to a new key',
+        do: `In the Keys and pipeline panel, press \`Create key\`. Then pick the new key, \`${NEW_KEY}\`, in the \`Pipeline secret AWS_ACCESS_KEY_ID\` drop-down.`,
+        learned: 'The deploy pipeline now uses a key nobody outside has seen.',
+      },
+      {
+        id: 'revoked',
+        label: 'Switch off the leaked key',
+        do: `Press \`Deactivate\` on the leaked key, \`${LEAKED_KEY}\`. Do it only after the pipeline uses the new key, or deploys break.`,
+        learned: 'New key, move the pipeline, then switch off the old one: in that order nothing breaks at any point.',
+      },
+      {
+        id: 'backups',
+        label: 'Leave the backup key alone',
+        do: 'Do not touch the key marked "used by the backup job". If this step is open, press `Activate` on it.',
+        learned: 'Each job has its own key, so rotating one never has to break another.',
+      },
     ],
     showMe: [
       { say: 'Open commit 9c2e41a in the history: .env.production holds the key.', act: { keyOp: 'find' } },
@@ -224,10 +308,20 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     findings: SCAN_FINDINGS,
     title: 'Five alerts',
     goal: 'Send the real problems to fix and dismiss the false alarms.',
-    instruction: 'The [[sast|code scanner]] raised five alerts. Trace each one to see whether user input really reaches the dangerous line.',
+    instruction: 'A [[sast|code scanner]] reads source code and flags lines that might be dangerous, but it often raises false alarms. Click each of the five alerts in the Alerts panel and decide whether input from a user really reaches the flagged line.',
     checks: [
-      { id: 'real', label: 'Real problems sent to fix' },
-      { id: 'noise', label: 'False alarms dismissed', next: 'Press Trace on each remaining alert. If user input never reaches the flagged line, press Dismiss as false alarm; if it does, press Send to fix.' },
+      {
+        id: 'real',
+        label: 'Send the two real problems to fix',
+        do: 'Click `express-sqli` in the Alerts panel, press `Trace` in the Code panel and read the note, then press `Send to fix`. Do the same for `react-dangerouslysetinnerhtml`: in both, text from a user reaches the flagged line.',
+        learned: 'In both, text from a stranger reaches something dangerous: a SQL query and raw HTML on the page.',
+      },
+      {
+        id: 'noise',
+        label: 'Dismiss the three false alarms',
+        do: 'For `sqli-template-string`, `hardcoded-aws-access-key` and `child-process-exec`: click the alert, press `Trace`, read the note, then press `Dismiss as false alarm`. No user input reaches those lines.',
+        learned: 'A constant, a documented example key and a fixed build command are not ways in, and dismissing them keeps attention on the real ones.',
+      },
     ],
     showMe: [
       { say: 'Trace the first alert: the status from the URL lands in the SQL.', act: { trace: 'f1', verdicts: { f1: 'fix' } } },
@@ -249,12 +343,33 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     config: GATEWAY_CONFIG,
     title: 'The front door',
     goal: 'Lock down the API gateway without breaking the customer app.',
-    instruction: 'Try the routes as an anonymous caller and as Sam, then change the [[api-security|gateway]] config.',
+    instruction: 'An [[api-security|API gateway]] stands in front of every route and decides who may call it, and this one lets anyone download every customer. You try calls in the Try it panel and fix the rules in the Gateway config panel.',
     checks: [
-      { id: 'export', label: 'The customer export needs a token' },
-      { id: 'bola', label: 'Orders are checked against their owner', next: 'In the gateway config, set ownerCheck to true on the orders route.' },
-      { id: 'ratelimit', label: 'Login is rate limited', next: 'Give /v1/login a rateLimit, for example "5/min", so nobody can try thousands of passwords.' },
-      { id: 'customers', label: 'Customers can log in and see their orders', next: 'Your config now blocks real customers too. Loosen only what you broke, and try the routes as Sam again.' },
+      {
+        id: 'export',
+        label: 'Require a token for the export',
+        do: 'In Try it, pick `GET /internal/export`, caller `Anonymous`, and press `Send`: it hands over every customer. Then in the Gateway config, change that route\'s `"auth": "none"` to `"auth": "service-token"`.',
+        learned: 'auth "none" meant anyone on the internet could call it; now only a caller with a token can.',
+      },
+      {
+        id: 'bola',
+        label: 'Check orders against their owner',
+        do: 'On the `/v1/orders/{id}` route, change `"ownerCheck": false` to `"ownerCheck": true`.',
+        learned: 'Sam now gets 404 for order 7003, which is not his, instead of a stranger\'s order.',
+      },
+      {
+        id: 'ratelimit',
+        label: 'Limit login attempts',
+        do: 'On the `/v1/login` route, add `"rateLimit": "5/min"` after `"auth": "none"`, with a comma between them, as in the example below.',
+        hint: '{ "path": "/v1/login", "method": "POST", "auth": "none", "rateLimit": "5/min" },',
+        learned: 'Five tries a minute makes guessing passwords by the thousand impossible.',
+      },
+      {
+        id: 'customers',
+        label: 'Customers can still log in and see orders',
+        do: 'In Try it, choose `Sam (customer)` and Send `POST /v1/login`, `GET /v1/orders` and `GET /v1/orders/7001`: each should answer 200. If this step is open, undo the change that broke one of them.',
+        learned: 'Security that breaks the app gets switched off, so the real customer flow has to keep working.',
+      },
     ],
     showMe: [
       { say: 'Call GET /internal/export with no token: it hands over every customer.' },
