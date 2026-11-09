@@ -3,13 +3,13 @@
 
 import { z } from 'zod';
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 export const SAVE_KEY = 'cybermaster.save';
 
 const RunSchema = z.object({
-  best: z.number().min(0).max(100),
   stars: z.number().int().min(0).max(3),
   clears: z.number().int().min(0),
+  bestSeconds: z.number().min(0),
   lastPlayedAt: z.string(),
 });
 
@@ -17,47 +17,50 @@ export const SaveSchema = z.object({
   version: z.literal(SAVE_VERSION),
   name: z.string().max(24),
   xp: z.number().int().min(0),
-  missions: z.record(z.string(), RunSchema),
+  levels: z.record(z.string(), RunSchema),
   codex: z.array(z.string()),
   badges: z.array(z.string()),
   streak: z.object({ count: z.number().int().min(0), lastDay: z.string() }),
   settings: z.object({ muted: z.boolean() }),
-  prologueDone: z.boolean(),
-  hints: z.number().int().min(0),
+  /** Evidence collected by clearing levels, for the Report zone. */
+  evidence: z.array(z.string()),
+  /** Zones opened by progress made in an older version of the game. */
+  zones: z.array(z.string()),
 });
 
 export type SaveFile = z.infer<typeof SaveSchema>;
-export type MissionRun = z.infer<typeof RunSchema>;
+export type LevelRun = z.infer<typeof RunSchema>;
 
 export function emptySave(): SaveFile {
   return {
     version: SAVE_VERSION,
     name: '',
     xp: 0,
-    missions: {},
+    levels: {},
     codex: [],
     badges: [],
     streak: { count: 0, lastDay: '' },
     settings: { muted: false },
-    prologueDone: false,
-    hints: 0,
+    evidence: [],
+    zones: [],
   };
 }
 
-// Version 2 is version 3 without the prologue flag and the hint count.
-const V2Schema = z.object({
-  version: z.literal(2),
+// Versions 2 and 3 kept a score per mission. The missions are gone (every zone
+// is now a set of hands-on levels), so a cleared boss becomes an opened zone.
+const OldRun = z.object({ best: z.number() }).passthrough();
+const V23Schema = z.object({
+  version: z.union([z.literal(2), z.literal(3)]),
   name: z.string().max(24),
   xp: z.number().int().min(0),
-  missions: z.record(z.string(), RunSchema),
+  missions: z.record(z.string(), OldRun),
   codex: z.array(z.string()),
   badges: z.array(z.string()),
   streak: z.object({ count: z.number().int().min(0), lastDay: z.string() }),
   settings: z.object({ muted: z.boolean() }),
 });
 
-// Version 1 stored a flat list of completed mission ids and a score map. It is
-// kept here so an old save still opens.
+// Version 1 stored a flat list of completed mission ids.
 const V1Schema = z.object({
   version: z.literal(1),
   name: z.string().optional(),
@@ -67,41 +70,63 @@ const V1Schema = z.object({
   muted: z.boolean().optional(),
 });
 
+/** The old boss of each zone, and the zone its clear opened. */
+const OLD_BOSS_OPENS: [string, string][] = [
+  ['wire-boss', 'arena'],
+  ['arena-boss', 'perimeter'],
+  ['perimeter-boss', 'cloud'],
+  ['cloud-boss', 'report'],
+];
+
+export interface MigrationContext {
+  codexIds: string[];
+  badgeIds: string[];
+}
+
+function zonesFromCleared(cleared: (id: string) => boolean): string[] {
+  return OLD_BOSS_OPENS.filter(([boss]) => cleared(boss)).map(([, zone]) => zone);
+}
+
 /** Turn whatever was stored into a current save file, or a fresh one if it cannot be read. */
-export function migrate(raw: unknown): SaveFile {
+export function migrate(raw: unknown, ctx?: MigrationContext): SaveFile {
   const current = SaveSchema.safeParse(raw);
   if (current.success) return current.data;
+  const keepCodex = (ids: string[]) => (ctx ? ids.filter((c) => ctx.codexIds.includes(c)) : ids);
+  const keepBadges = (ids: string[]) => (ctx ? ids.filter((b) => ctx.badgeIds.includes(b)) : ids);
 
-  const v2 = V2Schema.safeParse(raw);
-  if (v2.success) {
-    const { version: _v, ...rest } = v2.data;
-    void _v;
-    // a player with any progress has already seen the game open, so the prologue stays behind them
-    const started = rest.xp > 0 || Object.keys(rest.missions).length > 0;
-    return { ...rest, version: SAVE_VERSION, prologueDone: started, hints: 0 };
+  const old = V23Schema.safeParse(raw);
+  if (old.success) {
+    const o = old.data;
+    return {
+      ...emptySave(),
+      name: o.name,
+      xp: o.xp,
+      codex: keepCodex(o.codex),
+      badges: keepBadges(o.badges),
+      streak: o.streak,
+      settings: o.settings,
+      zones: zonesFromCleared((id) => (o.missions[id]?.best ?? 0) >= 50),
+    };
   }
 
   const v1 = V1Schema.safeParse(raw);
   if (v1.success) {
     const fresh = emptySave();
-    fresh.name = v1.data.name ?? '';
+    fresh.name = (v1.data.name ?? '').slice(0, 24);
     fresh.xp = Math.max(0, Math.round(v1.data.xp ?? 0));
     fresh.settings.muted = v1.data.muted ?? false;
-    for (const id of v1.data.completed ?? []) {
-      const best = Math.max(50, Math.min(100, v1.data.scores?.[id] ?? 50));
-      fresh.missions[id] = { best, stars: best >= 95 ? 3 : best >= 75 ? 2 : 1, clears: 1, lastPlayedAt: '' };
-    }
-    fresh.prologueDone = fresh.xp > 0 || Object.keys(fresh.missions).length > 0;
+    const done = new Set(v1.data.completed ?? []);
+    fresh.zones = zonesFromCleared((id) => done.has(id));
     return fresh;
   }
   return emptySave();
 }
 
-export function loadSave(storage: Pick<Storage, 'getItem'> | null = safeStorage()): SaveFile {
+export function loadSave(storage: Pick<Storage, 'getItem'> | null = safeStorage(), ctx?: MigrationContext): SaveFile {
   try {
     const text = storage?.getItem(SAVE_KEY);
     if (!text) return emptySave();
-    return migrate(JSON.parse(text));
+    return migrate(JSON.parse(text), ctx);
   } catch {
     return emptySave();
   }

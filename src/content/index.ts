@@ -1,27 +1,15 @@
-import type { Mission } from './types';
-import { WIRE_MISSIONS } from './missions/wire';
-import { ARENA_MISSIONS } from './missions/arena';
-import { PERIMETER_MISSIONS } from './missions/perimeter';
-import { CLOUD_MISSIONS } from './missions/cloud';
-import { REPORT_MISSIONS } from './missions/report';
+import type { Level } from './types';
+import { WIRE_LEVELS } from './levels/wire';
+import { ARENA_LEVELS } from './levels/arena';
+import { PERIMETER_LEVELS } from './levels/perimeter';
+import { CLOUD_LEVELS } from './levels/cloud';
+import { REPORT_LEVELS } from './levels/report';
 
 export { ZONES, ZONE_BY_ID } from './zones';
 export { CODEX, CODEX_BY_ID } from './codex';
-export { BRIEFINGS, BRIEFING_BY_MISSION, PROLOGUE } from './briefings';
-export { CONCEPTS, conceptsTested, conceptsTaught, teachingOrder } from './concepts';
+export { EVIDENCE, EVIDENCE_BY_ID } from './evidence';
 export type * from './types';
 
-export const ALL_MISSIONS: Mission[] = [
-  ...WIRE_MISSIONS,
-  ...ARENA_MISSIONS,
-  ...PERIMETER_MISSIONS,
-  ...CLOUD_MISSIONS,
-  ...REPORT_MISSIONS,
-];
+export const ALL_LEVELS: Level[] = [...WIRE_LEVELS, ...ARENA_LEVELS, ...PERIMETER_LEVELS, ...CLOUD_LEVELS, ...REPORT_LEVELS];
 
-export const MISSION_BY_ID = Object.fromEntries(ALL_MISSIONS.map((m) => [m.id, m])) as Record<string, Mission>;
-
-/** The missions that appear on a zone board (not the hidden boss stages). */
-export function playableMissions(): Mission[] {
-  return ALL_MISSIONS.filter((m) => !m.id.startsWith('stage-'));
-}
+export const LEVEL_BY_ID = Object.fromEntries(ALL_LEVELS.map((l) => [l.id, l])) as Record<string, Level>;

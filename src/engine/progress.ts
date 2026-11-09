@@ -42,14 +42,14 @@ export interface Badge {
 }
 
 export const BADGES: Badge[] = [
-  { id: 'first-clear', name: 'On the roster', how: 'Clear your first mission.' },
-  { id: 'flawless', name: 'Flawless', how: 'Score 95 or more on any mission.' },
-  { id: 'five-flawless', name: 'Steady hands', how: 'Score 95 or more on five missions.' },
-  { id: 'zone-wire', name: 'Wire reader', how: 'Clear every mission in The Wire.' },
-  { id: 'zone-arena', name: 'Arena veteran', how: 'Clear every mission in The Arena.' },
-  { id: 'zone-perimeter', name: 'Sweeper', how: 'Clear every mission in The Perimeter.' },
-  { id: 'zone-cloud', name: 'Cloud watcher', how: 'Clear every mission in The Cloud.' },
-  { id: 'zone-report', name: 'Report writer', how: 'Clear every mission in The Report.' },
+  { id: 'first-clear', name: 'On the roster', how: 'Clear your first level.' },
+  { id: 'flawless', name: 'Flawless', how: 'Clear a level with three stars.' },
+  { id: 'five-flawless', name: 'Steady hands', how: 'Clear five levels with three stars.' },
+  { id: 'zone-wire', name: 'Wire reader', how: 'Clear every level in The Wire.' },
+  { id: 'zone-arena', name: 'Arena veteran', how: 'Clear every level in The Arena.' },
+  { id: 'zone-perimeter', name: 'Sweeper', how: 'Clear every level in The Perimeter.' },
+  { id: 'zone-cloud', name: 'Cloud watcher', how: 'Clear every level in The Cloud.' },
+  { id: 'zone-report', name: 'Report writer', how: 'Clear every level in The Report.' },
   { id: 'streak-3', name: 'Three days running', how: 'Play on three days in a row.' },
   { id: 'streak-7', name: 'A week on watch', how: 'Play on seven days in a row.' },
   { id: 'codex-half', name: 'Half the codex', how: 'Fill half of the codex.' },
@@ -57,23 +57,22 @@ export const BADGES: Badge[] = [
   { id: 'master', name: 'Master of the Watch', how: 'Reach the Master rank.' },
 ];
 
+export interface ZoneShape {
+  id: string;
+  levelIds: string[];
+}
+
+const cleared = (save: SaveFile, id: string) => (save.levels[id]?.stars ?? 0) >= 1;
+
 /** Which badges the save file has earned. Pure: the caller stores the result. */
-export function earnedBadges(
-  save: SaveFile,
-  zones: { id: string; missionIds: string[]; bossId: string }[],
-  codexTotal: number,
-): string[] {
+export function earnedBadges(save: SaveFile, zones: ZoneShape[], codexTotal: number): string[] {
   const out = new Set<string>();
-  const runs = Object.values(save.missions);
-  const cleared = runs.filter((r) => r.best >= 50);
-  if (cleared.length > 0) out.add('first-clear');
-  const flawless = runs.filter((r) => r.best >= 95).length;
+  const runs = Object.values(save.levels);
+  if (runs.some((r) => r.stars >= 1)) out.add('first-clear');
+  const flawless = runs.filter((r) => r.stars >= 3).length;
   if (flawless >= 1) out.add('flawless');
   if (flawless >= 5) out.add('five-flawless');
-  for (const z of zones) {
-    const all = [...z.missionIds, z.bossId];
-    if (all.every((id) => (save.missions[id]?.best ?? 0) >= 50)) out.add(`zone-${z.id}`);
-  }
+  for (const z of zones) if (z.levelIds.length && z.levelIds.every((id) => cleared(save, id))) out.add(`zone-${z.id}`);
   if (save.streak.count >= 3) out.add('streak-3');
   if (save.streak.count >= 7) out.add('streak-7');
   if (codexTotal > 0 && save.codex.length * 2 >= codexTotal) out.add('codex-half');
@@ -82,28 +81,27 @@ export function earnedBadges(
   return [...out];
 }
 
-/** A zone unlocks when the previous zone's boss is cleared. The first is always open. */
-export function zoneUnlocked(
-  save: SaveFile,
-  zones: { id: string; bossId: string }[],
-  zoneId: string,
-): boolean {
+/** A zone opens when the previous zone's last level is cleared, or when an older save opened it. */
+export function zoneUnlocked(save: SaveFile, zones: ZoneShape[], zoneId: string): boolean {
   const index = zones.findIndex((z) => z.id === zoneId);
-  if (index <= 0) return true;
+  if (index <= 0) return index === 0;
+  if (save.zones.includes(zoneId)) return true;
   const previous = zones[index - 1]!;
-  return (save.missions[previous.bossId]?.best ?? 0) >= 50;
+  const last = previous.levelIds[previous.levelIds.length - 1];
+  return !!last && cleared(save, last);
 }
 
-/** Inside a zone the missions open in order; the boss opens when every mission is cleared. */
-export function missionUnlocked(
-  save: SaveFile,
-  zone: { missionIds: string[]; bossId: string },
-  missionId: string,
-): boolean {
-  if (missionId === zone.bossId) return zone.missionIds.every((id) => (save.missions[id]?.best ?? 0) >= 50);
-  const index = zone.missionIds.indexOf(missionId);
-  if (index <= 0) return true;
-  return (save.missions[zone.missionIds[index - 1]!]?.best ?? 0) >= 50;
+/** Inside an open zone, levels open one after another. */
+export function levelUnlocked(save: SaveFile, zones: ZoneShape[], levelId: string): boolean {
+  const zone = zones.find((z) => z.levelIds.includes(levelId));
+  if (!zone || !zoneUnlocked(save, zones, zone.id)) return false;
+  const i = zone.levelIds.indexOf(levelId);
+  return i === 0 || cleared(save, zone.levelIds[i - 1]!);
+}
+
+/** The level to play next in a zone: the first one not cleared, or the last. */
+export function nextLevelIn(save: SaveFile, zone: ZoneShape): string | undefined {
+  return zone.levelIds.find((id) => !cleared(save, id)) ?? zone.levelIds[zone.levelIds.length - 1];
 }
 
 /** Update the streak for a play on `today` (YYYY-MM-DD). */

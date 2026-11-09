@@ -1,131 +1,62 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { migrate, loadSave, persistSave, emptySave, SaveSchema, SAVE_VERSION, SAVE_KEY } from '../src/engine/save';
+import { describe, it, expect } from 'vitest';
+import { migrate, loadSave, persistSave, emptySave, SAVE_VERSION, SAVE_KEY } from '../src/engine/save';
+import { CODEX } from '../src/content/codex';
+import { BADGES } from '../src/engine/progress';
 
-describe('save file', () => {
-  it('an empty save validates against the schema', () => {
-    expect(SaveSchema.safeParse(emptySave()).success).toBe(true);
+const ctx = { codexIds: CODEX.map((c) => c.id), badgeIds: BADGES.map((b) => b.id) };
+
+const v3 = {
+  version: 3,
+  name: 'Mara',
+  xp: 840,
+  missions: {
+    'wire-headers': { best: 90, stars: 2, clears: 1, lastPlayedAt: '' },
+    'wire-boss': { best: 80, stars: 2, clears: 1, lastPlayedAt: '' },
+    'arena-boss': { best: 40, stars: 0, clears: 0, lastPlayedAt: '' },
+  },
+  codex: ['http-anatomy', 'sqli', 'an-entry-that-no-longer-exists'],
+  badges: ['first-clear', 'zone-wire', 'retired-badge'],
+  streak: { count: 4, lastDay: '2026-11-08' },
+  settings: { muted: true },
+  prologueDone: true,
+  hints: 3,
+};
+
+describe('save migration', () => {
+  it('a current save passes through untouched', () => {
+    const s = { ...emptySave(), xp: 50, levels: { 'wire-robots': { stars: 3, clears: 1, bestSeconds: 42, lastPlayedAt: 'x' } } };
+    expect(migrate(s, ctx)).toEqual(s);
   });
-
-  it('migrate keeps a current save as is', () => {
-    const save = emptySave();
-    save.xp = 420;
-    save.missions['wire-headers'] = { best: 88, stars: 2, clears: 2, lastPlayedAt: '' };
-    expect(migrate(save)).toEqual(save);
+  it('version 3 keeps XP, codex, badges, streak and settings, and a cleared boss opens the next zone', () => {
+    const m = migrate(v3, ctx);
+    expect(m.version).toBe(SAVE_VERSION);
+    expect(m).toMatchObject({ name: 'Mara', xp: 840, streak: { count: 4, lastDay: '2026-11-08' }, settings: { muted: true } });
+    expect(m.codex).toEqual(['http-anatomy', 'sqli']);
+    expect(m.badges).toEqual(['first-clear', 'zone-wire']);
+    expect(m.zones).toEqual(['arena']);
+    expect(m.levels).toEqual({});
   });
-
-  it('migrate upgrades a version-1 save', () => {
-    const v1 = {
-      version: 1,
-      name: 'Mara',
-      xp: 300,
-      completed: ['wire-headers', 'arena-lineup'],
-      scores: { 'wire-headers': 92, 'arena-lineup': 60 },
-      muted: true,
-    };
-    const out = migrate(v1);
-    expect(out.version).toBe(SAVE_VERSION);
-    expect(out.name).toBe('Mara');
-    expect(out.xp).toBe(300);
-    expect(out.settings.muted).toBe(true);
-    expect(out.missions['wire-headers']).toEqual({ best: 92, stars: 2, clears: 1, lastPlayedAt: '' });
-    expect(out.missions['arena-lineup']?.best).toBe(60);
-    expect(SaveSchema.safeParse(out).success).toBe(true);
+  it('version 2 migrates the same way', () => {
+    const { prologueDone: _p, hints: _h, ...rest } = v3;
+    void _p;
+    void _h;
+    expect(migrate({ ...rest, version: 2 }, ctx).zones).toEqual(['arena']);
   });
-
-  it('migrate returns a fresh save for junk', () => {
-    expect(migrate({ nonsense: true })).toEqual(emptySave());
+  it('version 1 keeps XP and the zones its completed bosses opened', () => {
+    const m = migrate({ version: 1, name: 'Old', xp: 120.4, completed: ['wire-boss', 'arena-boss'], muted: true }, ctx);
+    expect(m).toMatchObject({ name: 'Old', xp: 120, zones: ['arena', 'perimeter'], settings: { muted: true } });
+  });
+  it('junk becomes a fresh save', () => {
+    expect(migrate({ hello: 'world' })).toEqual(emptySave());
     expect(migrate(null)).toEqual(emptySave());
-    expect(migrate('not json')).toEqual(emptySave());
   });
-
-  it('migrate upgrades a version-2 save, keeping progress and adding the new fields', () => {
-    const v2 = {
-      version: 2,
-      name: 'Mara',
-      xp: 640,
-      missions: { 'wire-headers': { best: 88, stars: 2, clears: 2, lastPlayedAt: '2026-11-01T10:00:00.000Z' } },
-      codex: ['http-anatomy', 'cookie-flags'],
-      badges: ['first-clear'],
-      streak: { count: 2, lastDay: '2026-11-01' },
-      settings: { muted: false },
-    };
-    const out = migrate(v2);
-    expect(out.version).toBe(SAVE_VERSION);
-    expect(out.xp).toBe(640);
-    expect(out.missions['wire-headers']?.best).toBe(88);
-    expect(out.codex).toEqual(['http-anatomy', 'cookie-flags']);
-    expect(out.badges).toEqual(['first-clear']);
-    expect(out.streak).toEqual({ count: 2, lastDay: '2026-11-01' });
-    // a player with progress has seen the game open before, so the prologue does not play again
-    expect(out.prologueDone).toBe(true);
-    expect(out.hints).toBe(0);
-    expect(SaveSchema.safeParse(out).success).toBe(true);
-  });
-
-  it('a version-2 save with no progress still gets the prologue', () => {
-    const out = migrate({ version: 2, name: '', xp: 0, missions: {}, codex: [], badges: [], streak: { count: 0, lastDay: '' }, settings: { muted: true } });
-    expect(out.prologueDone).toBe(false);
-    expect(out.settings.muted).toBe(true);
-  });
-
-  it('the current version is 3 and a fresh save has the prologue ahead of it', () => {
-    expect(SAVE_VERSION).toBe(3);
-    expect(emptySave().prologueDone).toBe(false);
-    expect(emptySave().hints).toBe(0);
-  });
-
-  it('migrate repairs an out-of-range score from a v1 save', () => {
-    const out = migrate({ version: 1, completed: ['x'], scores: { x: 999 } });
-    expect(out.missions['x']?.best).toBe(100);
-  });
-});
-
-describe('storage round-trip (in-memory stub)', () => {
-  let store: Record<string, string>;
-  const mem = {
-    getItem: (k: string) => store[k] ?? null,
-    setItem: (k: string, v: string) => {
-      store[k] = v;
-    },
-    removeItem: (k: string) => {
-      delete store[k];
-    },
-  };
-
-  beforeEach(() => {
-    store = {};
-  });
-
-  it('persists and loads', () => {
-    const save = emptySave();
-    save.xp = 123;
-    save.codex = ['http-anatomy'];
-    expect(persistSave(save, mem)).toBe(true);
-    expect(store[SAVE_KEY]).toBeDefined();
-    const back = loadSave(mem);
-    expect(back.xp).toBe(123);
-    expect(back.codex).toEqual(['http-anatomy']);
-  });
-
-  it('loadSave survives a throwing storage', () => {
-    const broken = {
-      getItem: () => {
-        throw new Error('blocked');
-      },
-    };
-    expect(loadSave(broken)).toEqual(emptySave());
-  });
-
-  it('persistSave returns false when storage throws', () => {
-    const broken = {
-      setItem: () => {
-        throw new Error('quota');
-      },
-    };
-    expect(persistSave(emptySave(), broken)).toBe(false);
-  });
-
-  it('loadSave returns an empty save when nothing is stored', () => {
-    expect(loadSave(mem)).toEqual(emptySave());
+  it('load and persist survive broken or blocked storage', () => {
+    expect(loadSave({ getItem: () => '{not json' })).toEqual(emptySave());
+    expect(loadSave({ getItem: () => { throw new Error('blocked'); } })).toEqual(emptySave());
+    expect(persistSave(emptySave(), { setItem: () => { throw new Error('quota'); } })).toBe(false);
+    const store: Record<string, string> = {};
+    persistSave({ ...emptySave(), xp: 9 }, { setItem: (k, v) => { store[k] = v; } });
+    expect(loadSave({ getItem: (k) => store[k] ?? null }).xp).toBe(9);
+    expect(Object.keys(store)).toEqual([SAVE_KEY]);
   });
 });
