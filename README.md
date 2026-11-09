@@ -80,3 +80,6 @@ scan outputs, cloud configurations and API responses are illustrative, and any a
 names are invented. The CVSS vectors are real and their scores are checked against the published
 FIRST examples. There is no live target: the game is a place to learn the ideas, to be applied only
 on labs and systems you are authorised to test.
+
+
+Live: https://cybermaster-francesco-saponaro.netlify.app
