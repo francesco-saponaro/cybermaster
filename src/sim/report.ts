@@ -22,50 +22,93 @@ export const FINDING_TARGET_VECTOR = 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A
 
 const has = (text: string, words: (string | RegExp)[]) => words.some((w) => (typeof w === 'string' ? text.includes(w) : w.test(text)));
 
+/**
+ * What the client needs to see in each field of one finding: groups of words
+ * (one word of every group must appear), the score that matches the evidence,
+ * the evidence that proves it, and what they say when a field falls short.
+ */
+export interface FindingSpec {
+  title: (string | RegExp)[][];
+  asset: (string | RegExp)[][];
+  vector: string;
+  description: (string | RegExp)[][];
+  impact: (string | RegExp)[][];
+  /** Evidence ids that prove it (one is enough), and the scanner line that does not. */
+  proof: string[];
+  scanner: string;
+  fix: (string | RegExp)[];
+  bandage: (string | RegExp)[];
+  say: {
+    title: string;
+    asset: string;
+    severity: string;
+    descriptionWhich: string;
+    impact: string;
+    scanner: string;
+    attach: string;
+    bandage: string;
+    fix: string;
+  };
+}
+
+export const SQLI_SPEC: FindingSpec = {
+  title: [['sql injection', 'sqli', /sql\s*-?\s*injection/], ['login', 'sign-in', 'sign in']],
+  asset: [['/login'], ['lantern', 'shop', 'post']],
+  vector: FINDING_TARGET_VECTOR,
+  description: [['name'], ['query', 'sql']],
+  impact: [
+    ['admin', 'account', 'customer', 'data', 'record', 'order', 'user'],
+    ['log in', 'login', 'read', 'change', 'modify', 'access', 'take over', 'export', 'edit', 'delete'],
+  ],
+  proof: ['ev-sqli-request'],
+  scanner: 'ev-scanner-sqli',
+  fix: ['parameter', 'prepared', 'placeholder', 'bind'],
+  bandage: ['waf', 'firewall', 'blacklist', 'blocklist', 'filter', 'escape', 'sanitis', 'sanitiz'],
+  say: {
+    title: "I can't tell from the title what is broken or where. Name the flaw and the page.",
+    asset: 'Which system? Give me the host and the endpoint, like POST https://shop.lantern.example/login.',
+    severity: 'This score does not match the evidence: no account is needed, nobody has to click anything, and the database can be read and changed. Set Privileges required and User interaction to None, and Confidentiality and Integrity to High.',
+    descriptionWhich: 'Which field is it, and what happens to the SQL query? Mention the name field and the query in your sentences.',
+    impact: 'So what? Tell me what an attacker gets, like signing in as admin, and which data they can read or change.',
+    scanner: 'A scanner line is not proof. Attach "Login bypass: the request and the response" from the locker.',
+    attach: 'Attach the evidence that proves it: press Attach on "Login bypass: the request and the response" in the locker.',
+    bandage: 'A filter is a bandage that the next quote trick gets past. Tell us to use parameterised queries instead.',
+    fix: 'What exactly do we change? Name a fix a developer can apply and check, like parameterised queries.',
+  },
+};
+
 /** What the client says about each field: a check per field, with their words when it falls short. */
-export function readFinding(d: FindingDraft): Check[] {
+export function readFinding(d: FindingDraft, spec: FindingSpec = SQLI_SPEC): Check[] {
   const t = d.title.toLowerCase();
   const a = d.asset.toLowerCase();
   const desc = d.description.toLowerCase();
   const imp = d.impact.toLowerCase();
   const fix = d.fix.toLowerCase();
   const sentences = d.description.split(/[.!?](\s|$)/).filter((s) => s && s.trim().split(/\s+/).length >= 3).length;
+  const all = (text: string, groups: (string | RegExp)[][]) => groups.every((g) => has(text, g));
 
-  const titleOk = has(t, ['sql injection', 'sqli', /sql\s*-?\s*injection/]) && has(t, ['login', 'sign-in', 'sign in']);
-  const assetOk = has(a, ['/login']) && has(a, ['lantern', 'shop', 'post']);
-  const sevOk = d.vector === FINDING_TARGET_VECTOR;
-  const descOk = sentences >= 2 && has(desc, ['name']) && has(desc, ['query', 'sql']);
-  const impactOk = has(imp, ['admin', 'account', 'customer', 'data', 'record', 'order', 'user']) && has(imp, ['log in', 'login', 'read', 'change', 'modify', 'access', 'take over', 'export', 'edit', 'delete']);
-  const proof = d.evidence.includes('ev-sqli-request');
-  const onlyScanner = d.evidence.length > 0 && d.evidence.every((e) => e === 'ev-scanner-sqli');
-  const evidenceOk = proof;
-  const fixParam = has(fix, ['parameter', 'prepared', 'placeholder', 'bind']);
-  const fixBandage = has(fix, ['waf', 'firewall', 'blacklist', 'blocklist', 'filter', 'escape', 'sanitis', 'sanitiz']) && !fixParam;
+  const titleOk = all(t, spec.title);
+  const assetOk = all(a, spec.asset);
+  const sevOk = d.vector === spec.vector;
+  const descOk = sentences >= 2 && all(desc, spec.description);
+  const impactOk = all(imp, spec.impact);
+  const evidenceOk = spec.proof.some((p) => d.evidence.includes(p));
+  const onlyScanner = d.evidence.length > 0 && d.evidence.every((e) => e === spec.scanner);
+  const fixRight = has(fix, spec.fix);
+  const fixBandage = has(fix, spec.bandage) && !fixRight;
 
   return [
-    { id: 'title', pass: titleOk, detail: titleOk ? 'I know what is broken and where.' : "I can't tell from the title what is broken or where. Name the flaw and the page." },
-    { id: 'asset', pass: assetOk, detail: assetOk ? 'I can find the exact endpoint.' : 'Which system? Give me the host and the endpoint, like POST https://shop.lantern.example/login.' },
-    {
-      id: 'severity',
-      pass: sevOk,
-      detail: sevOk ? 'The score matches what you describe.' : 'This score does not match the evidence: no account is needed, nobody has to click anything, and the database can be read and changed. Set Privileges required and User interaction to None, and Confidentiality and Integrity to High.',
-    },
+    { id: 'title', pass: titleOk, detail: titleOk ? 'I know what is broken and where.' : spec.say.title },
+    { id: 'asset', pass: assetOk, detail: assetOk ? 'I can find the exact endpoint.' : spec.say.asset },
+    { id: 'severity', pass: sevOk, detail: sevOk ? 'The score matches what you describe.' : spec.say.severity },
     {
       id: 'description',
       pass: descOk,
-      detail: descOk ? 'I understand how it works.' : sentences < 2 ? 'Two or three sentences, please: say which input it is, and what it does to the query.' : 'Which field is it, and what happens to the SQL query? Mention the name field and the query in your sentences.',
+      detail: descOk ? 'I understand how it works.' : sentences < 2 ? `Two or three sentences, please: say which input it is, and what it does${spec === SQLI_SPEC ? ' to the query' : ''}.` : spec.say.descriptionWhich,
     },
-    { id: 'impact', pass: impactOk, detail: impactOk ? 'I see what we stand to lose.' : 'So what? Tell me what an attacker gets, like signing in as admin, and which data they can read or change.' },
-    {
-      id: 'evidence',
-      pass: evidenceOk,
-      detail: evidenceOk ? 'I can reproduce it from your evidence.' : onlyScanner ? 'A scanner line is not proof. Attach "Login bypass: the request and the response" from the locker.' : 'Attach the evidence that proves it: press Attach on "Login bypass: the request and the response" in the locker.',
-    },
-    {
-      id: 'fix',
-      pass: fixParam,
-      detail: fixParam ? 'My developers know what to change.' : fixBandage ? 'A filter is a bandage that the next quote trick gets past. Tell us to use parameterised queries instead.' : 'What exactly do we change? Name a fix a developer can apply and check, like parameterised queries.',
-    },
+    { id: 'impact', pass: impactOk, detail: impactOk ? 'I see what we stand to lose.' : spec.say.impact },
+    { id: 'evidence', pass: evidenceOk, detail: evidenceOk ? 'I can reproduce it from your evidence.' : onlyScanner ? spec.say.scanner : spec.say.attach },
+    { id: 'fix', pass: fixRight, detail: fixRight ? 'My developers know what to change.' : fixBandage ? spec.say.bandage : spec.say.fix },
   ];
 }
 

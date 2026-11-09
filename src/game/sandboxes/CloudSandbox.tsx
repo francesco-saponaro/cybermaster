@@ -9,14 +9,17 @@ import {
   gatewayChecks,
   gatewayCall,
   parseGateway,
-  LEAKED_KEY,
-  BACKUP_KEY,
-  NEW_KEY,
+  BUCKET_SETUP,
+  IAM_SETUP,
+  SG_SETUP,
+  KEY_SETUP,
+  GATEWAY_SETUP,
   type Check,
   type SgRule,
   type KeyState,
   type Verdict,
   type GatewayCall,
+  type GatewaySetup,
 } from '../../sim/cloud';
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
@@ -69,7 +72,8 @@ function BucketPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct
   const initial = level.panel === 'bucket' ? level.policy : '';
   const [text, setText] = useState(initial);
   const [bpa, setBpa] = useState(false);
-  const r = useMemo(() => bucketChecks(text, bpa), [text, bpa]);
+  const setup = (level.panel === 'bucket' ? level.setup : undefined) ?? BUCKET_SETUP;
+  const r = useMemo(() => bucketChecks(text, bpa, setup), [text, bpa, setup]);
   useEffect(() => onChecks(toChecks(r.checks)), [r, onChecks]);
   useEffect(() => {
     if (!act) return;
@@ -84,7 +88,7 @@ function BucketPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct
         {
           id: 'policy',
           label: 'Bucket policy',
-          head: <><h2>harbor-invoices: bucket policy</h2><span className="spacer" />{r.error ? <span className="status" data-tone="bad">Invalid</span> : <span className="status">JSON</span>}</>,
+          head: <><h2>{setup.bucket}: bucket policy</h2><span className="spacer" />{r.error ? <span className="status" data-tone="bad">Invalid</span> : <span className="status">JSON</span>}</>,
           body: (
             <>
               <StartHint text="This is the policy editor. Click into it and edit the text as the first step says." />
@@ -105,10 +109,10 @@ function BucketPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct
               </button>
               <p className="small muted" style={{ margin: 0 }}>An account-level guard: when on, no policy can make this bucket public.</p>
               <hr className="hr" />
-              <p className="lbl">Who can download 2026/INV-1043.pdf, right now</p>
+              <p className="lbl">Who can download {setup.object}, right now</p>
               <ul className="rowlist">
                 <Result label="Anyone on the internet, no credentials" status={r.anonymousStatus === 200 ? '200 OK' : '403 Denied'} />
-                <Result label="billing-web role (the app)" status={r.appStatus === 200 ? '200 OK' : '403 Denied'} />
+                <Result label={`${setup.appRole.split('/').pop()} role (the app)`} status={r.appStatus === 200 ? '200 OK' : '403 Denied'} />
               </ul>
             </div>
           ),
@@ -122,7 +126,8 @@ function BucketPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct
 
 function IamPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) {
   const [text, setText] = useState(level.panel === 'iam' ? level.policy : '');
-  const r = useMemo(() => iamChecks(text), [text]);
+  const setup = (level.panel === 'iam' ? level.setup : undefined) ?? IAM_SETUP;
+  const r = useMemo(() => iamChecks(text, setup), [text, setup]);
   useEffect(() => onChecks(toChecks(r.checks)), [r, onChecks]);
   useEffect(() => {
     if (act?.act.text !== undefined) setText(act.act.text);
@@ -131,7 +136,7 @@ function IamPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) 
     <Panes
       grid={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}
       panes={[
-        { id: 'policy', label: 'Policy', head: <><h2>role/report-export: inline policy</h2><span className="spacer" />{r.error ? <span className="status" data-tone="bad">Invalid</span> : null}</>, body: <Editor label="IAM policy JSON" value={text} onChange={setText} errorLine={errorLine(r.error)} />, bodyClass: 'term-body' },
+        { id: 'policy', label: 'Policy', head: <><h2>role/{setup.role}: inline policy</h2><span className="spacer" />{r.error ? <span className="status" data-tone="bad">Invalid</span> : null}</>, body: <Editor label="IAM policy JSON" value={text} onChange={setText} errorLine={errorLine(r.error)} />, bodyClass: 'term-body' },
         {
           id: 'sim',
           label: 'Access simulator',
@@ -159,7 +164,8 @@ let ruleSeq = 100;
 
 function SgPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) {
   const [rules, setRules] = useState<SgRule[]>(level.panel === 'sg' ? level.rules : []);
-  const checks = useMemo(() => sgChecks(rules), [rules]);
+  const setup = (level.panel === 'sg' ? level.setup : undefined) ?? SG_SETUP;
+  const checks = useMemo(() => sgChecks(rules, setup), [rules, setup]);
   useEffect(() => onChecks(toChecks(checks)), [checks, onChecks]);
   useEffect(() => {
     if (act?.act.rules) setRules(act.act.rules);
@@ -175,7 +181,7 @@ function SgPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) {
           label: 'Inbound rules',
           head: (
             <>
-              <h2>sg-web-01: inbound rules</h2>
+              <h2>{setup.group}: inbound rules</h2>
               <span className="spacer" />
               <button type="button" className="cbtn cbtn-sm" onClick={() => setRules((rs) => [...rs, { id: `n${ruleSeq++}`, protocol: 'tcp', ports: '', source: '', note: '' }])}>
                 Add rule
@@ -222,11 +228,12 @@ function SgPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) {
           body: (
             <div className="pane-pad">
               <ul className="rowlist">
-                <Result label="Internet to 443 (the website)" status={byId.web ? 'Open' : 'Closed'} />
+                <Result label={`Internet to ${setup.open.join(' and ')} (the website)`} status={byId.web ? 'Open' : 'Closed'} />
                 <Result label="Internet to 22 (SSH)" status={byId.ssh ? 'Closed' : 'Open'} />
-                <Result label="Internet to 3389 (RDP)" status={byId.rdp ? 'Closed' : 'Open'} />
-                <Result label="Internet to 5432 (PostgreSQL)" status={byId.db ? 'Closed' : 'Open'} />
-                <Result label="Office 203.0.113.70 to 22" status={byId.office ? 'Open' : 'Closed'} />
+                {setup.close.map((c) => (
+                  <Result key={c.id} label={`Internet to ${c.port} (${c.name})`} status={byId[c.id] ? 'Closed' : 'Open'} />
+                ))}
+                <Result label={`Office ${setup.officeIp} to 22`} status={byId.office ? 'Open' : 'Closed'} />
               </ul>
               <p className="small muted">Green is what this server should allow: the site open, admin ports and the database closed to the world, SSH open to the office.</p>
             </div>
@@ -239,13 +246,9 @@ function SgPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) {
 
 // ---- Leaked key ----------------------------------------------------------------
 
-const COMMITS = [
-  { id: 'f0b7d13', msg: 'Remove .env.production', when: '2 days ago', diff: ['--- a/.env.production', '+++ /dev/null', '-AWS_ACCESS_KEY_ID=' + LEAKED_KEY, '-AWS_SECRET_ACCESS_KEY=(40 characters)', '-AWS_REGION=eu-west-3'] },
-  { id: '9c2e41a', msg: 'Add production env for deploys', when: '3 days ago', diff: ['--- /dev/null', '+++ b/.env.production', '+AWS_ACCESS_KEY_ID=' + LEAKED_KEY, '+AWS_SECRET_ACCESS_KEY=(40 characters)', '+AWS_REGION=eu-west-3'] },
-  { id: 'a41c0e2', msg: 'Add the deploy workflow', when: '3 days ago', diff: ['+++ b/.github/workflows/deploy.yml', '+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}'] },
-];
-
-function KeysPanel({ onChecks, fail, act }: SandboxProps<CloudLevel, CloudAct>) {
+function KeysPanel({ level, onChecks, fail, act }: SandboxProps<CloudLevel, CloudAct>) {
+  const setup = (level.panel === 'keys' ? level.setup : undefined) ?? KEY_SETUP;
+  const { leaked: LEAKED_KEY, backup: BACKUP_KEY, fresh: NEW_KEY, commits: COMMITS } = setup;
   const [s, setS] = useState<KeyState>({
     keys: [
       { id: LEAKED_KEY, status: 'Active', created: '2026-11-06' },
@@ -257,12 +260,12 @@ function KeysPanel({ onChecks, fail, act }: SandboxProps<CloudLevel, CloudAct>) 
   });
   const [open, setOpen] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
-  const checks = useMemo(() => keyChecks(s), [s]);
+  const checks = useMemo(() => keyChecks(s, setup), [s, setup]);
   useEffect(() => onChecks(toChecks(checks)), [checks, onChecks]);
 
   const openCommit = (id: string) => {
     setOpen(id);
-    if (id === '9c2e41a' || id === 'f0b7d13') setS((x) => ({ ...x, found: true }));
+    if (setup.showing.includes(id)) setS((x) => ({ ...x, found: true }));
   };
   const create = () => {
     if (s.keys.some((k) => k.id === NEW_KEY)) return;
@@ -283,7 +286,7 @@ function KeysPanel({ onChecks, fail, act }: SandboxProps<CloudLevel, CloudAct>) 
     if (!act?.act.keyOp) return;
     const op = act.act.keyOp;
     if (op === 'find') {
-      openCommit('9c2e41a');
+      openCommit(setup.leakCommit);
       setFocus({ id: 'repo', nonce: Date.now() });
     }
     if (op === 'create') {
@@ -305,7 +308,7 @@ function KeysPanel({ onChecks, fail, act }: SandboxProps<CloudLevel, CloudAct>) 
         {
           id: 'repo',
           label: 'Repository',
-          head: <h2>harbor/booking-api: history</h2>,
+          head: <h2>{setup.repo}: history</h2>,
           body: (
             <div>
               <ul className="rowlist">
@@ -474,20 +477,25 @@ function ScanPanel({ level, onChecks, fail, act }: SandboxProps<CloudLevel, Clou
 
 // ---- Gateway -------------------------------------------------------------------
 
-const CALLS: { label: string; call: Omit<GatewayCall, 'token'> }[] = [
-  { label: 'POST /v1/login', call: { method: 'POST', path: '/v1/login' } },
-  { label: 'GET /v1/orders', call: { method: 'GET', path: '/v1/orders' } },
-  { label: 'GET /v1/orders/7001', call: { method: 'GET', path: '/v1/orders/7001' } },
-  { label: 'GET /v1/orders/7003', call: { method: 'GET', path: '/v1/orders/7003' } },
-  { label: 'GET /internal/export', call: { method: 'GET', path: '/internal/export' } },
-];
+function gatewayCalls(x: GatewaySetup): { label: string; call: Omit<GatewayCall, 'token'> }[] {
+  const item = (id: string) => x.item.replace('{id}', id);
+  return [
+    { label: `POST ${x.login}`, call: { method: 'POST', path: x.login } },
+    { label: `GET ${x.list}`, call: { method: 'GET', path: x.list } },
+    { label: `GET ${item(x.own[0])}`, call: { method: 'GET', path: item(x.own[0]) } },
+    { label: `GET ${item(x.foreign)}`, call: { method: 'GET', path: item(x.foreign) } },
+    { label: `GET ${x.export}`, call: { method: 'GET', path: x.export } },
+  ];
+}
 
 function GatewayPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAct>) {
   const [text, setText] = useState(level.panel === 'gateway' ? level.config : '');
+  const setup = (level.panel === 'gateway' ? level.setup : undefined) ?? GATEWAY_SETUP;
+  const CALLS = useMemo(() => gatewayCalls(setup), [setup]);
   const [callIx, setCallIx] = useState(4);
   const [token, setToken] = useState<GatewayCall['token']>('none');
   const [result, setResult] = useState<{ status: number; body: string; n: number } | null>(null);
-  const r = useMemo(() => gatewayChecks(text), [text]);
+  const r = useMemo(() => gatewayChecks(text, setup), [text, setup]);
   useEffect(() => onChecks(toChecks(r.checks)), [r, onChecks]);
   useEffect(() => {
     if (act?.act.text !== undefined) setText(act.act.text);
@@ -499,7 +507,7 @@ function GatewayPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAc
       return;
     }
     play('blip');
-    setResult({ ...gatewayCall(parsed.routes, { ...CALLS[callIx]!.call, token }), n: Date.now() });
+    setResult({ ...gatewayCall(parsed.routes, { ...CALLS[callIx]!.call, token }, setup), n: Date.now() });
   };
   return (
     <Panes
@@ -531,7 +539,7 @@ function GatewayPanel({ level, onChecks, act }: SandboxProps<CloudLevel, CloudAc
                 <div className="seg" role="group" aria-label="Caller">
                   {(['none', 'sam', 'export-job'] as const).map((t) => (
                     <button key={t} type="button" aria-pressed={token === t} onClick={() => setToken(t)}>
-                      {t === 'none' ? 'Anonymous' : t === 'sam' ? 'Sam (customer)' : 'Export job'}
+                      {t === 'none' ? 'Anonymous' : t === 'sam' ? `${setup.customer} (customer)` : 'Export job'}
                     </button>
                   ))}
                 </div>

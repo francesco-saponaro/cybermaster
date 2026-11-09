@@ -3,11 +3,11 @@
 // that turn green, and the "Show me" steps that act on the sandbox.
 
 import type { HttpRequest, HttpResponse, StoredCookie } from '../sim/http';
-import type { WireServerId } from '../sim/wire';
-import type { ArenaAppId } from '../sim/arena';
+import type { WireServerId, WireParams } from '../sim/wire';
+import type { ArenaAppId, ArenaApp } from '../sim/arena';
 import type { Network } from '../sim/terminal';
-import type { SgRule, ScanFinding, Verdict } from '../sim/cloud';
-import type { Artifact, FindingDraft } from '../sim/report';
+import type { SgRule, ScanFinding, Verdict, BucketSetup, IamSetup, SgSetup, KeySetup, GatewaySetup } from '../sim/cloud';
+import type { Artifact, FindingDraft, FindingSpec } from '../sim/report';
 import type { Vector } from '../engine/cvss';
 
 export type ZoneId = 'wire' | 'arena' | 'perimeter' | 'cloud' | 'report';
@@ -84,6 +84,8 @@ interface LevelBase<A> {
   /** Seconds a steady first run takes; slower than three times this costs a star. */
   par: number;
   boss?: boolean;
+  /** Set on a challenge variant: no steps, no Show me, hints instead. */
+  challenge?: boolean;
 }
 
 // ---- The Wire -----------------------------------------------------------------
@@ -122,6 +124,8 @@ export interface WireAct {
 export interface WireLevel extends LevelBase<WireAct> {
   kind: 'wire';
   server: WireServerId;
+  /** The server's values, when they differ from the guided level's (challenge variants). */
+  params?: WireParams;
   host: string;
   /** request: edit and send requests. response: the reply stops in the proxy and you edit it. */
   mode: 'request' | 'response';
@@ -150,6 +154,8 @@ export interface ArenaAct {
 export interface ArenaLevel extends LevelBase<ArenaAct> {
   kind: 'arena';
   app: ArenaAppId;
+  /** A variant of the app built for a challenge (other names, data and line numbers). */
+  custom?: ArenaApp;
   /** What the app's address bar shows. */
   url: string;
   appName: string;
@@ -192,12 +198,12 @@ export interface CloudAct {
 }
 
 export type CloudLevel = LevelBase<CloudAct> & { kind: 'cloud' } & (
-    | { panel: 'bucket'; policy: string }
-    | { panel: 'iam'; policy: string }
-    | { panel: 'sg'; rules: SgRule[] }
-    | { panel: 'keys' }
+    | { panel: 'bucket'; policy: string; setup?: BucketSetup }
+    | { panel: 'iam'; policy: string; setup?: IamSetup }
+    | { panel: 'sg'; rules: SgRule[]; setup?: SgSetup }
+    | { panel: 'keys'; setup?: KeySetup }
     | { panel: 'scan'; findings: ScanFinding[] }
-    | { panel: 'gateway'; config: string }
+    | { panel: 'gateway'; config: string; setup?: GatewaySetup }
   );
 
 // ---- The Report -----------------------------------------------------------------
@@ -217,8 +223,13 @@ export interface ReportAct {
 export type ReportLevel = LevelBase<ReportAct> & { kind: 'report' } & (
     | { panel: 'phases'; artifacts: Artifact[] }
     | { panel: 'cvss'; target: string; facts: { metric: string; text: string }[]; caseTitle: string; caseBody: string }
-    | { panel: 'finding' }
-    | { panel: 'retest'; clientCode: string }
+    | { panel: 'finding'; spec?: FindingSpec; locker?: Evidence[] }
+    | {
+        panel: 'retest';
+        clientCode: string;
+        /** Challenge: the input the recorded attack used, the two variants, and whether the developers' change really works. */
+        retest?: { attack: Record<string, string>; variants: Record<string, string>[]; labels: [string, string, string]; fixWorks: boolean; title: string };
+      }
     | { panel: 'lab'; compose: string }
   );
 

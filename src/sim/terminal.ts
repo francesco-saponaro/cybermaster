@@ -54,11 +54,18 @@ export const VULNDB: Record<string, CveEntry[]> = {
   'exim 4.87': [{ id: 'CVE-2019-10149', score: 9.8, title: 'Exim 4.87 to 4.91: remote command execution through the recipient address' }],
   'samba 3.5.0': [{ id: 'CVE-2017-7494', score: 9.8, title: 'Samba 3.5.0 and later: a malicious client can upload a shared library and make the server load it' }],
   'openssh 7.2p2': [{ id: 'CVE-2016-6210', score: 5.9, title: 'OpenSSH before 7.3: user enumeration through the time taken to reject a password' }],
+  'exim 4.89': [{ id: 'CVE-2019-10149', score: 9.8, title: 'Exim 4.87 to 4.91: remote command execution through the recipient address' }],
+  'exim 4.91': [{ id: 'CVE-2019-10149', score: 9.8, title: 'Exim 4.87 to 4.91: remote command execution through the recipient address' }],
+  'samba 4.5.9': [{ id: 'CVE-2017-7494', score: 9.8, title: 'Samba 3.5.0 to 4.6.3: a malicious client can upload a shared library and make the server load it' }],
+  'webmin 1.890': [{ id: 'CVE-2019-15107', score: 9.8, title: 'Webmin 1.882 to 1.921: a backdoor in password_change.cgi runs commands without signing in' }],
+  'grafana 8.3.0': [{ id: 'CVE-2021-43798', score: 7.5, title: 'Grafana 8.0.0-beta1 to 8.3.0: path traversal in plugin URLs reads any file on the server' }],
 };
 
 export function lookupCves(product: string, version: string): CveEntry[] {
   const p = product.toLowerCase().replace(/^apache$/, 'apache httpd').replace(/^httpd$/, 'apache httpd');
-  return VULNDB[`${p} ${version.toLowerCase()}`] ?? [];
+  const v = version.toLowerCase();
+  // "exim smtpd 4.89" or "samba smbd 4.5.9" find the same entry as "exim 4.89".
+  return VULNDB[`${p} ${v}`] ?? VULNDB[`${p.split(' ')[0]} ${v}`] ?? [];
 }
 
 // ---- Shell line parsing -----------------------------------------------------
@@ -249,7 +256,7 @@ function versionString(p: Port): string {
   return [p.product, p.version, p.extra].filter(Boolean).join(' ');
 }
 
-const TOP_PORTS = new Set([21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 2121, 8081, 9200, 27017]);
+const TOP_PORTS = new Set([21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3000, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 2121, 8081, 9200, 10000, 27017]);
 
 function nmap(args: string[], net: Network): CommandResult {
   const parsed = parseNmap(args);
@@ -316,7 +323,7 @@ function nmap(args: string[], net: Network): CommandResult {
   return { out, facts, delay: opts.versions ? 900 : 600 };
 }
 
-const SERVICE_NAMES: Record<number, string> = { 21: 'ftp', 22: 'ssh', 23: 'telnet', 25: 'smtp', 53: 'domain', 80: 'http', 110: 'pop3', 139: 'netbios-ssn', 143: 'imap', 443: 'https', 445: 'microsoft-ds', 3306: 'mysql', 3389: 'ms-wbt-server', 5432: 'postgresql', 6379: 'redis', 8080: 'http-proxy' };
+const SERVICE_NAMES: Record<number, string> = { 3000: 'ppp', 10000: 'snet-sensor-mgmt', 9200: 'wap-wsp', 27017: 'mongod', 21: 'ftp', 22: 'ssh', 23: 'telnet', 25: 'smtp', 53: 'domain', 80: 'http', 110: 'pop3', 139: 'netbios-ssn', 143: 'imap', 443: 'https', 445: 'microsoft-ds', 3306: 'mysql', 3389: 'ms-wbt-server', 5432: 'postgresql', 6379: 'redis', 8080: 'http-proxy' };
 
 function curl(args: string[], net: Network): CommandResult {
   let head = false;
@@ -424,7 +431,7 @@ function vulndb(args: string[]): CommandResult {
   const version = args[args.length - 1]!;
   const product = args.slice(0, -1).join(' ');
   const hits = lookupCves(product, version);
-  const facts = [`vulndb:${product.toLowerCase()} ${version.toLowerCase()}`];
+  const facts = [`vulndb:${product.toLowerCase()} ${version.toLowerCase()}`, `vulndb:${product.toLowerCase().split(' ')[0]} ${version.toLowerCase()}`];
   if (!hits.length) return { out: [`No known CVEs for ${product} ${version} in the local database.`], facts };
   const out = [pad('CVE', 16) + pad('CVSS', 6) + 'Summary', '-'.repeat(64)];
   for (const h of hits) out.push(pad(h.id, 16) + pad(h.score.toFixed(1), 6) + h.title);

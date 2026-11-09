@@ -15,7 +15,7 @@ import {
   type StoredCookie,
   type PageView,
 } from '../../sim/http';
-import { SERVERS, corsReport } from '../../sim/wire';
+import { makeServer, corsReport, CORS_DEFAULT } from '../../sim/wire';
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import { Editor } from '../Editor';
@@ -86,7 +86,7 @@ function cookieHeader(jar: StoredCookie[]): string {
 }
 
 function makeReducer(level: WireLevel) {
-  const server = SERVERS[level.server];
+  const server = makeServer(level.server, level.params);
   const fail = (m: Model, reason: string): Model => ({ ...m, failure: { reason, nonce: (m.failure?.nonce ?? 0) + 1 } });
   return function reduce(m: Model, a: Action): Model {
     switch (a.t) {
@@ -422,7 +422,7 @@ function MiniBrowser({ level, model, onNavigate, onConsole, onDismiss }: { level
       </form>
       <div className={`mb-page${res && !res.view ? ' plain' : ''}`} key={model.sends + model.forwarded.length}>
         {isCors ? (
-          <CorsView model={model} />
+          <CorsView model={model} level={level} />
         ) : !res ? (
           <p className="mb-blank">Nothing loaded yet. Press Send{editableUrl ? ', or type a path in the address bar' : ''}.</p>
         ) : res.view ? (
@@ -450,7 +450,7 @@ function MiniBrowser({ level, model, onNavigate, onConsole, onDismiss }: { level
               <span className="k">&gt; </span>
               {c.input}
               {'\n'}
-              <span style={{ color: c.output.includes('session=') ? 'var(--bad-ink)' : undefined }}>{c.output}</span>
+              <span style={{ color: c.output.includes(`${level.params?.httponly?.cookie ?? 'session'}=`) ? 'var(--bad-ink)' : undefined }}>{c.output}</span>
             </div>
           ))}
           <form
@@ -480,23 +480,26 @@ function MiniBrowser({ level, model, onNavigate, onConsole, onDismiss }: { level
   );
 }
 
-function CorsView({ model }: { model: Model }) {
+function CorsView({ model, level }: { model: Model; level: WireLevel }) {
+  const p = level.params?.cors ?? CORS_DEFAULT;
+  const first = p.owner.split(' ')[0];
+  const host = (o: string) => o.replace(/^https?:\/\//, '');
   const last = model.forwarded[model.forwarded.length - 1];
   if (!last) {
-    return <p className="mb-blank">Two pages call this API with Sam's cookies: his bank's dashboard, and a page an attacker lured him to. Send the request and Forward the response to see what each one can read.</p>;
+    return <p className="mb-blank">Two pages call this API with {first}'s cookies: {host(p.trusted)}, where {first} really works, and a page an attacker lured {first} to. Send the request and Forward the response to see what each one can read.</p>;
   }
-  const r = corsReport(last.headers);
+  const r = corsReport(last.headers, p.trusted, p.evil, p.cookie);
   const data = JSON.parse(last.body) as { owner: string; iban: string; balance: string };
   const hsts = header(last.headers, 'strict-transport-security');
   return (
     <div className="slide-in">
-      <h3 style={{ fontSize: '1.1rem' }}>bank.example, Sam's dashboard</h3>
+      <h3 style={{ fontSize: '1.1rem' }}>{host(p.trusted)}, {first}'s dashboard</h3>
       {r.bank.allowed ? (
         <div className="note" data-tone="good">Balance {data.balance}. The page can read its own API.</div>
       ) : (
-        <div className="note" data-tone="bad">Blocked: {r.bank.reason} Sam's own bank page is broken.</div>
+        <div className="note" data-tone="bad">Blocked: {r.bank.reason} {first}'s own page is broken.</div>
       )}
-      <h3 style={{ fontSize: '1.1rem', marginTop: 18 }}>evil.example, a page Sam was lured to</h3>
+      <h3 style={{ fontSize: '1.1rem', marginTop: 18 }}>{host(p.evil)}, a page {first} was lured to</h3>
       {r.evil.allowed ? (
         <div className="note" data-tone="bad">
           Read it all: {data.owner}, {data.iban}, {data.balance}.

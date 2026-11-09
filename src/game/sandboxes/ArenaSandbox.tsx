@@ -22,8 +22,16 @@ const WRONG: Record<string, string> = {
   edit: 'Close, but this line is not where the input does its harm. Click the line the current step names.',
 };
 
+const CHALLENGE_WRONG: Record<string, string> = {
+  head: 'That line only declares the route. Follow the input further down.',
+  pre: 'That line just reads the request. Follow where the value goes next.',
+  post: 'By this line the damage is already done. Look a little higher up.',
+  foot: 'That is the end of the handler. Look for where the input is used.',
+  edit: 'Close, but this line is not where the input does its harm.',
+};
+
 export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaLevel, ArenaAct>) {
-  const app = ARENA_APPS[level.app];
+  const app = level.custom ?? ARENA_APPS[level.app];
   const [found, setFound] = useState(false);
   const [wrongLine, setWrongLine] = useState<number | null>(null);
   const [code, setCode] = useState(app.code.edit);
@@ -61,15 +69,15 @@ export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaL
 
   const replayOriginal = () => {
     play('blip');
-    animate({ nonce: Date.now(), against: 'original', reply: runApp(level.app, app.code.edit, app.attack) });
+    animate({ nonce: Date.now(), against: 'original', reply: runApp(app, app.code.edit, app.attack) });
   };
 
   const replayAgainstFix = (edit: string) => {
     play('blip');
-    const rep = testFix(level.app, edit);
+    const rep = testFix(app, edit);
     setReport(rep);
-    const reply = runApp(level.app, edit, app.attack);
-    const normal = runApp(level.app, edit, app.normal[0]!);
+    const reply = runApp(app, edit, app.attack);
+    const normal = runApp(app, edit, app.normal[0]!);
     animate({ nonce: Date.now(), against: 'fix', reply, report: rep, normal });
     if (rep.reason) fail(rep.reason);
   };
@@ -83,7 +91,7 @@ export function ArenaSandbox({ level, onChecks, fail, act }: SandboxProps<ArenaL
       play('hit');
     } else {
       setWrongLine(lineNo);
-      fail(WRONG[region] ?? WRONG.edit!);
+      fail(level.challenge ? (CHALLENGE_WRONG[region] ?? CHALLENGE_WRONG.edit!) : (WRONG[region] ?? WRONG.edit!));
     }
   };
 

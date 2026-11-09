@@ -3,6 +3,7 @@ import type { ReportAct, ReportLevel } from '../../content/types';
 import { METRICS, METRIC_LABELS, METRIC_VALUES, baseScore, severity, formatVector, parseVector, type Vector, type MetricName } from '../../engine/cvss';
 import { PHASES, placeArtifact, readFinding, labChecks, type FindingDraft } from '../../sim/report';
 import { ARENA_APPS, runApp, loginWithFilterEnv, listing, type Reply } from '../../sim/arena';
+import type { AppInput } from '../../sim/arena';
 import { EVIDENCE } from '../../content/evidence';
 import { useStore } from '../../state/store';
 import { play } from '../../engine/audio';
@@ -205,7 +206,9 @@ function CvssPanel({ level, onChecks, act }: SandboxProps<ReportLevel, ReportAct
 
 const EMPTY: FindingDraft = { title: '', asset: '', vector: formatVector(START_VECTOR), description: '', impact: '', evidence: [], fix: '' };
 
-function FindingPanel({ onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
+function FindingPanel({ level, onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
+  const spec = level.panel === 'finding' ? level.spec : undefined;
+  const custom = level.panel === 'finding' ? level.locker : undefined;
   const { save } = useStore();
   const [d, setD] = useState<FindingDraft>(EMPTY);
   const [verdict, setVerdict] = useState<ReturnType<typeof readFinding> | null>(null);
@@ -223,7 +226,7 @@ function FindingPanel({ onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
 
   const send = (draft: FindingDraft) => {
     play('blip');
-    setVerdict(readFinding(draft));
+    setVerdict(readFinding(draft, spec));
     setSends((n) => n + 1);
     setFocus({ id: 'client', nonce: Date.now() });
   };
@@ -239,7 +242,7 @@ function FindingPanel({ onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
   const set = (k: keyof FindingDraft) => (e: { target: { value: string } }) => setD((x) => ({ ...x, [k]: e.target.value }));
   const toggleEv = (id: string) => setD((x) => ({ ...x, evidence: x.evidence.includes(id) ? x.evidence.filter((e) => e !== id) : [...x.evidence, id] }));
   // Everything is in the locker: what the player collected, the rest from the case file.
-  const locker = EVIDENCE;
+  const locker = custom ?? EVIDENCE;
 
   return (
     <Panes
@@ -257,7 +260,7 @@ function FindingPanel({ onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
                   <div className="row" style={{ alignItems: 'flex-start' }}>
                     <span className="grow small" style={{ fontWeight: 600 }}>
                       {e.title}
-                      <span className="check-detail">{save.evidence.includes(e.id) ? 'You collected this' : e.from ? 'From the case file' : 'Scanner output'}</span>
+                      <span className="check-detail">{custom ? (e.from ? 'From the case file' : 'Scanner output') : save.evidence.includes(e.id) ? 'You collected this' : e.from ? 'From the case file' : 'Scanner output'}</span>
                     </span>
                     <button type="button" className="cbtn cbtn-sm" aria-pressed={d.evidence.includes(e.id)} onClick={() => toggleEv(e.id)}>
                       {d.evidence.includes(e.id) ? 'Attached' : 'Attach'}
@@ -291,7 +294,7 @@ function FindingPanel({ onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
               <label><span className="lbl">Impact</span><textarea className="field" rows={2} value={d.impact} onChange={set('impact')} /></label>
               <div>
                 <span className="lbl">Evidence</span>
-                <p className="small" style={{ margin: 0 }}>{d.evidence.length ? d.evidence.map((id) => EVIDENCE.find((e) => e.id === id)?.title).join('; ') : 'Nothing attached. Use the locker.'}</p>
+                <p className="small" style={{ margin: 0 }}>{d.evidence.length ? d.evidence.map((id) => locker.find((e) => e.id === id)?.title).join('; ') : 'Nothing attached. Use the locker.'}</p>
               </div>
               <label><span className="lbl">Fix</span><textarea className="field" rows={2} value={d.fix} onChange={set('fix')} /></label>
             </div>
@@ -336,28 +339,43 @@ const RETEST_LABELS: Record<Replayed['id'], string> = {
 
 function RetestPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, ReportAct>) {
   const clientCode = level.panel === 'retest' ? level.clientCode : '';
+  const setup = level.panel === 'retest' ? level.retest : undefined;
   const app = ARENA_APPS.login;
+  const attack: AppInput = setup?.attack ?? app.attack;
+  const variants: AppInput[] = setup?.variants ?? app.variants;
+  const labels: Record<Replayed['id'], string> = setup ? { original: setup.labels[0], 'variant-0': setup.labels[1], 'variant-1': setup.labels[2] } : RETEST_LABELS;
   const [runs, setRuns] = useState<Replayed[]>([]);
   const [status, setStatus] = useState<'open' | 'fixed' | 'not-fixed'>('open');
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
-  const bypass = runs.some((r) => r.id !== 'original' && r.reply.harmed);
+  const variantRun = runs.some((r) => r.id !== 'original');
+  const harmed = runs.some((r) => r.id !== 'original' && r.reply.harmed);
+  // On a challenge the developers' change may really work: then trying the variants is the step.
+  const bypass = setup?.fixWorks ? variantRun : harmed;
+  const right = setup?.fixWorks ? 'fixed' : 'not-fixed';
   useEffect(() => {
     onChecks({
       replayed: runs.some((r) => r.id === 'original'),
       bypass,
-      verdict: bypass && status === 'not-fixed',
+      verdict: bypass && status === right,
     });
-  }, [runs, bypass, status, onChecks]);
+  }, [runs, bypass, status, right, onChecks]);
 
   const replay = (id: Replayed['id']) => {
-    const input = id === 'original' ? app.attack : app.variants[id === 'variant-0' ? 0 : 1]!;
-    const reply = runApp('login', clientCode, input, loginWithFilterEnv);
+    const input = id === 'original' ? attack : variants[id === 'variant-0' ? 0 : 1]!;
+    const mark = String(attack.name ?? '');
+    const reply = runApp('login', clientCode, input, (i, log) => loginWithFilterEnv(i, log, mark || undefined));
     play(reply.harmed ? 'miss' : 'hit');
     setRuns((r) => [...r, { id, reply }]);
     setFocus({ id: 'replays', nonce: Date.now() });
   };
   const choose = (s: 'open' | 'fixed' | 'not-fixed') => {
     setStatus(s);
+    if (setup) {
+      if (s === 'open') return;
+      if (!variantRun) fail('You have only replayed the one attack they reported. Replay the variants before you decide.');
+      else if (s !== right) fail(right === 'fixed' ? 'Every variant was refused, so the query no longer takes the input as SQL. Their fix holds.' : 'A variant still got in, so the query is still built from the input.');
+      return;
+    }
     if (s === 'fixed') fail(bypass ? 'A variant still got in, so the query is still built from the input. Set the status to Not fixed.' : 'You have only replayed the one attack they filtered. Press the Variant buttons first, then set the status.');
   };
   useEffect(() => {
@@ -376,15 +394,15 @@ function RetestPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, R
         {
           id: 'replays',
           label: 'Retest',
-          head: <h2>Finding: SQL injection in the login form</h2>,
+          head: <h2>Finding: {setup?.title ?? 'SQL injection in the login form'}</h2>,
           body: (
             <div className="pane-pad stack-12">
               <div>
                 <span className="lbl">Replay against the patched login</span>
                 <div className="stack-12" style={{ gap: 6 }}>
-                  {(Object.keys(RETEST_LABELS) as Replayed['id'][]).map((id) => (
+                  {(Object.keys(labels) as Replayed['id'][]).map((id) => (
                     <button key={id} type="button" className="cbtn" style={{ justifyContent: 'flex-start', height: 'auto', minHeight: 36, padding: '8px 12px', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => replay(id)}>
-                      {RETEST_LABELS[id]}
+                      {labels[id]}
                     </button>
                   ))}
                 </div>
@@ -418,7 +436,7 @@ function RetestPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, R
             <ol className="codelist">
               {lines.map((l, i) => (
                 <li key={i}>
-                  <span className="codeline" data-state={l.region === 'edit' && i === 2 ? 'fault' : undefined} style={{ cursor: 'default' }}>
+                  <span className="codeline" data-state={l.region === 'edit' && i === 2 && !setup ? 'fault' : undefined} style={{ cursor: 'default' }}>
                     <span className="ln">{i + 1}</span>
                     <span className="tx">{l.text}</span>
                   </span>
