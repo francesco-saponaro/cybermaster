@@ -60,3 +60,40 @@ describe('save migration', () => {
     expect(Object.keys(store)).toEqual([SAVE_KEY]);
   });
 });
+
+describe('save version 5', () => {
+  const v4 = {
+    version: 4,
+    name: 'Ines',
+    xp: 1640,
+    levels: { 'wire-robots': { stars: 3, clears: 2, bestSeconds: 41, lastPlayedAt: '2026-11-08T10:00:00Z' } },
+    codex: ['http-anatomy'],
+    badges: ['first-clear', 'flawless'],
+    streak: { count: 2, lastDay: '2026-11-08' },
+    settings: { muted: true },
+    evidence: ['ev-jwt-none'],
+    zones: ['arena'],
+  };
+  it('migrates version 4 keeping every field, with empty challenges, daily, story and incidents', () => {
+    const m = migrate(v4, ctx);
+    const { version: _v, ...kept } = v4;
+    void _v;
+    expect(m).toMatchObject(kept);
+    expect(m.version).toBe(5);
+    expect(m.challenges).toEqual({});
+    expect(m.daily).toEqual({ streak: { count: 0, lastDay: '' }, days: {} });
+    expect(m.story).toEqual({ beats: [], closed: false });
+    expect(m.incidents).toEqual({});
+    expect(m.bestCombo).toBe(0);
+  });
+  it('older versions still arrive at version 5', () => {
+    expect(migrate(v3, ctx).version).toBe(5);
+    expect(migrate({ version: 1, xp: 5 }, ctx).version).toBe(5);
+  });
+  it('a version 5 save round-trips through storage', () => {
+    const store: Record<string, string> = {};
+    const s = { ...migrate(v4, ctx), challenges: { 'wire-robots': { stars: 2, clears: 1, bestSeconds: 30, bestPoints: 850, lastPlayedAt: 'x' } }, bestCombo: 4 };
+    persistSave(s, { setItem: (k, v) => { store[k] = v; } });
+    expect(loadSave({ getItem: (k) => store[k] ?? null })).toEqual(s);
+  });
+});

@@ -55,6 +55,14 @@ export const BADGES: Badge[] = [
   { id: 'codex-half', name: 'Half the codex', how: 'Fill half of the codex.' },
   { id: 'codex-full', name: 'The whole codex', how: 'Fill every codex entry.' },
   { id: 'master', name: 'Master of the Watch', how: 'Reach the Master rank.' },
+  { id: 'challenge-wire', name: 'Wire, unguided', how: 'Clear every challenge in The Wire.' },
+  { id: 'challenge-arena', name: 'Arena, unguided', how: 'Clear every challenge in The Arena.' },
+  { id: 'challenge-perimeter', name: 'Perimeter, unguided', how: 'Clear every challenge in The Perimeter.' },
+  { id: 'challenge-cloud', name: 'Cloud, unguided', how: 'Clear every challenge in The Cloud.' },
+  { id: 'challenge-report', name: 'Report, unguided', how: 'Clear every challenge in The Report.' },
+  { id: 'clean-run', name: 'Clean hands', how: 'Clear a level with no mistakes, no hints and no Show me.' },
+  { id: 'daily-3', name: 'Three cases running', how: "Solve today's case three days in a row." },
+  { id: 'case-closed', name: 'Case closed', how: 'Close the Lantern & Co. case.' },
 ];
 
 export interface ZoneShape {
@@ -78,6 +86,10 @@ export function earnedBadges(save: SaveFile, zones: ZoneShape[], codexTotal: num
   if (codexTotal > 0 && save.codex.length * 2 >= codexTotal) out.add('codex-half');
   if (codexTotal > 0 && save.codex.length >= codexTotal) out.add('codex-full');
   if (rankForLevel(levelFromXp(save.xp)) === 'Master') out.add('master');
+  for (const z of zones) if (z.levelIds.length && z.levelIds.every((id) => (save.challenges[id]?.stars ?? 0) >= 1)) out.add(`challenge-${z.id}`);
+  if (save.daily.streak.count >= 3) out.add('daily-3');
+  if (save.story.closed) out.add('case-closed');
+  if (save.badges.includes('clean-run')) out.add('clean-run');
   return [...out];
 }
 
@@ -97,6 +109,11 @@ export function levelUnlocked(save: SaveFile, zones: ZoneShape[], levelId: strin
   if (!zone || !zoneUnlocked(save, zones, zone.id)) return false;
   const i = zone.levelIds.indexOf(levelId);
   return i === 0 || cleared(save, zone.levelIds[i - 1]!);
+}
+
+/** A level's challenge opens once its guided version is cleared. */
+export function challengeUnlocked(save: SaveFile, levelId: string): boolean {
+  return cleared(save, levelId);
 }
 
 /** The level to play next in a zone: the first one not cleared, or the last. */

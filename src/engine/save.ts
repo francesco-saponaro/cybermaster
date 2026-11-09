@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const SAVE_KEY = 'cybermaster.save';
 
 const RunSchema = z.object({
@@ -12,6 +12,38 @@ const RunSchema = z.object({
   bestSeconds: z.number().min(0),
   lastPlayedAt: z.string(),
 });
+
+const ChallengeRunSchema = z.object({
+  stars: z.number().int().min(0).max(3),
+  clears: z.number().int().min(0),
+  bestSeconds: z.number().min(0),
+  bestPoints: z.number().int().min(0),
+  lastPlayedAt: z.string(),
+});
+
+const DayResultSchema = z.object({
+  levelId: z.string(),
+  stars: z.number().int().min(1).max(3),
+  seconds: z.number().min(0),
+  hints: z.number().int().min(0),
+  points: z.number().int().min(0),
+});
+
+const StreakSchema = z.object({ count: z.number().int().min(0), lastDay: z.string() });
+
+/** Version 4: hands-on levels, no challenges, no story. */
+const V4Fields = {
+  name: z.string().max(24),
+  xp: z.number().int().min(0),
+  levels: z.record(z.string(), RunSchema),
+  codex: z.array(z.string()),
+  badges: z.array(z.string()),
+  streak: StreakSchema,
+  settings: z.object({ muted: z.boolean() }),
+  evidence: z.array(z.string()),
+  zones: z.array(z.string()),
+};
+const V4Schema = z.object({ version: z.literal(4), ...V4Fields });
 
 export const SaveSchema = z.object({
   version: z.literal(SAVE_VERSION),
@@ -26,10 +58,21 @@ export const SaveSchema = z.object({
   evidence: z.array(z.string()),
   /** Zones opened by progress made in an older version of the game. */
   zones: z.array(z.string()),
+  /** Best result of each level's challenge (unguided) version. */
+  challenges: z.record(z.string(), ChallengeRunSchema),
+  /** Today's case: a streak of days played, and the best result of each day. */
+  daily: z.object({ streak: StreakSchema, days: z.record(z.string(), DayResultSchema) }),
+  /** Story beats seen (one per zone), and whether the case is closed. */
+  story: z.object({ beats: z.array(z.string()), closed: z.boolean() }),
+  /** Live incidents won and lost, per boss level. */
+  incidents: z.record(z.string(), z.object({ won: z.number().int().min(0), lost: z.number().int().min(0) })),
+  bestCombo: z.number().int().min(0),
 });
 
 export type SaveFile = z.infer<typeof SaveSchema>;
 export type LevelRun = z.infer<typeof RunSchema>;
+export type ChallengeRunRecord = z.infer<typeof ChallengeRunSchema>;
+export type DayResult = z.infer<typeof DayResultSchema>;
 
 export function emptySave(): SaveFile {
   return {
@@ -43,7 +86,20 @@ export function emptySave(): SaveFile {
     settings: { muted: false },
     evidence: [],
     zones: [],
+    challenges: {},
+    daily: { streak: { count: 0, lastDay: '' }, days: {} },
+    story: { beats: [], closed: false },
+    incidents: {},
+    bestCombo: 0,
   };
+}
+
+/** Version 4 to 5: everything kept, the new parts start empty. */
+function fromV4(v4: z.infer<typeof V4Schema>): SaveFile {
+  const { version: _v, ...rest } = v4;
+  void _v;
+  const fresh = emptySave();
+  return { ...fresh, ...rest, version: SAVE_VERSION };
 }
 
 // Versions 2 and 3 kept a score per mission. The missions are gone (every zone
@@ -91,6 +147,8 @@ function zonesFromCleared(cleared: (id: string) => boolean): string[] {
 export function migrate(raw: unknown, ctx?: MigrationContext): SaveFile {
   const current = SaveSchema.safeParse(raw);
   if (current.success) return current.data;
+  const v4 = V4Schema.safeParse(raw);
+  if (v4.success) return fromV4(v4.data);
   const keepCodex = (ids: string[]) => (ctx ? ids.filter((c) => ctx.codexIds.includes(c)) : ids);
   const keepBadges = (ids: string[]) => (ctx ? ids.filter((b) => ctx.badgeIds.includes(b)) : ids);
 

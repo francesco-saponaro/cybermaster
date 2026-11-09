@@ -27,9 +27,7 @@ export interface ChallengeVariant<L extends Level = Level> {
 
 export type ChallengeGenerator = (rng: Rng) => ChallengeVariant;
 
-/** Points a challenge starts with, and what each hint costs (cumulative). */
-export const START_POINTS = 1000;
-export const HINT_COST = [100, 150, 250];
+export { START_POINTS, HINT_COST } from '../../engine/scoring';
 
 /**
  * Make a challenge level from the guided one: same sandbox and checks, the
