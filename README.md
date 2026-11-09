@@ -2,13 +2,17 @@
 
 A browser game that teaches cybersecurity by having you do the work in small sandboxes. You edit a raw HTTP request and watch the page change, find the line of server code that let an attack through and fix it, sweep a network from a terminal, close a public bucket, and write the finding a client will read.
 
-I built it because I learn a subject fastest when I can poke at it and see what happens. The first version was a set of quizzes with a game skin, and it assumed you already knew the answers. This version works the other way round. Each level gives you one new idea, a two-sentence note in the corner, and a sandbox. You act, and the sandbox reacts straight away. A level is cleared when its checks turn green, which depends on the state of the sandbox, not on picking an answer.
+I built it because I learn a subject fastest when I can poke at it and see what happens. The first version was a set of quizzes with a game skin, and it assumed you already knew the answers. This version works the other way round. Each level gives you one new idea, a two-sentence note in the corner, a short list of steps and a sandbox. You act, and the sandbox reacts straight away. A level is cleared when every step is done, which depends on the state of the sandbox, not on picking an answer.
 
 ## How a level plays
 
-- **A goal and a short note.** Ines, your lead, says what to do in at most two sentences. The first levels of each zone tell you exactly what to type or click. Later ones only give you the goal.
+- **A goal and a short note.** Ines, your lead, says in at most two sentences what the level is about and where to start.
+- **Numbered steps.** Every level, the last ones included, is a list of steps. The current step is open and says exactly what to do: which panel, which button, which line, and what to type, with the values shown in code style. In the Arena the step names the faulty line by its number and its content, and shows the shape of the fix. Later steps show their label and open on a tap.
+- **One line of why.** When a step turns green it collapses to a tick and one sentence on what just happened and why it matters.
+- **Start here.** The first level of each zone points once at the control you begin with (the Send button, the terminal prompt, the code, the policy editor, the work products). On a phone the tab that holds it is marked too.
+- **Mistakes say how to recover.** A wrong move shakes the sandbox and says what went wrong and what to try instead.
+- **On a phone** the steps sit above the sandbox. Once you scroll past them, a bar at the top keeps the current step in sight and opens on a tap.
 - **Terms you can hover.** Underlined words (session id, JWT, CORS, CVE...) open a one-line definition on hover or tap, and the full entry goes into your codex when you clear the level.
-- **Live checks.** A list of checks sits beside the sandbox, like a test suite. Each one turns green as soon as the sandbox reaches that state, and a red one says why in a line.
 - **Show me.** Stuck? Show me does the next step for you and says what it did. It costs a star.
 - **A result card.** One sentence on what you just did, what it is called in the real world, and stars from your Show me uses, failed attempts and time.
 
@@ -31,7 +35,7 @@ npm ci
 npm run dev        # http://localhost:5173
 npm test -- --run  # unit and component tests (Vitest)
 npm run build      # production build into dist/
-npm run e2e        # plays levels in a real browser (Playwright; set CHROME_PATH to use an installed Chrome)
+npm run e2e        # plays every level in a real browser (Playwright; set CHROME_PATH to use an installed Chrome)
 ```
 
 ## Stack
@@ -54,7 +58,7 @@ Every sandbox runs on simulations in `src/sim/`, all pure TypeScript with no net
 - `cloud.ts`: an IAM-style policy evaluator (explicit deny first, then allow, otherwise denied), security group reachability, key rotation, triage and the gateway.
 - `report.ts`: the client's reading of a finding, the phase order and a small YAML reader for the compose file.
 
-Levels are data in `src/content/levels/`. Each one lists its goal, its note, its checks, its Show me steps (each step acts on the sandbox), the codex entries it unlocks and the evidence it hands over. `tests/content.test.ts` checks every level for a goal, a note of no more than two sentences, at least one Show me step, checks that match its success test, and links that resolve.
+Levels are data in `src/content/levels/`. Each one lists its goal, its note, its steps (each with a label, what to do, an optional example and the line it teaches), its Show me steps (each acts on the sandbox), the codex entries it unlocks and the evidence it hands over. `tests/content.test.ts` checks every level for a goal, a note of no more than two sentences, at least one Show me step, steps that match its success test, links that resolve and no literal attack strings. `tests/steps.test.ts` checks that every step says exactly what to do and what it taught. The Playwright play-test clears all 29 levels using only the values it reads from the steps on screen.
 
 ## What is mocked
 
