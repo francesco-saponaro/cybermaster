@@ -314,3 +314,7 @@
 @media (min-width: 700px) and (max-width: 1099px) {
   .inc { position: sticky; top: 0; z-index: 45; }
 }
+
+/* ---- The bonus round under a boss result --------------------------------- */
+.result-bonus { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.875rem; color: #d4d4cf; }
+.result-bonus strong { color: var(--ink); }

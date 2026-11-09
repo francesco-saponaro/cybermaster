@@ -1,0 +1,35 @@
+/* The arcade list: one row per game, the zone's reticle on the left, the best
+   score and the way in on the right. */
+.arcade-page { padding-block: clamp(28px, 5vw, 56px) clamp(40px, 6vw, 72px); }
+.arcade-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 28px; }
+.arcade-head h1 { font-size: var(--step-head); }
+.arcade-lead { margin: 12px 0 0; max-width: 620px; font-size: var(--step-lead); line-height: 1.35; color: #dcdcd8; }
+.arcade-totals { display: flex; gap: 28px; margin: 0; }
+.arcade-totals dt { color: var(--muted); font-family: var(--font-display); font-weight: 600; font-size: var(--step-small); }
+.arcade-totals dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 800; font-size: 1.75rem; letter-spacing: -0.02em; }
+.arcade-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.arcade-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 260px;
+  gap: 22px;
+  align-items: center;
+  padding: 20px 22px;
+  background: var(--surface);
+  border-radius: var(--r);
+}
+.arcade-row[data-open='false'] .arcade-text { opacity: 0.6; }
+.arcade-zone { margin: 0; color: var(--accent-text); font-family: var(--font-display); font-weight: 700; font-size: 0.875rem; }
+.arcade-text h2 { font-size: 1.5rem; letter-spacing: -0.02em; margin-top: 2px; }
+.arcade-tag { margin: 6px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 1rem; }
+.arcade-teaches { margin: 6px 0 0; color: var(--muted); font-size: 0.9375rem; line-height: 1.5; max-width: 640px; }
+.arcade-side { display: grid; gap: 10px; justify-items: end; text-align: right; }
+.arcade-best { margin: 0; display: flex; gap: 10px; align-items: center; font-family: var(--font-display); font-weight: 650; }
+.arcade-play { min-width: 140px; }
+.arcade-locked { margin: 0; color: var(--muted); font-size: var(--step-small); line-height: 1.45; }
+.arcade-foot { margin-top: 20px; }
+@media (max-width: 799px) {
+  .arcade-row { grid-template-columns: 40px minmax(0, 1fr); gap: 14px 16px; padding: 16px; align-items: start; }
+  .arcade-mark svg { width: 40px; height: 40px; }
+  .arcade-side { grid-column: 2; justify-items: start; text-align: left; }
+  .arcade-text h2 { font-size: 1.3rem; }
+}

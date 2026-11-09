@@ -32,6 +32,9 @@ export function TopBar() {
           <Link to="/case" className="navlink" data-active={is('/case')}>
             Case
           </Link>
+          <Link to="/arcade" className="navlink" data-active={is('/arcade')}>
+            Arcade
+          </Link>
           <Link to="/codex" className="navlink" data-active={is('/codex')}>
             Codex
           </Link>

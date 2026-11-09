@@ -40,6 +40,17 @@ const challengeRoute = createRoute({
   },
   component: lazyRouteComponent(LevelRoute, 'ChallengePage'),
 });
+const seedSearch = (search: Record<string, unknown>): { seed?: number } => {
+  const n = Number(search.seed);
+  return Number.isFinite(n) && n >= 0 && search.seed !== undefined && search.seed !== '' ? { seed: Math.floor(n) >>> 0 } : {};
+};
+const arcadeRoute = createRoute({ getParentRoute: () => site, path: 'arcade', component: lazyRouteComponent(() => import('./routes/Arcade'), 'ArcadePage') });
+// Each game is its own chunk, loaded when it is opened.
+const packetRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/packet-runner', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/PacketRunner'), 'PacketRunnerPage') });
+const towerRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/tower-defence', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/TowerDefence'), 'TowerDefencePage') });
+const sweeperRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/network-sweeper', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/Sweeper'), 'SweeperPage') });
+const lockdownRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/lockdown', component: lazyRouteComponent(() => import('./arcade/games/Lockdown'), 'LockdownPage') });
+const triageRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/triage-rush', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/Triage'), 'TriagePage') });
 const dailyRoute = createRoute({ getParentRoute: () => rootRoute, path: 'daily', component: lazyRouteComponent(LevelRoute, 'DailyPage') });
 // Old mission links from the first version of the game land on the zones.
 const oldMission = createRoute({
@@ -50,7 +61,7 @@ const oldMission = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, profileRoute, caseRoute, endingRoute]), levelRoute, challengeRoute, dailyRoute, oldMission]);
+const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, profileRoute, caseRoute, endingRoute, arcadeRoute]), levelRoute, packetRoute, towerRoute, sweeperRoute, lockdownRoute, triageRoute, challengeRoute, dailyRoute, oldMission]);
 
 export const router = createRouter({
   routeTree,

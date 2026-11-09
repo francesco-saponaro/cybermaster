@@ -275,3 +275,8 @@
   .route::before { left: 32px; right: auto; top: 32px; bottom: 32px; width: 1px; height: auto; }
   .route-link { grid-template-columns: 64px minmax(0, 1fr); gap: 18px; align-items: start; }
 }
+
+/* ---- The zone's bonus round ---------------------------------------------- */
+.zone-bonus { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.zone-bonus-name { margin: 0; font-family: var(--font-display); font-size: 0.9375rem; }
+.zone-bonus-line { margin: 4px 0 0; color: var(--muted); font-size: var(--step-small); display: flex; gap: 8px; align-items: center; }

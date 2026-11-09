@@ -10,6 +10,8 @@ import { BeatCard } from '../components/Beat';
 import type { ZoneId } from '../content/types';
 import { formatSeconds } from '../engine/scoring';
 import { plain } from '../game/Rich';
+import { ARCADE_BY_ZONE } from '../content/arcade';
+import { arcadeUnlocked } from '../engine/arcade';
 
 /** The zone's levels as stations on a winding path. The line is drawn between the measured node centres, so it fits any width. */
 export function ZonePage() {
@@ -162,9 +164,36 @@ export function ZonePage() {
                 Replay the briefing
               </button>
             ) : null}
+            <BonusRound zoneId={zone.id} />
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+/** The zone's arcade game: locked until the boss is cleared, then a way in with the best score. */
+function BonusRound({ zoneId }: { zoneId: string }) {
+  const { save } = useStore();
+  const g = ARCADE_BY_ZONE[zoneId as ZoneId];
+  if (!g) return null;
+  const open = arcadeUnlocked(save, zoneShapes, zoneId);
+  const rec = save.arcade[g.id];
+  return (
+    <div className="zone-bonus">
+      <p className="zone-bonus-name">
+        Bonus round: <strong>{g.title}</strong>
+      </p>
+      {open ? (
+        <>
+          <p className="zone-bonus-line tnum">{rec ? <>Best {rec.best.toLocaleString('en-GB')} <Stars count={rec.stars} size={12} /></> : g.tagline}</p>
+          <Link to={`/arcade/${g.id}` as '/arcade/packet-runner'} search={{}} className="btn btn-ghost zone-beat">
+            {rec ? 'Play it again' : 'Play the bonus round'}
+          </Link>
+        </>
+      ) : (
+        <p className="zone-bonus-line">Opens when you beat the boss.</p>
+      )}
     </div>
   );
 }

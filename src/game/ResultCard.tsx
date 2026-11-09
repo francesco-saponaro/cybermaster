@@ -7,6 +7,7 @@ import { CODEX_BY_ID } from '../content/codex';
 import { EVIDENCE_BY_ID } from '../content/evidence';
 import { BADGES } from '../engine/progress';
 import { formatSeconds, starNotes } from '../engine/scoring';
+import { ARCADE_BY_ZONE } from '../content/arcade';
 
 export function ResultCard({
   level,
@@ -90,6 +91,16 @@ export function ResultCard({
             </Link>
           ) : null}
         </div>
+        {level.boss && ARCADE_BY_ZONE[level.zone] ? (
+          <p className="result-bonus">
+            <span>
+              Bonus round open: <strong>{ARCADE_BY_ZONE[level.zone].title}</strong>, {ARCADE_BY_ZONE[level.zone].tagline.toLowerCase()}.
+            </span>
+            <Link to={`/arcade/${ARCADE_BY_ZONE[level.zone].id}` as '/arcade/packet-runner'} search={{}} className="cbtn">
+              Play the bonus round
+            </Link>
+          </p>
+        ) : null}
       </div>
     </div>
   );
