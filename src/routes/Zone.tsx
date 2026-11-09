@@ -79,6 +79,7 @@ export function ZonePage() {
         <h1 style={{ fontSize: 'clamp(1.5rem, 1.2rem + 1vw, 2rem)' }}>{zone.name}</h1>
         <p style={{ color: 'var(--muted)', margin: '6px 0 0', fontSize: 'var(--step-lead)', lineHeight: 1.3 }}>{zone.tagline}</p>
       </header>
+      {beatOpen && open ? <BeatCard zoneId={zone.id as ZoneId} onClose={closeBeat} /> : null}
       <div className="zone-grid">
         <div>
           <div className="zmap" ref={mapRef} aria-label={`${zone.name} levels`}>
@@ -164,7 +165,6 @@ export function ZonePage() {
           </div>
         </aside>
       </div>
-      {beatOpen && open ? <BeatCard zoneId={zone.id as ZoneId} onClose={closeBeat} /> : null}
     </div>
   );
 }

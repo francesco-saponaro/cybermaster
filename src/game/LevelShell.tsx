@@ -68,6 +68,7 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
   const comboRef = useRef<Combo>(COMBO_START);
   const mainRef = useRef<HTMLElement>(null);
   const prevPass = useRef<Record<string, boolean>>({});
+  const baselined = useRef(false);
   const hint = useStartHintState(level.zone, index === 0 && guided);
   const currentRef = useRef<HTMLLIElement | null>(null);
   const [barVisible, setBarVisible] = useState(false);
@@ -120,6 +121,11 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
   const onChecks = useCallback((c: Record<string, boolean | CheckState>) => {
     const norm: Record<string, CheckState> = {};
     for (const [k, v] of Object.entries(c)) norm[k] = typeof v === 'boolean' ? { pass: v } : v;
+    // The sandbox's first report is the starting point: a check already true at the start (normal use still works, say) is not a move.
+    if (!baselined.current) {
+      baselined.current = true;
+      prevPass.current = Object.fromEntries(Object.entries(norm).map(([k, v]) => [k, v.pass]));
+    }
     setChecks((prev) => {
       const same = Object.keys(norm).length === Object.keys(prev).length && Object.entries(norm).every(([k, v]) => prev[k]?.pass === v.pass && prev[k]?.detail === v.detail);
       return same ? prev : norm;
@@ -223,6 +229,7 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
   const restart = () => {
     done.current = false;
     prevPass.current = {};
+    baselined.current = false;
     comboRef.current = COMBO_START;
     setCombo(COMBO_START);
     setChecks({});

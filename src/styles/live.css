@@ -16,7 +16,7 @@
   cursor: pointer;
 }
 .lv-icon:hover { color: var(--ink); background: #161616; }
-.lv-par { color: var(--muted-2); }
+.lv-par { color: var(--muted); }
 .lv-clock [data-over='true'] { color: var(--accent-text); }
 @media (max-width: 459px) { .hide-xs { display: none !important; } .lv-par { display: none; } }
 
@@ -127,7 +127,7 @@
   grid-template-areas: 'head head' 'track data';
   gap: 8px 16px;
   align-items: center;
-  padding: 10px var(--console-pad);
+  padding: 10px 16px;
   border-bottom: 1px solid #2a1416;
   background: #0f0a0b;
   flex-shrink: 0;
@@ -166,7 +166,7 @@
   .inc { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'head' 'track' 'data'; gap: 6px; position: sticky; top: 0; z-index: 45; }
   .inc-threat { display: none; }
   .inc-head { justify-content: space-between; }
-  .inc-stage { padding: 0 4px; font-size: 0.625rem; text-align: center; }
+  .inc-stage { padding: 0 2px; font-size: 0.6875rem; letter-spacing: -0.01em; text-align: center; }
 }
 
 /* The screen edge warms as the attacker gets further. */
@@ -191,8 +191,7 @@
 @media (max-width: 1099px) { .lv-body[data-incident='true'] { height: auto; } }
 
 /* ---- Story beat card ------------------------------------------------------ */
-.beat-veil { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.82); overflow: auto; }
-.beat { width: min(600px, 100%); padding: clamp(20px, 4vw, 32px); background: #101010; border: 1px solid #2c2c2c; border-radius: var(--r); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); }
+.beat { padding: clamp(20px, 4vw, 32px); margin: 0 0 28px; background: var(--surface); border: 1px solid #3a1d20; border-radius: var(--r); max-width: 760px; }
 .beat-top { display: flex; align-items: center; gap: 10px; }
 .beat-lines { list-style: none; margin: 22px 0 0; padding: 0; display: grid; gap: 18px; }
 .beat-lines li { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; }
@@ -235,7 +234,7 @@
 
 /* ---- Title screen: today's case and the case board ---------------------- */
 .hero-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: clamp(24px, 4vw, 64px); align-items: center; }
-.hero-daily .daily-card { background: rgba(16, 16, 16, 0.94); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); }
+.hero-daily .daily-card { background: var(--surface); }
 @media (max-width: 999px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .hero-daily { max-width: 560px; } }
 .home-cards { padding-top: clamp(28px, 4vw, 48px); }
 .case-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; }
@@ -269,9 +268,9 @@
 .tl li::before { content: ''; position: absolute; left: -23px; top: 6px; width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--muted-2); background: var(--bg); }
 .tl li[data-found='true']::before { border-color: var(--accent); background: var(--accent); }
 .tl-time { font-family: var(--font-display); font-weight: 650; font-size: 0.8125rem; color: var(--accent-text); }
-.tl li[data-found='false'] .tl-time { color: var(--muted-2); }
+.tl li[data-found='false'] .tl-time { color: var(--muted); }
 .tl-text { font-size: 0.9375rem; line-height: 1.4; }
-.tl li[data-found='false'] .tl-text { color: var(--muted-2); }
+.tl li[data-found='false'] .tl-text { color: var(--muted); }
 .pin-zone + .pin-zone { margin-top: 26px; }
 .pin-zone h3 { font-size: 1rem; margin: 14px 0 10px; display: flex; gap: 10px; align-items: baseline; }
 .pins { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }

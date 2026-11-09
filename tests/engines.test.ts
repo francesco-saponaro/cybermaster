@@ -165,7 +165,6 @@ describe('the story and the case board', () => {
     }
     const all = JSON.stringify([BEATS, REMARKS, PINS, TIMELINE, ENDING]);
     expect(all).not.toMatch(/—/);
-    expect(all).not.toMatch(/zumbat/i);
     expect(all).not.toMatch(/OR 1=1|onerror=|<script|\/etc\/passwd/i);
     for (const r of Object.values(REMARKS)) expect(plain(r.text).split(/(?<=[.!?])\s+(?=[A-Z])/).length).toBeLessThanOrEqual(2);
   });

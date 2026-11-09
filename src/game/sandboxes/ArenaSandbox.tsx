@@ -227,7 +227,7 @@ function AppIdle({ app }: { app: ArenaApp }) {
         </div>
       );
     case 'invoices':
-      return <h3>GET /api/invoices/:id</h3>;
+      return <h3>GET {/'([^']+)'/.exec(app.code.head)?.[1] ?? '/api/invoices/:id'}</h3>;
     case 'ping':
       return (
         <div aria-hidden="true">
