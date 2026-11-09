@@ -1,0 +1,124 @@
+/* CyberMaster design tokens. Direction: One motif (seed 642382216).
+   The motif is the scope ring: three concentric circles of a rifle-scope /
+   reticle, taken straight from the game's own mark. It runs the whole system:
+   the logo, the zone nodes, the XP ring, the button corners, the loader.
+   Palette: black and crimson (from the drawn sheet). One accent, used on
+   data and on one action at a time. */
+
+:root {
+  /* Ground and ink */
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --surface-2: #1c1c1c;
+  --line: #2a2a2a;
+  --ink: #f2f2f0;
+  --muted: #9a9a97;
+  --muted-2: #6f6f6c;
+
+  /* The one accent. --accent is the fill (white text sits on it); --accent-text
+     is its lighter tint, used wherever the accent is small text on the dark
+     ground so it clears 4.5:1. */
+  --accent: #d11a2a;
+  --accent-text: #ff5a66;
+  --accent-dim: #8e141f;
+  --accent-ink: #ffffff;
+
+  /* Status, used only on verdicts and meters */
+  --good: #35b36a;
+  --warn: #d9a21b;
+  --bad: #d11a2a;
+  --info: #4a9fd4;
+
+  /* Rank colours, pale, for identity not data */
+  --rank-recruit: #8a8a87;
+  --rank-analyst: #4a9fd4;
+  --rank-hunter: #d9a21b;
+  --rank-master: #d11a2a;
+
+  /* One radius family */
+  --r-sm: 6px;
+  --r: 12px;
+  --r-lg: 20px;
+
+  /* Type steps */
+  --step-small: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --step-body: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  --step-lead: clamp(1.2rem, 1.08rem + 0.6vw, 1.55rem);
+  --step-head: clamp(1.6rem, 1.1rem + 2.4vw, 3rem);
+  --step-hero: clamp(2.8rem, 1.1rem + 8vw, 7rem);
+
+  --font-display: 'Libre Franklin Variable', system-ui, sans-serif;
+  --font-text: 'Source Serif 4 Variable', Georgia, serif;
+
+  --maxw: 1200px;
+  --gutter: clamp(16px, 4vw, 56px);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-text);
+  font-size: var(--step-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, .display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: var(--font-display);
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Tabular figures everywhere numbers line up */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The scope-ring motif as a reusable mark, drawn with inline SVG elsewhere */
+.scope {
+  display: inline-grid;
+  place-items: center;
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
