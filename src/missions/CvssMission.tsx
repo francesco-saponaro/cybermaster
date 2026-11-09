@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
-import type { CvssMission } from '../content/types';
+import { useMemo, useRef, useState } from 'react';
+import type { CvssMission, Mistake } from '../content/types';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { METRICS, METRIC_LABELS, METRIC_VALUES, baseScore, formatVector, parseVector, severity, compareVectors, type Vector, type MetricName } from '../engine/cvss';
 import { cvssScore, clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
@@ -18,11 +20,13 @@ function startVector(): Vector {
 
 // CVSS Forge: eight dials, each a row of value buttons. The live score settles
 // as you set them. Scored against the real FIRST vector for the case.
-export function CvssMissionView({ mission, onFinish }: { mission: CvssMission; onFinish: (score: number) => void }) {
+export function CvssMissionView({ mission, onFinish }: MissionProps<CvssMission>) {
   const [caseIndex, setCaseIndex] = useState(0);
   const [vector, setVector] = useState<Vector>(startVector);
   const [results, setResults] = useState<number[]>([]);
   const [revealed, setRevealed] = useState(false);
+  const hint = useHint();
+  const mistakesRef = useRef<Mistake[]>([]);
 
   const current = mission.cases[caseIndex]!;
   const target = useMemo(() => parseVector(current.vector), [current.vector]);
@@ -40,13 +44,16 @@ export function CvssMissionView({ mission, onFinish }: { mission: CvssMission; o
     const s = cvssScore(matched, scoreGap);
     play(s >= 75 ? 'hit' : 'miss');
     setResults((r) => [...r, s]);
+    if (s < 100) {
+      mistakesRef.current.push({ concept: current.concept, what: `${current.title}: your vector scored ${s}/100`, why: current.explain, correct: current.vector });
+    }
     setRevealed(true);
   }
 
   function next() {
     if (caseIndex + 1 >= mission.cases.length) {
       const all = [...results];
-      onFinish(clampScore(all.reduce((a, b) => a + b, 0) / all.length));
+      onFinish({ score: clampScore(all.reduce((a, b) => a + b, 0) / all.length), mistakes: mistakesRef.current });
     } else {
       setCaseIndex((i) => i + 1);
       setVector(startVector());
@@ -81,7 +88,8 @@ export function CvssMissionView({ mission, onFinish }: { mission: CvssMission; o
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {METRIC_VALUES[m].map((val) => {
                       const sel = vector[m] === val;
-                      const isTarget = revealed && target[m] === val;
+                      // the hint reveals the answer for the first metric only, as a worked example
+                      const isTarget = (revealed || (hint.active && m === METRICS[0])) && target[m] === val;
                       return (
                         <button
                           key={val}

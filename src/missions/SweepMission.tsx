@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import type { SweepMission } from '../content/types';
+import type { SweepMission, Mistake } from '../content/types';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
 
@@ -7,12 +9,13 @@ type Phase = 'scanning' | 'read' | 'q1' | 'q2' | 'done';
 
 // Port Sweep: a radar sweep reveals the host's open ports, then you read the
 // output and answer. The radar is a canvas; everything else is data.
-export function SweepMissionView({ mission, onFinish }: { mission: SweepMission; onFinish: (score: number) => void }) {
+export function SweepMissionView({ mission, onFinish }: MissionProps<SweepMission>) {
   const [phase, setPhase] = useState<Phase>('scanning');
   const [revealed, setRevealed] = useState(0);
   const [q1Pick, setQ1Pick] = useState<number | null>(null);
   const [q2Pick, setQ2Pick] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const hint = useHint();
 
   // reveal ports one by one during the scan
   useEffect(() => {
@@ -143,7 +146,15 @@ export function SweepMissionView({ mission, onFinish }: { mission: SweepMission;
     } else {
       s = q1ok ? 100 : 20;
     }
-    onFinish(clampScore(s));
+    const mistakes: Mistake[] = [];
+    if (!q1ok) {
+      const p = mission.ports[mission.answer]!;
+      mistakes.push({ concept: mission.concept, what: mission.question, why: mission.explain, correct: `${p.port}/${p.proto} ${p.service}` });
+    }
+    if (mission.secondQuestion && !q2ok) {
+      mistakes.push({ concept: mission.secondQuestion.concept, what: mission.secondQuestion.prompt, why: mission.secondQuestion.explain, correct: mission.secondQuestion.options[mission.secondQuestion.answer] ?? '' });
+    }
+    onFinish({ score: clampScore(s), mistakes });
   }
 
   return (
@@ -174,6 +185,8 @@ export function SweepMissionView({ mission, onFinish }: { mission: SweepMission;
                     borderBottom: i < mission.ports.length - 1 ? '1px solid var(--line)' : 'none',
                     opacity: i < revealed ? 1 : 0.12,
                     transition: 'opacity 0.3s',
+                    boxShadow: hint.active && phase !== 'scanning' && i === mission.answer ? 'inset 3px 0 0 var(--accent)' : 'none',
+                    background: hint.active && phase !== 'scanning' && i === mission.answer ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent',
                   }}
                 >
                   <span style={{ color: 'var(--accent-text)' }}>

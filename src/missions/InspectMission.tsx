@@ -1,18 +1,22 @@
 import { useMemo, useRef, useState } from 'react';
-import type { InspectMission } from '../content/types';
+import type { InspectMission, Mistake } from '../content/types';
 import { GameHud } from './GameHud';
 import { TimerPill, useCountdown } from '../components/MissionShell';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { accuracyScore, clampScore, timeBonus } from '../engine/scoring';
 import { play } from '../engine/audio';
 
 type LineState = 'idle' | 'hit' | 'wrong';
 
-export function InspectMissionView({ mission, onFinish }: { mission: InspectMission; onFinish: (score: number) => void }) {
+export function InspectMissionView({ mission, onFinish }: MissionProps<InspectMission>) {
   const totalTargets = useMemo(() => mission.docs.reduce((n, d) => n + d.targets.length, 0), [mission.docs]);
   const [flags, setFlags] = useState<Record<string, LineState>>({});
   const [found, setFound] = useState(0);
   const [done, setDone] = useState(false);
   const [note, setNote] = useState<{ text: string; tone: 'good' | 'bad' } | null>(null);
+  const hint = useHint();
+  const mistakesRef = useRef<Mistake[]>([]);
 
   // Refs so finish() always scores from the latest counts, even when fired from
   // a timeout or the countdown callback.
@@ -36,7 +40,15 @@ export function InspectMissionView({ mission, onFinish }: { mission: InspectMiss
     const elapsed = mission.seconds - leftRef.current;
     const base = accuracyScore(foundRef.current, totalTargets, missRef.current, 0.6);
     const bonus = foundRef.current === totalTargets && missRef.current === 0 ? timeBonus(elapsed, 30, mission.seconds) : 0;
-    onFinish(clampScore(base + bonus));
+    // any target not flagged is a mistake for the debrief
+    for (const [di, doc] of mission.docs.entries()) {
+      for (const t of doc.targets) {
+        if (flags[key(di, t.line)] !== 'hit') {
+          mistakesRef.current.push({ concept: t.concept, what: `${doc.name}, line ${t.line + 1} not flagged`, why: t.reason, correct: doc.lines[t.line] ?? '' });
+        }
+      }
+    }
+    onFinish({ score: clampScore(base + bonus), mistakes: mistakesRef.current });
   }
 
   function clickLine(di: number, li: number) {
@@ -55,6 +67,7 @@ export function InspectMissionView({ mission, onFinish }: { mission: InspectMiss
     } else {
       setFlags((f) => ({ ...f, [k]: 'wrong' }));
       missRef.current += 1;
+      mistakesRef.current.push({ concept: 'http-anatomy', what: `${doc.name}, line ${li + 1} flagged by mistake`, why: 'This line carries no weakness.', correct: 'Leave clean lines unflagged.' });
       setNote({ text: 'That line is fine. Look again.', tone: 'bad' });
       play('miss');
     }
@@ -85,6 +98,7 @@ export function InspectMissionView({ mission, onFinish }: { mission: InspectMiss
             <div className="raw" style={{ padding: '6px 0' }}>
               {doc.lines.map((line, li) => {
                 const st = flags[key(di, li)];
+                const hinted = hint.active && st !== 'hit' && doc.targets.some((t) => t.line === li);
                 return (
                   <button
                     key={li}
@@ -105,7 +119,10 @@ export function InspectMissionView({ mission, onFinish }: { mission: InspectMiss
                           ? 'color-mix(in srgb, var(--accent) 22%, transparent)'
                           : st === 'wrong'
                             ? 'color-mix(in srgb, var(--muted-2) 16%, transparent)'
-                            : 'transparent',
+                            : hinted
+                              ? 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                              : 'transparent',
+                      boxShadow: hinted ? 'inset 3px 0 0 var(--accent)' : 'none',
                       fontFamily: 'inherit',
                       fontSize: 'inherit',
                       whiteSpace: 'pre-wrap',

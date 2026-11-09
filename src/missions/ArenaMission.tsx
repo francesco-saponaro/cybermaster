@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ArenaMission } from '../content/types';
+import type { ArenaMission, Mistake } from '../content/types';
 import { GameHud } from './GameHud';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
 
@@ -9,6 +11,7 @@ interface Enemy {
   attack: string;
   defence: string;
   explain: string;
+  concept: string;
   x: number; // 0..1 lane position
   y: number; // 0..1, 1 = reached you
   speed: number;
@@ -19,8 +22,10 @@ interface Enemy {
 // A top-down lane defender on canvas. Enemies are labelled attacks drifting
 // toward you; arm the matching defence and fire. The loop runs at the display
 // refresh; all content comes from the mission data.
-export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission; onFinish: (score: number) => void }) {
+export function ArenaMissionView({ mission, onFinish }: MissionProps<ArenaMission>) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mistakesRef = useRef<Mistake[]>([]);
+  const hint = useHint();
   const [armed, setArmed] = useState(mission.defences[0]!.id);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(mission.lives);
@@ -29,6 +34,20 @@ export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission;
   const [note, setNote] = useState<{ text: string; tone: 'good' | 'bad' } | null>(null);
   const [shakeOn, setShakeOn] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [hintDefence, setHintDefence] = useState<string | null>(null);
+
+  // when the hint is on, name the defence the nearest attack needs
+  useEffect(() => {
+    if (!hint.active) {
+      setHintDefence(null);
+      return;
+    }
+    const t = setInterval(() => {
+      const live = enemies.current.filter((e) => !e.dead && e.y > -0.1).sort((a, b) => b.y - a.y);
+      setHintDefence(live[0]?.defence ?? null);
+    }, 250);
+    return () => clearInterval(t);
+  }, [hint.active]);
 
   // live refs the loop reads
   const armedRef = useRef(armed);
@@ -55,6 +74,7 @@ export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission;
           attack: w.attack,
           defence: w.defence,
           explain: w.explain,
+          concept: w.concept,
           x: 0.12 + ((i + wi) % 4) * 0.22,
           y: -0.15 - i * 0.18 - wi * 1.1,
           speed: 0.035 + wi * 0.012,
@@ -71,7 +91,7 @@ export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission;
     if (finishedRef.current) return;
     finishedRef.current = true;
     setDone(true);
-    onFinish(clampScore(result));
+    onFinish({ score: clampScore(result), mistakes: mistakesRef.current });
   }
 
   function fire() {
@@ -97,6 +117,7 @@ export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission;
       checkDone();
     } else {
       target.hitFlash = 1;
+      mistakesRef.current.push({ concept: target.concept, what: `Wrong defence armed for ${target.attack}`, why: target.explain, correct: mission.defences.find((d) => d.id === target.defence)?.label ?? '' });
       damage(`Wrong defence for ${target.attack.split(':')[0]}. ${target.explain}`);
     }
   }
@@ -184,6 +205,7 @@ export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission;
           if (e.hitFlash > 0) e.hitFlash -= dt * 3;
           if (e.y >= 1) {
             e.dead = true;
+            mistakesRef.current.push({ concept: e.concept, what: `${e.attack} reached you`, why: e.explain, correct: mission.defences.find((d) => d.id === e.defence)?.label ?? '' });
             damage(`${e.attack.split(':')[0]} reached you. ${e.explain}`);
           }
         }
@@ -313,8 +335,8 @@ export function ArenaMissionView({ mission, onFinish }: { mission: ArenaMission;
             style={{
               padding: '10px 14px',
               borderRadius: 'var(--r-sm)',
-              borderColor: armed === d.id ? 'var(--accent)' : 'var(--line)',
-              background: armed === d.id ? 'color-mix(in srgb, var(--accent) 18%, var(--surface))' : 'var(--surface)',
+              borderColor: armed === d.id ? 'var(--accent)' : hintDefence === d.id ? 'var(--good)' : 'var(--line)',
+              background: armed === d.id ? 'color-mix(in srgb, var(--accent) 18%, var(--surface))' : hintDefence === d.id ? 'color-mix(in srgb, var(--good) 14%, var(--surface))' : 'var(--surface)',
               cursor: done ? 'default' : 'pointer',
               fontFamily: 'var(--font-text)',
               color: 'var(--ink)',

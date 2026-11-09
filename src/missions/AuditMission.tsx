@@ -1,18 +1,22 @@
-import { useState } from 'react';
-import type { AuditMission } from '../content/types';
+import { useRef, useState } from 'react';
+import type { AuditMission, Mistake } from '../content/types';
 import { GameHud } from './GameHud';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
 
-// Cloud Watch / Cookie Jar: for each resource decide ok vs bad, and if bad pick
-// the reason. Scored on the verdict and the reason together.
-export function AuditMissionView({ mission, onFinish }: { mission: AuditMission; onFinish: (score: number) => void }) {
+// Cloud Watch: for each resource decide ok vs bad, and if bad pick the reason.
+// Scored on the verdict and the reason together.
+export function AuditMissionView({ mission, onFinish }: MissionProps<AuditMission>) {
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [got, setGot] = useState(0); // points of correctness accumulated
   const [verdict, setVerdict] = useState<boolean | null>(null);
   const [reason, setReason] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
+  const hint = useHint();
+  const mistakesRef = useRef<Mistake[]>([]);
 
   const r = mission.resources[index]!;
   const isLast = index + 1 >= mission.resources.length;
@@ -28,12 +32,20 @@ export function AuditMissionView({ mission, onFinish }: { mission: AuditMission;
     else add = verdictOk ? 1 : 0;
     setGot((g) => g + add);
     setScore((s) => s + Math.round(add * 100));
+    if (!(verdictOk && reasonOk)) {
+      mistakesRef.current.push({
+        concept: r.concept,
+        what: `${r.name}: you said ${verdict ? mission.badLabel.toLowerCase() : mission.okLabel.toLowerCase()}${r.exposed && !reasonOk ? ' (reason off)' : ''}`,
+        why: r.explain,
+        correct: r.exposed ? `${mission.badLabel}: ${r.reasons[r.answer]}` : mission.okLabel,
+      });
+    }
     play(verdictOk && reasonOk ? 'hit' : 'miss');
   }
 
   function next() {
     if (isLast) {
-      onFinish(clampScore(((got) / mission.resources.length) * 100));
+      onFinish({ score: clampScore(((got) / mission.resources.length) * 100), mistakes: mistakesRef.current });
       return;
     }
     setIndex((i) => i + 1);
@@ -60,7 +72,7 @@ export function AuditMissionView({ mission, onFinish }: { mission: AuditMission;
         </div>
         <div className="panel-2 raw" style={{ borderRadius: 'var(--r-sm)', padding: '12px 16px', margin: '10px 0', fontSize: '0.82rem', lineHeight: 1.7 }}>
           {r.config.map((line, i) => (
-            <div key={i} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            <div key={i} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: hint.active && r.exposed ? 'var(--accent-text)' : 'var(--ink)' }}>
               {line}
             </div>
           ))}
@@ -78,8 +90,8 @@ export function AuditMissionView({ mission, onFinish }: { mission: AuditMission;
               style={{
                 flex: 1,
                 padding: '12px',
-                borderColor: verdict === val ? 'var(--accent)' : 'var(--line)',
-                background: verdict === val ? 'color-mix(in srgb, var(--accent) 16%, var(--surface))' : 'var(--surface)',
+                borderColor: verdict === val ? 'var(--accent)' : hint.active && !checked && val === r.exposed ? 'var(--good)' : 'var(--line)',
+                background: verdict === val ? 'color-mix(in srgb, var(--accent) 16%, var(--surface))' : hint.active && !checked && val === r.exposed ? 'color-mix(in srgb, var(--good) 12%, var(--surface))' : 'var(--surface)',
                 cursor: checked ? 'default' : 'pointer',
                 fontFamily: 'var(--font-display)',
                 fontWeight: 700,

@@ -1,37 +1,12 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
-import type { Mission } from '../content/types';
+import type { Mission, Mistake } from '../content/types';
 import { Stars } from './Stars';
 import { Scope } from './Scope';
 import { grade, stars as starsFor } from '../engine/scoring';
 import { CODEX_BY_ID } from '../content/codex';
 import type { MissionOutcome } from '../state/store';
-
-/** The briefing card shown before a mission starts. */
-export function Briefing({ mission, onStart }: { mission: Mission; onStart: () => void }) {
-  return (
-    <div className="panel rise" style={{ padding: 'clamp(20px, 4vw, 40px)', maxWidth: 720, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-        <Scope size={48} />
-        <div>
-          <p style={{ margin: 0, color: 'var(--accent-text)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '0.8rem' }}>
-            {mission.minutes}-minute mission · {mission.xp} XP
-          </p>
-          <h1 style={{ fontSize: 'var(--step-head)', marginTop: 4 }}>{mission.title}</h1>
-        </div>
-      </div>
-      <p style={{ marginTop: 0 }}>{mission.brief}</p>
-      <div className="panel-2" style={{ borderRadius: 'var(--r-sm)', padding: '14px 18px', margin: '18px 0' }}>
-        <strong style={{ fontFamily: 'var(--font-display)' }}>Objective. </strong>
-        {mission.objective}
-      </div>
-      <button type="button" className="btn btn-primary" onClick={onStart}>
-        Begin mission
-      </button>
-    </div>
-  );
-}
 
 /** A countdown that calls onExpire once. Returns the pill to render. */
 export function useCountdown(seconds: number, running: boolean, onExpire: () => void) {
@@ -71,15 +46,17 @@ export function TimerPill({ left, danger }: { left: number; danger?: boolean }) 
   );
 }
 
-/** The result screen shown at the end of every mission. */
+/** The result screen (debrief) shown at the end of every mission. */
 export function Result({
   mission,
   score,
+  mistakes = [],
   outcome,
   onReplay,
 }: {
   mission: Mission;
   score: number;
+  mistakes?: Mistake[];
   outcome: MissionOutcome | null;
   onReplay: () => void;
 }) {
@@ -122,9 +99,31 @@ export function Result({
         </p>
       )}
 
+      {mistakes.length > 0 && (
+        <div className="panel-2" style={{ borderRadius: 'var(--r-sm)', padding: 16, margin: '14px 0', textAlign: 'left' }}>
+          <p style={{ margin: '0 0 10px', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+            Debrief: {mistakes.length} to review
+          </p>
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
+            {mistakes.map((m, i) => (
+              <li key={i} style={{ borderLeft: '3px solid var(--accent)', paddingLeft: 12 }}>
+                <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.92rem' }}>{m.what}</p>
+                <p style={{ margin: '2px 0 0', color: 'var(--muted)', fontSize: '0.9rem' }}>{m.why}</p>
+                <p style={{ margin: '4px 0 0', fontSize: '0.9rem' }}>
+                  <span style={{ color: 'var(--accent-text)', fontFamily: 'var(--font-display)', fontWeight: 600 }}>Answer: </span>
+                  <span className="raw" style={{ fontSize: '0.84rem', wordBreak: 'break-word' }}>{m.correct}</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {mission.debrief && (
         <div className="panel-2" style={{ borderRadius: 'var(--r-sm)', padding: 16, margin: '14px 0', textAlign: 'left' }}>
-          <p style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontWeight: 700 }}>What you learned</p>
+          <p style={{ margin: '0 0 6px', fontFamily: 'var(--font-display)', fontWeight: 700 }}>
+            {mistakes.length > 0 ? 'The idea' : 'What you learned'}
+          </p>
           <p style={{ margin: 0 }}>{mission.debrief}</p>
         </div>
       )}

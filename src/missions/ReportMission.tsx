@@ -1,13 +1,17 @@
-import { useState } from 'react';
-import type { ReportMission } from '../content/types';
+import { useRef, useState } from 'react';
+import type { ReportMission, Mistake } from '../content/types';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { trustScore, clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
 
 // The Report: build a finding field by field from fragments. Each choice moves
 // the client's trust meter. The final finding is shown assembled.
-export function ReportMissionView({ mission, onFinish }: { mission: ReportMission; onFinish: (score: number) => void }) {
+export function ReportMissionView({ mission, onFinish }: MissionProps<ReportMission>) {
   const [picks, setPicks] = useState<Record<number, number>>({});
   const [done, setDone] = useState(false);
+  const hint = useHint();
+  const mistakesRef = useRef<Mistake[]>([]);
 
   const trust = (() => {
     const qualities = mission.fields
@@ -28,7 +32,14 @@ export function ReportMissionView({ mission, onFinish }: { mission: ReportMissio
   function submit() {
     setDone(true);
     const qualities = mission.fields.map((f, i) => f.options[picks[i]!]!.quality);
-    onFinish(clampScore(trustScore(qualities)));
+    mission.fields.forEach((f, i) => {
+      const opt = f.options[picks[i]!]!;
+      if (opt.quality !== 'good') {
+        const good = f.options.find((o) => o.quality === 'good')!;
+        mistakesRef.current.push({ concept: f.concept, what: `${f.name}: you chose a ${opt.quality} fragment`, why: opt.note, correct: good.text });
+      }
+    });
+    onFinish({ score: clampScore(trustScore(qualities)), mistakes: mistakesRef.current });
   }
 
   return (
@@ -63,6 +74,7 @@ export function ReportMissionView({ mission, onFinish }: { mission: ReportMissio
             <div style={{ display: 'grid', gap: 8 }}>
               {field.options.map((opt, oi) => {
                 const selected = picks[fi] === oi;
+                const dimmed = hint.active && !done && opt.quality === 'wrong';
                 return (
                   <button
                     key={oi}
@@ -78,6 +90,7 @@ export function ReportMissionView({ mission, onFinish }: { mission: ReportMissio
                       background: selected ? 'color-mix(in srgb, var(--accent) 12%, var(--surface))' : 'var(--surface)',
                       cursor: done ? 'default' : 'pointer',
                       color: 'var(--ink)',
+                      opacity: dimmed ? 0.45 : 1,
                     }}
                   >
                     {opt.text}

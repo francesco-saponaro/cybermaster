@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { TopBar } from './components/Hud';
+import { Prologue } from './components/Prologue';
 import { HomePage } from './routes/Home';
 import { ZonePage } from './routes/Zone';
 import { MissionPage } from './routes/MissionRoute';
@@ -9,6 +10,7 @@ import { ProfilePage } from './routes/Profile';
 function Shell() {
   return (
     <div className="page">
+      <Prologue />
       <TopBar />
       <main style={{ flex: 1 }}>
         <Outlet />

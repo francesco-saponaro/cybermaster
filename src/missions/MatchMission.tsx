@@ -1,19 +1,23 @@
-import { useMemo, useState } from 'react';
-import type { MatchMission } from '../content/types';
+import { useMemo, useRef, useState } from 'react';
+import type { MatchMission, Mistake } from '../content/types';
 import { GameHud } from './GameHud';
 import { TimerPill, useCountdown } from '../components/MissionShell';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { accuracyScore, clampScore, timeBonus } from '../engine/scoring';
 import { play } from '../engine/audio';
 
 // Match: tap a flaw, then tap a fix. Works with keyboard and touch (no native
 // HTML5 drag, which fails on phones). Decoy fixes are in the belt.
-export function MatchMissionView({ mission, onFinish }: { mission: MatchMission; onFinish: (score: number) => void }) {
+export function MatchMissionView({ mission, onFinish }: MissionProps<MatchMission>) {
   const fixes = useMemo(() => shuffle(mission.fixes, mission.id), [mission]);
   const [placed, setPlaced] = useState<Record<string, string>>({}); // bugId -> fixId
   const [selectedBug, setSelectedBug] = useState<string | null>(null);
   const [misses, setMisses] = useState(0);
   const [done, setDone] = useState(false);
   const [note, setNote] = useState<{ text: string; tone: 'good' | 'bad' } | null>(null);
+  const hint = useHint();
+  const mistakesRef = useRef<Mistake[]>([]);
 
   const solvedCount = Object.keys(placed).length;
   const running = !done;
@@ -25,7 +29,12 @@ export function MatchMissionView({ mission, onFinish }: { mission: MatchMission;
     const correct = mission.bugs.filter((b) => placed[b.id] === b.fix).length;
     const base = accuracyScore(correct, mission.bugs.length, misses, 0.5);
     const bonus = correct === mission.bugs.length && misses === 0 ? timeBonus(mission.seconds - left, 40, mission.seconds) : 0;
-    onFinish(clampScore(base + bonus));
+    for (const b of mission.bugs) {
+      if (placed[b.id] !== b.fix) {
+        mistakesRef.current.push({ concept: b.concept, what: `"${b.text}" left unmatched`, why: b.explain, correct: mission.fixes.find((f) => f.id === b.fix)?.label ?? '' });
+      }
+    }
+    onFinish({ score: clampScore(base + bonus), mistakes: mistakesRef.current });
   }
 
   function chooseFix(fixId: string) {
@@ -42,6 +51,7 @@ export function MatchMissionView({ mission, onFinish }: { mission: MatchMission;
       if (Object.keys(next).length >= mission.bugs.length) setTimeout(finish, 400);
     } else {
       setMisses((n) => n + 1);
+      mistakesRef.current.push({ concept: bug.concept, what: `Wrong fix tried for "${bug.text}"`, why: bug.explain, correct: mission.fixes.find((f) => f.id === bug.fix)?.label ?? '' });
       setNote({ text: 'That fix does not close this flaw. Try another.', tone: 'bad' });
       play('miss');
     }
@@ -107,6 +117,7 @@ export function MatchMissionView({ mission, onFinish }: { mission: MatchMission;
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {fixes.map((fix) => {
               const used = usedFixes.has(fix.id);
+              const decoy = hint.active && !mission.bugs.some((b) => b.fix === fix.id);
               return (
                 <button
                   key={fix.id}
@@ -117,8 +128,8 @@ export function MatchMissionView({ mission, onFinish }: { mission: MatchMission;
                   style={{
                     padding: '10px 14px',
                     borderRadius: 'var(--r-sm)',
-                    border: '1px solid var(--line)',
-                    opacity: used ? 0.35 : 1,
+                    border: decoy ? '1px dashed var(--muted-2)' : '1px solid var(--line)',
+                    opacity: used ? 0.35 : decoy ? 0.4 : 1,
                     cursor: used || done || !selectedBug ? 'default' : 'pointer',
                     fontFamily: 'var(--font-text)',
                     textAlign: 'left',

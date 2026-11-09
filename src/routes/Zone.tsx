@@ -171,12 +171,16 @@ function BossRow({ zoneId, bossId, title, brief, xp, open, best, stars }: { zone
 function kindLabel(kind: string): string {
   const map: Record<string, string> = {
     inspect: 'Packet Inspector',
+    intercept: 'Intercept',
+    live: 'Live session',
     match: 'Fix & Match',
+    cards: 'Card sort',
     arena: 'Arena',
     sweep: 'Port Sweep',
     cvss: 'CVSS Forge',
     triage: 'Triage',
     audit: 'Cloud Watch',
+    sort: 'Sort',
     api: 'API Gate',
     order: 'Sequence',
     report: 'Report',

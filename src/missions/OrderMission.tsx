@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
-import type { OrderMission } from '../content/types';
+import { useMemo, useRef, useState } from 'react';
+import type { OrderMission, Mistake } from '../content/types';
 import { TimerPill, useCountdown } from '../components/MissionShell';
 import { GameHud } from './GameHud';
+import type { MissionProps } from './mission';
 import { clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
 
@@ -9,7 +10,8 @@ type Step = 'order' | 'sort' | 'done';
 
 // Six Phases: first put the phases in order (move up/down), then drop each
 // activity on its phase. Tap-based so it works on a phone.
-export function OrderMissionView({ mission, onFinish }: { mission: OrderMission; onFinish: (score: number) => void }) {
+export function OrderMissionView({ mission, onFinish }: MissionProps<OrderMission>) {
+  const mistakesRef = useRef<Mistake[]>([]);
   const [step, setStep] = useState<Step>('order');
   const [order, setOrder] = useState(() => shuffle(mission.phases.map((p) => p.id), mission.id));
   const [orderChecked, setOrderChecked] = useState(false);
@@ -52,7 +54,15 @@ export function OrderMissionView({ mission, onFinish }: { mission: OrderMission;
     setStep('done');
     const right = mission.activities.filter((act, i) => assign[i] === act.phase).length;
     const sortScore = (right / mission.activities.length) * 60;
-    onFinish(clampScore(orderScore + sortScore));
+    if (order.some((id, i) => id !== correctOrder[i])) {
+      mistakesRef.current.push({ concept: mission.concept, what: 'The phases were not all in the right order', why: 'An assessment runs scope, recon, scan, validation, report, remediation, in that order.', correct: mission.phases.map((p) => p.name).join(' → ') });
+    }
+    for (const [i, act] of mission.activities.entries()) {
+      if (assign[i] !== act.phase) {
+        mistakesRef.current.push({ concept: mission.concept, what: `"${act.text}" was placed in the wrong phase`, why: 'Each activity belongs to one phase of the assessment.', correct: mission.phases.find((p) => p.id === act.phase)?.name ?? '' });
+      }
+    }
+    onFinish({ score: clampScore(orderScore + sortScore), mistakes: mistakesRef.current });
   }
 
   const unassigned = activities.filter((i) => assign[i] === undefined);

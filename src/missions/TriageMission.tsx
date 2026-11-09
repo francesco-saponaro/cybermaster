@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import type { TriageMission, Verdict } from '../content/types';
+import { useEffect, useRef, useState } from 'react';
+import type { TriageMission, Verdict, Mistake } from '../content/types';
 import { GameHud } from './GameHud';
 import { TimerPill } from '../components/MissionShell';
+import type { MissionProps } from './mission';
+import { useHint } from './mission';
 import { clampScore } from '../engine/scoring';
 import { play } from '../engine/audio';
 
@@ -13,7 +15,7 @@ const VERDICTS: { id: Verdict; label: string; tone: 'good' | 'bad' | 'warn' }[] 
 
 // Scanner vs Analyst: a stream of findings with evidence. Judge each against a
 // per-item clock. Accuracy is most of the score; speed is a small bonus.
-export function TriageMissionView({ mission, onFinish }: { mission: TriageMission; onFinish: (score: number) => void }) {
+export function TriageMissionView({ mission, onFinish }: MissionProps<TriageMission>) {
   const [index, setIndex] = useState(0);
   const [correct, setCorrect] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -21,6 +23,8 @@ export function TriageMissionView({ mission, onFinish }: { mission: TriageMissio
   const [left, setLeft] = useState(mission.secondsPerItem);
   const [answered, setAnswered] = useState<Verdict | null>(null);
   const [speedBonus, setSpeedBonus] = useState(0);
+  const hint = useHint();
+  const mistakesRef = useRef<Mistake[]>([]);
 
   const item = mission.items[index]!;
   const isLast = index + 1 >= mission.items.length;
@@ -53,6 +57,7 @@ export function TriageMissionView({ mission, onFinish }: { mission: TriageMissio
     } else {
       setSpeedBonus(0);
       setCombo(0);
+      mistakesRef.current.push({ concept: item.concept, what: `${item.title}: you called it "${VERDICTS.find((x) => x.id === verdict)?.label ?? 'nothing in time'}"`, why: item.explain, correct: VERDICTS.find((x) => x.id === item.answer)?.label ?? '' });
       play('miss');
     }
     void v;
@@ -62,7 +67,7 @@ export function TriageMissionView({ mission, onFinish }: { mission: TriageMissio
     if (isLast) {
       const base = (correct / mission.items.length) * 90;
       const bonus = Math.min(10, (score / (mission.items.length * 160)) * 10);
-      onFinish(clampScore(base + bonus));
+      onFinish({ score: clampScore(base + bonus), mistakes: mistakesRef.current });
       return;
     }
     setIndex((i) => i + 1);
@@ -104,7 +109,13 @@ export function TriageMissionView({ mission, onFinish }: { mission: TriageMissio
         {!answered ? (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {VERDICTS.map((v) => (
-              <button key={v.id} type="button" className="btn btn-ghost" onClick={() => answer(v.id)}>
+              <button
+                key={v.id}
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => answer(v.id)}
+                style={hint.active && v.id === item.answer ? { borderColor: 'var(--good)', background: 'color-mix(in srgb, var(--good) 12%, var(--surface))' } : undefined}
+              >
                 {v.label}
               </button>
             ))}
