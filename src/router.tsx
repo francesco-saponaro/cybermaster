@@ -1,38 +1,43 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, Outlet, redirect } from '@tanstack/react-router';
 import { TopBar } from './components/Hud';
-import { Prologue } from './components/Prologue';
 import { HomePage } from './routes/Home';
 import { ZonePage } from './routes/Zone';
-import { MissionPage } from './routes/MissionRoute';
+import { LevelPage } from './routes/LevelRoute';
 import { CodexPage } from './routes/Codex';
 import { ProfilePage } from './routes/Profile';
 
-function Shell() {
+function SiteLayout() {
   return (
     <div className="page">
-      <Prologue />
       <TopBar />
       <main style={{ flex: 1 }}>
         <Outlet />
       </main>
       <footer className="footer">
-        <div className="wrap">
-          CyberMaster. A learning game, built for practice on labs and systems you are authorised to test.
-        </div>
+        <div className="wrap">CyberMaster. A learning game, for practice on labs and systems you are authorised to test.</div>
       </footer>
     </div>
   );
 }
 
-const rootRoute = createRootRoute({ component: Shell });
+const rootRoute = createRootRoute({ component: Outlet });
+const site = createRoute({ getParentRoute: () => rootRoute, id: 'site', component: SiteLayout });
 
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomePage });
-const zoneRoute = createRoute({ getParentRoute: () => rootRoute, path: 'zones/$zoneId', component: ZonePage });
-const missionRoute = createRoute({ getParentRoute: () => rootRoute, path: 'missions/$missionId', component: MissionPage });
-const codexRoute = createRoute({ getParentRoute: () => rootRoute, path: 'codex', component: CodexPage });
-const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: 'profile', component: ProfilePage });
+const indexRoute = createRoute({ getParentRoute: () => site, path: '/', component: HomePage });
+const zoneRoute = createRoute({ getParentRoute: () => site, path: 'zones/$zoneId', component: ZonePage });
+const codexRoute = createRoute({ getParentRoute: () => site, path: 'codex', component: CodexPage });
+const profileRoute = createRoute({ getParentRoute: () => site, path: 'profile', component: ProfilePage });
+const levelRoute = createRoute({ getParentRoute: () => rootRoute, path: 'play/$levelId', component: LevelPage });
+// Old mission links from the first version of the game land on the zones.
+const oldMission = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'missions/$missionId',
+  beforeLoad: () => {
+    throw redirect({ to: '/' });
+  },
+});
 
-const routeTree = rootRoute.addChildren([indexRoute, zoneRoute, missionRoute, codexRoute, profileRoute]);
+const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, profileRoute]), levelRoute, oldMission]);
 
 export const router = createRouter({
   routeTree,

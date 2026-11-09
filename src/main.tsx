@@ -4,6 +4,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import '@fontsource-variable/libre-franklin';
 import '@fontsource-variable/source-serif-4';
 import './styles/app.css';
+import './styles/game.css';
 import { router } from './router';
 import { StoreProvider } from './state/store';
 import { setMuted } from './engine/audio';
