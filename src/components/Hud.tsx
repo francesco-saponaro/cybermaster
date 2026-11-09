@@ -27,7 +27,7 @@ export function TopBar() {
         </Link>
         <nav className="navlinks" aria-label="Main">
           <Link to="/" className="navlink" data-active={is('/') && path === '/'}>
-            Missions
+            Zones
           </Link>
           <Link to="/codex" className="navlink" data-active={is('/codex')}>
             Codex

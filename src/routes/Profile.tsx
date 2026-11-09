@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../state/store';
 import { ZONES } from '../content/zones';
 import { CODEX } from '../content/codex';
-import { playableMissions } from '../content/index';
+import { ALL_LEVELS } from '../content/index';
 import { BADGES, levelProgress, rankForLevel, levelFromXp, RANKS } from '../engine/progress';
 import { Scope } from '../components/Scope';
 import { XpBar } from '../components/Hud';
@@ -19,9 +19,9 @@ export function ProfilePage() {
   const rank = rankForLevel(level);
   const { level: lvl } = levelProgress(save.xp);
   const earned = new Set(save.badges);
-  const playable = playableMissions();
-  const cleared = playable.filter((m) => (save.missions[m.id]?.best ?? 0) >= 50).length;
-  const flawless = playable.filter((m) => (save.missions[m.id]?.best ?? 0) >= 95).length;
+  const playable = ALL_LEVELS;
+  const cleared = playable.filter((l) => (save.levels[l.id]?.stars ?? 0) >= 1).length;
+  const flawless = playable.filter((l) => (save.levels[l.id]?.stars ?? 0) >= 3).length;
 
   const nextRank = RANKS.find((r) => r.minLevel > level);
 
@@ -47,9 +47,10 @@ export function ProfilePage() {
 
       {/* Stat row */}
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', marginBottom: 28 }}>
-        <Stat label="Missions cleared" value={`${cleared} / ${playable.length}`} />
-        <Stat label="Flawless runs" value={String(flawless)} />
+        <Stat label="Levels cleared" value={`${cleared} / ${playable.length}`} />
+        <Stat label="Three-star clears" value={String(flawless)} />
         <Stat label="Codex unlocked" value={`${save.codex.length} / ${CODEX.length}`} />
+        <Stat label="Evidence collected" value={String(save.evidence.length)} />
         <Stat label="Day streak" value={String(save.streak.count)} />
       </div>
 
@@ -57,8 +58,8 @@ export function ProfilePage() {
       <h2 style={{ fontSize: '1.4rem', marginBottom: 12 }}>Zones</h2>
       <div style={{ display: 'grid', gap: 10, marginBottom: 32 }}>
         {ZONES.map((zone) => {
-          const all = [...zone.missionIds, zone.bossId];
-          const done = all.filter((id) => (save.missions[id]?.best ?? 0) >= 50).length;
+          const all = zone.levelIds;
+          const done = all.filter((id) => (save.levels[id]?.stars ?? 0) >= 1).length;
           const pct = (done / all.length) * 100;
           return (
             <div key={zone.id} className="panel" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
