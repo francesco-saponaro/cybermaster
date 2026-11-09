@@ -1,0 +1,11 @@
+{
+  "slug": "cybermaster",
+  "name": "CyberMaster",
+  "company": "",
+  "flagship": true,
+  "description": "A browser game that teaches cybersecurity: five zones, twenty-plus missions, bosses, a codex, from HTTP and auth to OWASP, recon, cloud and writing a real finding.",
+  "install": "npm ci --no-audit --no-fund",
+  "test": "npm test -- --run",
+  "build": "npm run build",
+  "dist": "dist"
+}
