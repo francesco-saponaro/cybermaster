@@ -1,113 +1,63 @@
 # CyberMaster
 
-A browser game that teaches cybersecurity. You join "the Watch", a security team of one, and
-work your way from reading raw HTTP to writing a finding a client can act on. It is a real game,
-not a quiz with a skin: every mission is its own small mechanic, with XP, levels, ranks, badges,
-a daily streak and a codex that fills with what you have proved you understand.
+A browser game that teaches cybersecurity by having you do the work in small sandboxes. You edit a raw HTTP request and watch the page change, find the line of server code that let an attack through and fix it, sweep a network from a terminal, close a public bucket, and write the finding a client will read.
 
-I built it because the fastest way I learn a subject is to make something playable out of it. The
-curriculum follows a cybersecurity study plan: the four technical areas, the assessment process,
-how a finding is written, CVE and CVSS, false positives, and the home lab you practise in. Every
-fact the game teaches is meant to be correct; where a topic is simplified, it is simplified
-without becoming wrong.
+I built it because I learn a subject fastest when I can poke at it and see what happens. The first version was a set of quizzes with a game skin, and it assumed you already knew the answers. This version works the other way round. Each level gives you one new idea, a two-sentence note in the corner, and a sandbox. You act, and the sandbox reacts straight away. A level is cleared when its checks turn green, which depends on the state of the sandbox, not on picking an answer.
 
-## How a mission plays
+## How a level plays
 
-Every one of the thirty missions runs in three parts, so the game teaches first and only then asks.
+- **A goal and a short note.** Ines, your lead, says what to do in at most two sentences. The first levels of each zone tell you exactly what to type or click. Later ones only give you the goal.
+- **Terms you can hover.** Underlined words (session id, JWT, CORS, CVE...) open a one-line definition on hover or tap, and the full entry goes into your codex when you clear the level.
+- **Live checks.** A list of checks sits beside the sandbox, like a test suite. Each one turns green as soon as the sandbox reaches that state, and a red one says why in a line.
+- **Show me.** Stuck? Show me does the next step for you and says what it did. It costs a star.
+- **A result card.** One sentence on what you just did, what it is called in the real world, and stars from your Show me uses, failed attempts and time.
 
-- **Briefing.** A mentor on the Watch, Ines, walks you through the idea on real material: here is the
-  Set-Cookie line with no HttpOnly flag, tap it; now the one that has it, tap the flag. Three to five
-  beats, each needing an action, each unlocking a codex entry as you go. Once you have cleared a
-  mission you can skip its briefing.
-- **Mission.** The test, and it only asks what the briefing showed. There is a hint button that costs
-  10 XP and highlights the region or narrows the choices, and the first mission in each zone is
-  tutorial difficulty: a mistake costs score, not the run.
-- **Debrief.** For every mistake you see the exact line or choice, one sentence on why, and the right
-  answer, then your grade and a prompt to play again for a better one.
+## The five zones
 
-The first time the game opens there is a 60-second interactive prologue: the mentor, the reticle, one
-packet caught, then the board.
+Thirty levels in all. A zone opens when you clear the last level of the one before it.
 
-## What it is
+- **The Wire: HTTP, cookies, sessions and tokens.** A small browser next to the raw request it sends. Change the path to find a page robots.txt gives away, change a cookie that says `role=user`, replay a session id caught on café Wi-Fi, flag a cookie HttpOnly and watch `document.cookie` stop showing it, forge a JWT with `alg: none` against a server that trusts it and one that doesn't, then lock down an API that hands its CORS permission to any origin.
+- **The Arena: the OWASP Top 10, from the defending side.** Each level is a tiny app with its server code. An incident replay describes, in plain words, an attack that already happened and what it did. You click the line of code where the input did its damage, rewrite that region (a parameterised query, HTML encoding, an ownership check, `execFile` instead of a shell, a URL allow-list, picking fields from a request body), then press Replay attack. The recorded attack and its variants run against your code and must fail, and normal use must still work. The replays describe the input by category and never show a working payload.
+- **The Perimeter: hosts, ports, versions and CVEs.** A terminal on a simulated network with `nmap` (`-sn`, `-p`, `-sV`, `-Pn`), `curl`, `nc`, `dig`, `whois`, `vulndb`, `cat`, `ls` and `man`, plus tab completion and history. You count live hosts, find an exposed database, match a version to its CVE, prove a scanner hit is a false positive from the live banner, and check a name against the signed scope before touching it.
+- **The Cloud: buckets, IAM, firewalls, keys, code scanning and APIs.** A console with a live checker. Edit a bucket policy until strangers get 403 and the billing app still reads, cut an admin policy down to two actions, fix security group rules without locking out the office, rotate a key leaked in git history in an order that keeps deploys and backups running, triage five code-scan alerts by tracing them, and harden an API gateway.
+- **The Report: method, score, write-up, retest, lab.** Put the products of an engagement in phase order, score an IDOR with a CVSS 3.1 calculator whose score moves as you set each metric, write a seven-field finding from the evidence you collected and read the client's comments field by field, retest a fix that only blocks one input, and wire Juice Shop and ZAP together in a compose file that keeps the app off the network.
 
-Five zones, each one part of the job, unlocking in order. Thirty missions, a boss at the end of every
-zone among them.
-
-- **The Wire** — HTTP, cookies, sessions and tokens. This zone plays like a game, not a reading test.
-  **Intercept** is a canvas scene: requests and responses stream across the screen through your proxy,
-  each a card with the raw lines showing, and you catch the ones that carry the problem (a cookie with
-  no HttpOnly, a token in the URL, a password in a query string) while the clean ones pass. Hold to
-  slow time and read; combos and the miss meter keep it honest; the waves speed up. **Login Lab** is a
-  live session you watch play out between browser, server and attacker, and you freeze it the moment
-  something breaks, then pick the fix. **Cookie Jar** is sorting under a clock.
-- **The Arena** — the OWASP Top 10. A top-down lane where the attacks come at you by name and you
-  neutralise each with the right defence.
-- **The Perimeter** — hosts, ports, versions, CVEs and CVSS. Sweep a host on a radar, score what
-  you find, and judge what the scanner says.
-- **The Cloud** — buckets, IAM, security groups, APIs and the code behind them. Audit configs and
-  break (then fix) object-level authorization.
-- **The Report** — the six phases of an assessment, the seven fields of a finding, the standards,
-  and the lab. The boss is building a finding from fragments.
-
-Other mechanics include the OWASP arena, a port-sweep radar, a CVSS forge (eight dials, a live base
-score), a scanner-triage stream, a cloud config auditor, an API gate for IDOR/BOLA, timed card sorts
-for the reference missions, a phase-ordering puzzle and the final report builder.
-
-Progress is saved in `localStorage`, so it survives a reload. There is no backend and nothing is
-sent anywhere.
+Clearing levels earns XP, ranks, badges and a daily streak, and fills the codex. Evidence collected in the earlier zones lands in your locker for the Report zone (anything missing comes from the case file). Progress is saved in `localStorage` and nothing is sent anywhere.
 
 ## Run it
 
 ```bash
 npm ci
 npm run dev        # http://localhost:5173
-npm test -- --run  # unit and component tests
+npm test -- --run  # unit and component tests (Vitest)
 npm run build      # production build into dist/
-npm run preview    # serve the built app
+npm run e2e        # plays levels in a real browser (Playwright; set CHROME_PATH to use an installed Chrome)
 ```
 
 ## Stack
 
-- Vite, React and TypeScript (strict)
-- TanStack Router for the routes (`/`, `/zones/$zoneId`, `/missions/$missionId`, `/codex`, `/profile`)
-- Tailwind v4 plus a tokens stylesheet for the design system
-- Canvas and `requestAnimationFrame` for the action missions; the Web Audio API for the sound
-  effects (no audio files)
-- Zod for the save-file schema and its migration
-- Vitest and Testing Library for the tests
+- Vite, React 19 and TypeScript (strict)
+- TanStack Router (`/`, `/zones/$zoneId`, `/play/$levelId`, `/codex`, `/profile`)
+- Tailwind v4 plus a tokens stylesheet
+- Zod for the save file and its migration from older versions
+- The Web Audio API for sound (no audio files)
+- Vitest and Testing Library for unit and component tests, Playwright for the play-test
 
-## Add a mission
+## How it is built
 
-All content lives in a data layer, separate from the engine:
+Every sandbox runs on simulations in `src/sim/`, all pure TypeScript with no network:
 
-- `src/content/zones.ts` — the five zones and the mission ids in each
-- `src/content/codex.ts` — the codex entries a mission unlocks
-- `src/content/missions/*.ts` — the missions themselves, typed by `src/content/types.ts`
-- `src/content/briefings/*.ts` — the teach-first briefing for each mission, as data
-- `src/content/concepts.ts` — the named concepts a briefing teaches and a mission tests
+- `http.ts`: parsing raw requests, cookies and the browser's CORS rule, plus a SHA-256 and HMAC so the JWTs are real HS256 tokens.
+- `wire.ts`: the small servers behind The Wire.
+- `js.ts`, `sql.ts`, `arena.ts`: a tiny interpreter for the subset of JavaScript the Arena's handlers use, a one-table SQL engine and the six apps. Your fix is run, not pattern-matched, so any correct way of writing it passes. Hostile inputs are category markers that only stand for a kind of input.
+- `terminal.ts`: the shell, the network and the tools' output formats.
+- `cloud.ts`: an IAM-style policy evaluator (explicit deny first, then allow, otherwise denied), security group reachability, key rotation, triage and the gateway.
+- `report.ts`: the client's reading of a finding, the phase order and a small YAML reader for the compose file.
 
-To add a mission: write a new object in the right zone file whose `kind` is one of the existing
-mechanics (`intercept`, `live`, `sort`, `inspect`, `match`, `cards`, `arena`, `sweep`, `cvss`,
-`triage`, `audit`, `api`, `order`, `report`, `boss`), give it a unique `id`, list the `codex`
-entries it unlocks, tag each test item with the concept it checks, and add its `id` to the zone's
-`missionIds` in `zones.ts`. Then write its briefing in `src/content/briefings/` with at least three
-beats that introduce the concepts the mission tests. The engine renders both from the data; you do
-not touch a component. The integrity test in `tests/content.test.ts` checks that every mission has a
-real zone and a briefing of three or more beats, every codex id resolves, there are no duplicates,
-each mechanic's data is well formed, and nothing is tested before a briefing has taught it, so a
-mistake shows up as a failing test.
-
-The scoring, the hint cost, the step engine behind the briefings, the Intercept scoring, the CVSS
-calculator, the save migration and the progression maths are pure functions in `src/engine/`, each
-covered by tests.
+Levels are data in `src/content/levels/`. Each one lists its goal, its note, its checks, its Show me steps (each step acts on the sandbox), the codex entries it unlocks and the evidence it hands over. `tests/content.test.ts` checks every level for a goal, a note of no more than two sentences, at least one Show me step, checks that match its success test, and links that resolve.
 
 ## What is mocked
 
-Everything the missions describe is sample data written to be realistic and correct: the captures,
-scan outputs, cloud configurations and API responses are illustrative, and any addresses, hosts and
-names are invented. The CVSS vectors are real and their scores are checked against the published
-FIRST examples. There is no live target: the game is a place to learn the ideas, to be applied only
-on labs and systems you are authorised to test.
-
+All of it. The shops, banks, networks, cloud account and API are invented and live in the browser. Addresses come from private and documentation ranges, and names end in `.example` or `.lan`. The CVE ids, CVSS formula and tool flags are real. It is a place to learn the ideas. Use them only on labs and on systems you are authorised to test.
 
 Live: https://cybermaster-francesco-saponaro.netlify.app

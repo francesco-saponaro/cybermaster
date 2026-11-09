@@ -3,7 +3,7 @@
   "name": "CyberMaster",
   "company": "",
   "flagship": true,
-  "description": "A browser game that teaches cybersecurity: five zones, twenty-plus missions, bosses, a codex, from HTTP and auth to OWASP, recon, cloud and writing a real finding.",
+  "description": "A browser game that teaches cybersecurity hands-on: edit raw HTTP, fix vulnerable code, scan a network from a terminal, lock down a cloud account and write the finding.",
   "install": "npm ci --no-audit --no-fund",
   "test": "npm test -- --run",
   "build": "npm run build",
