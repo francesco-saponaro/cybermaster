@@ -4,6 +4,12 @@ import { plain } from '../src/game/Rich';
 import { ARENA_APPS } from '../src/sim/arena';
 import { evaluateTerminal } from '../src/game/evaluate';
 import { SERVERS } from '../src/sim/wire';
+import { ARCADE } from '../src/content/arcade';
+import { PACKETS } from '../src/content/arcade/packets';
+import { ATTACKS, FIXES } from '../src/content/arcade/defence';
+import { PUZZLES } from '../src/content/arcade/lockdown';
+import { FINDINGS } from '../src/content/arcade/findings';
+import { SERVICES } from '../src/arcade/sweeper';
 
 function sentences(text: string): number {
   return plain(text).split(/(?<=[.!?])\s+(?=[A-Z"'(])/).filter((s) => s.trim()).length;
@@ -64,5 +70,10 @@ describe('content integrity', () => {
   it('no level text shows a literal attack string', () => {
     const text = JSON.stringify(ALL_LEVELS.map((l) => [l.instruction, l.goal, l.showMe.map((s) => s.say), l.checks.map((c) => [c.label, c.do, c.learned, c.hint ?? ''])]));
     expect(text).not.toMatch(/OR 1=1|onerror=|<script|\/etc\/passwd/i);
+  });
+  it('no arcade text shows a literal attack string either', () => {
+    const text = JSON.stringify([ARCADE, PACKETS, ATTACKS, FIXES, PUZZLES, FINDINGS, SERVICES]);
+    expect(text).not.toMatch(/OR 1=1|onerror=|<script|\/etc\/passwd|UNION SELECT|\.\.\/|;\s*rm |\$\(|169\.254\.169\.254|' OR '|--\s*$/im);
+    expect(text.length).toBeGreaterThan(5000);
   });
 });

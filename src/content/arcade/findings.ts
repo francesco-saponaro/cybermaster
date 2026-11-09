@@ -1,0 +1,277 @@
+// The findings in Triage Rush, all from the Lantern & Co. case. Each has the
+// evidence that matters, its CVSS 3.1 vector, the severity that vector gives,
+// the one fact that drives it, and why, in a line.
+
+import type { MetricName } from '../../engine/cvss';
+
+export type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
+export const SEVERITIES: Severity[] = ['Low', 'Medium', 'High', 'Critical'];
+
+/** A fact about a finding, as a CVSS metric value with plain words. */
+export type DriverId = `${MetricName}:${string}`;
+
+export const DRIVERS: Record<string, string> = {
+  'AV:N': 'Reachable from the internet',
+  'AV:A': 'Needs the same network',
+  'AV:L': 'Needs an account on the machine',
+  'AV:P': 'Needs the device in hand',
+  'AC:H': 'Hard to pull off',
+  'PR:N': 'No login needed',
+  'PR:L': 'Any logged-in user',
+  'PR:H': 'Needs an admin account',
+  'UI:N': 'Nobody has to click',
+  'UI:R': 'The victim has to click',
+  'S:C': 'Reaches other systems',
+  'C:H': 'Exposes all the data',
+  'C:L': 'Exposes a little',
+  'I:H': 'Can change anything',
+  'A:H': 'Can take it down',
+};
+
+export interface Finding {
+  id: string;
+  title: string;
+  evidence: string;
+  vector: string;
+  severity: Severity;
+  /** The fact that drives the score, and two that are not true of this finding. */
+  driver: DriverId;
+  decoys: [DriverId, DriverId];
+  /** One line on why it lands where it does. */
+  reason: string;
+}
+
+export const FINDINGS: Finding[] = [
+  {
+    id: 'robots-notes',
+    title: 'Staff notes open to anyone',
+    evidence: 'A page listed in robots.txt opens without a login and names internal hosts.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N',
+    severity: 'Medium',
+    driver: 'PR:N',
+    decoys: ['UI:R', 'PR:H'],
+    reason: 'No login needed, but it only leaks a little: host names, not customer data.',
+  },
+  {
+    id: 'role-cookie',
+    title: 'Admin role read from a cookie',
+    evidence: 'Any signed-in customer who edits their role cookie can open /admin.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N',
+    severity: 'High',
+    driver: 'PR:L',
+    decoys: ['UI:R', 'AV:P'],
+    reason: 'Full admin access, held back from Critical only because it needs a customer account.',
+  },
+  {
+    id: 'alg-none',
+    title: 'Unsigned tokens accepted',
+    evidence: 'The API takes tokens with alg none, so anyone can sign in as any user.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+    severity: 'Critical',
+    driver: 'PR:N',
+    decoys: ['PR:H', 'UI:R'],
+    reason: 'No account and no click needed, from the internet, for full control: as bad as it gets.',
+  },
+  {
+    id: 'cafe-wifi',
+    title: 'Session cookie sent over plain HTTP',
+    evidence: 'Someone on the same café Wi-Fi can copy a shopper’s session and use it.',
+    vector: 'CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N',
+    severity: 'High',
+    driver: 'AV:A',
+    decoys: ['PR:H', 'UI:R'],
+    reason: 'A whole account is exposed, but only to someone on the same network.',
+  },
+  {
+    id: 'no-httponly',
+    title: 'Session cookie readable by scripts',
+    evidence: 'No HttpOnly flag. It only matters if the site also has a script injection.',
+    vector: 'CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:N/A:N',
+    severity: 'Low',
+    driver: 'AC:H',
+    decoys: ['C:H', 'A:H'],
+    reason: 'It needs another flaw and a victim to click first, so it is hard to pull off.',
+  },
+  {
+    id: 'cors-any',
+    title: 'Payment API trusts any website',
+    evidence: 'Any site can read a signed-in user’s saved cards if the user visits it.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:N/A:N',
+    severity: 'Medium',
+    driver: 'UI:R',
+    decoys: ['PR:H', 'A:H'],
+    reason: 'The data is sensitive, but the victim has to open the attacker’s page.',
+  },
+  {
+    id: 'sqli-admin-old',
+    title: 'Injection in the old admin login',
+    evidence: 'The /admin-old login can be passed with no password and gives full admin.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+    severity: 'Critical',
+    driver: 'PR:N',
+    decoys: ['UI:R', 'AV:P'],
+    reason: 'From the internet, with no login, to the whole database: Critical.',
+  },
+  {
+    id: 'stored-xss',
+    title: 'Script stored in product reviews',
+    evidence: 'A review can carry a script that runs for every shopper who reads it.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N',
+    severity: 'Medium',
+    driver: 'UI:R',
+    decoys: ['PR:N', 'A:H'],
+    reason: 'It needs an account to post and a shopper to open the page, and each victim loses a little.',
+  },
+  {
+    id: 'idor-orders',
+    title: 'Any order by its number',
+    evidence: 'A signed-in user who changes the order number sees other people’s names and addresses.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N',
+    severity: 'Medium',
+    driver: 'C:H',
+    decoys: ['UI:R', 'A:H'],
+    reason: 'Every customer’s details are exposed, but nothing can be changed and it needs an account.',
+  },
+  {
+    id: 'cmdi-labels',
+    title: 'Commands through the label tool',
+    evidence: 'Staff can make the shipping label tool run commands on the server.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H',
+    severity: 'High',
+    driver: 'PR:L',
+    decoys: ['PR:N', 'UI:R'],
+    reason: 'Full control of the server, kept out of Critical only by needing a login.',
+  },
+  {
+    id: 'ssrf-preview',
+    title: 'Link preview reaches the cloud',
+    evidence: 'The preview fetches the cloud metadata address and hands back the server’s key.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N',
+    severity: 'High',
+    driver: 'S:C',
+    decoys: ['UI:R', 'PR:H'],
+    reason: 'It breaks out of the shop into the cloud account, which raises the score.',
+  },
+  {
+    id: 'admin-key',
+    title: 'The stolen key is an admin key',
+    evidence: 'The cloud key taken through the link preview can do anything in the whole account.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
+    severity: 'Critical',
+    driver: 'S:C',
+    decoys: ['UI:R', 'AV:P'],
+    reason: 'It goes far beyond the shop: every bucket, server and backup, from anywhere.',
+  },
+  {
+    id: 'mass-assign',
+    title: 'Profile update sets any field',
+    evidence: 'A user can add a role field to their profile update and become admin.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N',
+    severity: 'High',
+    driver: 'I:H',
+    decoys: ['PR:N', 'UI:R'],
+    reason: 'Being able to change your own role means changing anything an admin can.',
+  },
+  {
+    id: 'vsftpd',
+    title: 'Backdoored FTP at the warehouse',
+    evidence: 'vsftpd 2.3.4 on a Harbor machine, reachable from the warehouse network only.',
+    vector: 'CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+    severity: 'High',
+    driver: 'AV:A',
+    decoys: ['AV:N', 'UI:R'],
+    reason: 'A full takeover, but only from inside the warehouse network.',
+  },
+  {
+    id: 'ssh-enum',
+    title: 'SSH tells which users exist',
+    evidence: 'OpenSSH 7.2p2 answers differently for real and made-up usernames.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N',
+    severity: 'Medium',
+    driver: 'C:L',
+    decoys: ['C:H', 'PR:H'],
+    reason: 'Anyone can ask, but all it gives away is a list of usernames.',
+  },
+  {
+    id: 'public-invoices',
+    title: 'Invoices bucket is public',
+    evidence: 'Every customer invoice can be downloaded by anyone with the link.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+    severity: 'High',
+    driver: 'PR:N',
+    decoys: ['UI:R', 'I:H'],
+    reason: 'All of it, to anyone, with no login. Only read access keeps it from Critical.',
+  },
+  {
+    id: 'ci-backups',
+    title: 'Leaked key can overwrite backups',
+    evidence: 'The CI key from git history can replace the nightly backups.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N',
+    severity: 'High',
+    driver: 'I:H',
+    decoys: ['UI:R', 'AV:P'],
+    reason: 'Whoever has the key can change the backups at will, though not read the live data.',
+  },
+  {
+    id: 'rate-limit',
+    title: 'No limit on login attempts',
+    evidence: 'Passwords can be guessed forever, but a guess needs a real username and takes weeks.',
+    vector: 'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N',
+    severity: 'Low',
+    driver: 'AC:H',
+    decoys: ['C:H', 'UI:R'],
+    reason: 'Possible in theory, slow and hard in practice.',
+  },
+  {
+    id: 'kiosk',
+    title: 'Unlocked warehouse kiosk',
+    evidence: 'A kiosk PC at Harbor shows the old admin panel to anyone standing at it.',
+    vector: 'CVSS:3.1/AV:P/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
+    severity: 'Medium',
+    driver: 'AV:P',
+    decoys: ['AV:N', 'UI:R'],
+    reason: 'Sensitive data, but you have to be in the warehouse at the keyboard.',
+  },
+  {
+    id: 'clickjack',
+    title: 'Newsletter page can be framed',
+    evidence: 'Another site could trick a visitor into clicking Subscribe.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N',
+    severity: 'Medium',
+    driver: 'UI:R',
+    decoys: ['C:H', 'PR:H'],
+    reason: 'It needs a victim to click, and all it changes is a newsletter setting.',
+  },
+  {
+    id: 'heavy-search',
+    title: 'One search slows the shop',
+    evidence: 'A signed-in user can send a search that stalls the site for everyone.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H',
+    severity: 'Medium',
+    driver: 'A:H',
+    decoys: ['C:H', 'UI:R'],
+    reason: 'It can take the shop down, but reads and changes nothing.',
+  },
+  {
+    id: 'admin-error',
+    title: 'File path on an admin error page',
+    evidence: 'Only signed-in admins see the error, and it shows one server path.',
+    vector: 'CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:L/I:N/A:N',
+    severity: 'Low',
+    driver: 'PR:H',
+    decoys: ['PR:N', 'I:H'],
+    reason: 'You already need to be an admin, and all you learn is a path.',
+  },
+  {
+    id: 'local-log',
+    title: 'Order numbers in a local log',
+    evidence: 'A log on the warehouse server, readable by any local account, lists order numbers.',
+    vector: 'CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:L/I:N/A:N',
+    severity: 'Low',
+    driver: 'AV:L',
+    decoys: ['AV:N', 'C:H'],
+    reason: 'You need an account on that machine first, and it gives away very little.',
+  },
+];
+
+export const FINDING_BY_ID = Object.fromEntries(FINDINGS.map((f) => [f.id, f])) as Record<string, Finding>;
