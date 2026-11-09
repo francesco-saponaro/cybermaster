@@ -25,6 +25,7 @@ export const PERIMETER_MISSIONS: Mission[] = [
     answer: 3,
     explain:
       'MySQL on 3306 is answering the whole internet. Even fully patched, it is a password guess or a future CVE away from the data. Nothing but the application server should reach it.',
+    concept: 'exposed-db-port',
     secondQuestion: {
       prompt: 'What is the first fix you would recommend?',
       options: [
@@ -35,6 +36,7 @@ export const PERIMETER_MISSIONS: Mission[] = [
       ],
       answer: 1,
       explain: 'Patching helps, moving the port helps nobody, and SSH is not the issue. The exposure itself is the finding: close it at the network.',
+      concept: 'network-fix',
     },
   },
   {
@@ -62,6 +64,7 @@ export const PERIMETER_MISSIONS: Mission[] = [
     answer: 2,
     explain:
       'Apache 2.4.49 is the one release with CVE-2021-41773. It was fixed in 2.4.50 (and completed in 2.4.51). vsftpd 3.0.5 and OpenSSH 9.3 have nothing comparable.',
+    concept: 'version-cve',
     secondQuestion: {
       prompt: 'Before you write "CVE-2021-41773 confirmed", what do you do?',
       options: [
@@ -72,36 +75,37 @@ export const PERIMETER_MISSIONS: Mission[] = [
       ],
       answer: 1,
       explain: 'A banner can lie (backports, modules off, a hardened config). A single non-destructive request proves or disproves it, and the evidence makes the finding reproducible.',
+      concept: 'verify-before-report',
     },
   },
   {
     id: 'perimeter-nmap-flags',
-    kind: 'match',
+    kind: 'cards',
     zone: 'perimeter',
     title: 'Scan Grammar',
     brief:
-      'Nine Nmap options you will type every week. Match each to what it does. The belt also carries meanings that belong to no option here.',
-    objective: 'Match all nine options to their meaning.',
+      'Nmap options you type every week fly in one at a time. Match each to what it does before the clock runs out. Keep a streak going.',
+    objective: 'Match every option to its meaning. Accuracy is most of the score; a streak and speed add the rest.',
     minutes: 3,
     xp: 100,
     codex: ['nmap'],
     debrief:
       'Nmap finds hosts, ports, services and versions, and its scripts add targeted checks. It is not a vulnerability scanner, and no scanner replaces the manual check.',
-    bugLabel: 'Option',
-    fixLabel: 'What it does',
-    seconds: 180,
-    bugs: [
-      { id: 'o1', text: '-sS', fix: 'm1', explain: 'The default TCP SYN scan: half-open, fast, needs raw sockets.' },
-      { id: 'o2', text: '-sV', fix: 'm2', explain: 'Probes the open ports to identify the service and its version.' },
-      { id: 'o3', text: '-sC', fix: 'm3', explain: 'Runs the default set of NSE scripts.' },
-      { id: 'o4', text: '-p-', fix: 'm4', explain: 'All 65535 TCP ports instead of the top 1000.' },
-      { id: 'o5', text: '-Pn', fix: 'm5', explain: 'Treats every host as up; skips the ping phase.' },
-      { id: 'o6', text: '-sU', fix: 'm6', explain: 'UDP scan: slow, but DNS, SNMP and the like live there.' },
-      { id: 'o7', text: '-O', fix: 'm7', explain: 'Guesses the operating system from the TCP/IP stack.' },
-      { id: 'o8', text: '--script vuln', fix: 'm8', explain: 'Runs the NSE scripts in the vuln category.' },
-      { id: 'o9', text: '-oA report', fix: 'm9', explain: 'Writes normal, grepable and XML output with one base name.' },
+    promptLabel: 'Option',
+    answerLabel: 'What it does',
+    secondsPerCard: 12,
+    cards: [
+      { id: 'o1', text: '-sS', answer: 'm1', explain: 'The default TCP SYN scan: half-open, fast, needs raw sockets.', concept: 'nmap-scan-types' },
+      { id: 'o2', text: '-sV', answer: 'm2', explain: 'Probes the open ports to identify the service and its version.', concept: 'nmap-detection' },
+      { id: 'o3', text: '-sC', answer: 'm3', explain: 'Runs the default set of NSE scripts.', concept: 'nmap-detection' },
+      { id: 'o4', text: '-p-', answer: 'm4', explain: 'All 65535 TCP ports instead of the top 1000.', concept: 'nmap-ports' },
+      { id: 'o5', text: '-Pn', answer: 'm5', explain: 'Treats every host as up; skips the ping phase.', concept: 'nmap-ports' },
+      { id: 'o6', text: '-sU', answer: 'm6', explain: 'UDP scan: slow, but DNS, SNMP and the like live there.', concept: 'nmap-scan-types' },
+      { id: 'o7', text: '-O', answer: 'm7', explain: 'Guesses the operating system from the TCP/IP stack.', concept: 'nmap-detection' },
+      { id: 'o8', text: '--script vuln', answer: 'm8', explain: 'Runs the NSE scripts in the vuln category.', concept: 'nmap-scripts-output' },
+      { id: 'o9', text: '-oA report', answer: 'm9', explain: 'Writes normal, grepable and XML output with one base name.', concept: 'nmap-scripts-output' },
     ],
-    fixes: [
+    answers: [
       { id: 'm1', label: 'TCP SYN scan (the default)' },
       { id: 'm2', label: 'Service and version detection' },
       { id: 'm3', label: 'Run the default scripts' },
@@ -111,8 +115,6 @@ export const PERIMETER_MISSIONS: Mission[] = [
       { id: 'm7', label: 'OS detection' },
       { id: 'm8', label: 'Run the vulnerability scripts' },
       { id: 'm9', label: 'Save output in all three formats' },
-      { id: 'x1', label: 'Exploit the open services' },
-      { id: 'x2', label: 'Crack the SSH password' },
     ],
   },
   {
@@ -134,22 +136,19 @@ export const PERIMETER_MISSIONS: Mission[] = [
         description:
           'OpenSSL 1.0.1 to 1.0.1f answer a malformed heartbeat request with up to 64 KB of server memory. Anyone on the internet can send it, no account or user action needed, and it is trivial to do. The leak may contain keys and sessions, but the attacker cannot change anything or take the service down. The impact stays within the vulnerable component.',
         vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-        explain: 'Network, low complexity, no privileges, no interaction, scope unchanged. Confidentiality high; integrity and availability none. Score 7.5, High.',
-      },
+        explain: 'Network, low complexity, no privileges, no interaction, scope unchanged. Confidentiality high; integrity and availability none. Score 7.5, High.', concept: 'cvss-impact' },
       {
         title: 'Log4Shell (CVE-2021-44228)',
         description:
           'Log4j 2.0 to 2.14.1 evaluate JNDI lookups in logged strings, so any input that gets logged can load and run attacker code. It works over the network with no credentials and no user action, reliably. The code runs with the application\'s rights, so it affects everything the application can reach, beyond the logging library itself: total loss of confidentiality, integrity and availability.',
         vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H',
-        explain: 'Scope is changed because the vulnerable component (the library) is not the one that suffers (the whole host). With all three impacts high, that gives 10.0, Critical.',
-      },
+        explain: 'Scope is changed because the vulnerable component (the library) is not the one that suffers (the whole host). With all three impacts high, that gives 10.0, Critical.', concept: 'cvss-scope' },
       {
         title: 'Stored XSS in a shared comment thread',
         description:
           'A logged-in user with an ordinary account can post a comment that runs script in the browser of anyone who opens the thread. The victim only needs to view the page. The script runs in the victim\'s browser, outside the vulnerable server, and can read some of their data and perform some actions as them, but not take the service down.',
         vector: 'CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N',
-        explain: 'Low privileges (an account), user interaction required (the victim views it), scope changed (the browser is a different security authority). Low confidentiality and integrity impact, none on availability. Score 5.4, Medium.',
-      },
+        explain: 'Low privileges (an account), user interaction required (the victim views it), scope changed (the browser is a different security authority). Low confidentiality and integrity impact, none on availability. Score 5.4, Medium.', concept: 'cvss-exploitability' },
     ],
   },
   {
@@ -173,64 +172,56 @@ export const PERIMETER_MISSIONS: Mission[] = [
         scannerSays: 'Banner OpenSSH_7.4 matches several CVEs fixed in later releases.',
         evidence: ['Host runs CentOS 7', 'rpm -q openssh: openssh-7.4p1-23.el7_9', 'Package changelog lists the CVEs the scanner names as fixed by backport'],
         answer: 'false',
-        explain: 'Enterprise distributions backport fixes without changing the version. The changelog proves the fixes are in. False positive, documented with the package version.',
-      },
+        explain: 'Enterprise distributions backport fixes without changing the version. The changelog proves the fixes are in. False positive, documented with the package version.', concept: 'backport-false-positive' },
       {
         tool: 'OpenVAS',
         title: 'TLS 1.0 supported on 443 (Medium)',
         scannerSays: 'Legacy protocol accepted.',
         evidence: ['openssl s_client -tls1 -connect host:443 completes the handshake', 'Protocol: TLSv1 in the session output'],
         answer: 'true',
-        explain: 'The handshake succeeded with TLS 1.0. Reproduced, so it is a true positive.',
-      },
+        explain: 'The handshake succeeded with TLS 1.0. Reproduced, so it is a true positive.', concept: 'reproduced-true-positive' },
       {
         tool: 'Nmap --script vuln',
         title: 'MySQL allows remote root login (High)',
         scannerSays: 'Port 3306 open; root login possible.',
         evidence: ['mysql -h host -u root -p: "Host 10.10.14.5 is not allowed to connect to this MySQL server"', 'No other test done'],
         answer: 'false',
-        explain: 'The server rejects the host before authentication, so remote root login is not possible from here. The open port is still a separate finding.',
-      },
+        explain: 'The server rejects the host before authentication, so remote root login is not possible from here. The open port is still a separate finding.', concept: 'version-range-false-positive' },
       {
         tool: 'Nuclei',
         title: 'Apache 2.4.49 path traversal CVE-2021-41773 (Critical)',
         scannerSays: 'Template matched on version.',
         evidence: ['A controlled traversal request for a file outside the web root returned its contents', 'Request and response saved'],
         answer: 'true',
-        explain: 'Reproduced with evidence. True positive, critical.',
-      },
+        explain: 'Reproduced with evidence. True positive, critical.', concept: 'reproduced-true-positive' },
       {
         tool: 'ZAP',
         title: 'SQL injection in /search?q= (High)',
         scannerSays: 'Error-based heuristic fired on a single quote.',
         evidence: ['A single quote returns HTTP 500 with a generic error page', 'No boolean or time-based test done yet'],
         answer: 'validate',
-        explain: 'A 500 on a quote is a hint, not proof: it could be any input error. Until a boolean or time-based test confirms the query changes, it needs validation.',
-      },
+        explain: 'A 500 on a quote is a hint, not proof: it could be any input error. Until a boolean or time-based test confirms the query changes, it needs validation.', concept: 'needs-validation' },
       {
         tool: 'OpenVAS',
         title: 'Directory listing on /backup/ (Medium)',
         scannerSays: 'Index page returned.',
         evidence: ['Screenshot: "Index of /backup" with db-2026-10-30.sql.gz', 'File downloads without authentication'],
         answer: 'true',
-        explain: 'Seen and reproduced. With a database dump inside, the severity goes up, not down.',
-      },
+        explain: 'Seen and reproduced. With a database dump inside, the severity goes up, not down.', concept: 'reproduced-true-positive' },
       {
         tool: 'Nuclei',
         title: 'phpMyAdmin default credentials (High)',
         scannerSays: 'Login page detected.',
         evidence: ['Login page present at /pma/', 'Credential tests are out of scope until the client confirms', 'No login attempted'],
         answer: 'validate',
-        explain: 'The page exists; the claim about credentials was never tested. Record it as needing validation and ask for permission to test.',
-      },
+        explain: 'The page exists; the claim about credentials was never tested. Record it as needing validation and ask for permission to test.', concept: 'needs-validation' },
       {
         tool: 'OpenVAS',
         title: 'Heartbleed on 443 (High)',
         scannerSays: 'OpenSSL heartbeat extension present.',
         evidence: ['Server reports OpenSSL 3.0.2', 'Heartbleed affects 1.0.1 through 1.0.1f only', 'Heartbeat test returned no extra data'],
         answer: 'false',
-        explain: 'Wrong version range and a negative test. False positive.',
-      },
+        explain: 'Wrong version range and a negative test. False positive.', concept: 'version-range-false-positive' },
     ],
   },
   {
@@ -271,6 +262,7 @@ export const PERIMETER_MISSIONS: Mission[] = [
     answer: 3,
     explain:
       'Redis with its default configuration has no password. On the internet, that is immediate read and write to the cache and, with the right data, a path to code execution. RDP is also a serious finding; Redis is the quicker win.',
+    concept: 'exposed-default-service',
     secondQuestion: {
       prompt: 'How do you report the 3389 and 6379 exposures?',
       options: [
@@ -281,6 +273,7 @@ export const PERIMETER_MISSIONS: Mission[] = [
       ],
       answer: 1,
       explain: 'Each exposure has its own impact and its own fix. Current versions do not make an exposed admin or data service safe.',
+      concept: 'one-finding-per-exposure',
     },
   },
   {
@@ -300,8 +293,7 @@ export const PERIMETER_MISSIONS: Mission[] = [
         description:
           'A crafted URL reads files outside the document root on an Apache 2.4.49 server reachable from the internet. No credentials, no user action, and the request is simple. With mod_cgi disabled on this host, the attacker reads files but cannot write or run anything, and the damage stays inside the web server.',
         vector: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N',
-        explain: 'Network, low complexity, no privileges, no interaction, scope unchanged, confidentiality high only: 7.5, High. With mod_cgi on, integrity and availability become high and the score climbs to 9.8.',
-      },
+        explain: 'Network, low complexity, no privileges, no interaction, scope unchanged, confidentiality high only: 7.5, High. With mod_cgi on, integrity and availability become high and the score climbs to 9.8.', concept: 'cvss-impact' },
     ],
   },
   {
@@ -323,40 +315,35 @@ export const PERIMETER_MISSIONS: Mission[] = [
         scannerSays: 'Port 6379 answers PING.',
         evidence: ['redis-cli -h host INFO returns the full server info without AUTH', 'CONFIG GET dir succeeds'],
         answer: 'true',
-        explain: 'Reproduced: commands run with no password.',
-      },
+        explain: 'Reproduced: commands run with no password.', concept: 'reproduced-true-positive' },
       {
         tool: 'Nmap --script vuln',
         title: 'RDP BlueKeep CVE-2019-0708 (Critical)',
         scannerSays: 'rdp-vuln-ms12-020 and BlueKeep check flagged.',
         evidence: ['Host reports Windows Server 2022', 'BlueKeep affects Windows 7 / Server 2008 generation', 'Script output: "VULNERABLE: likely" based on the service only'],
         answer: 'false',
-        explain: 'The OS is outside the affected range; the script keyed on the open port. The exposure of RDP remains a finding, but not this CVE.',
-      },
+        explain: 'The OS is outside the affected range; the script keyed on the open port. The exposure of RDP remains a finding, but not this CVE.', concept: 'version-range-false-positive' },
       {
         tool: 'OpenVAS',
         title: 'nginx 1.25.3 HTTP/2 rapid reset CVE-2023-44487 (High)',
         scannerSays: 'Version-based match.',
         evidence: ['Version 1.25.3 includes the mitigation', 'No load test performed'],
         answer: 'false',
-        explain: 'Version-based match against a version that already carries the fix. A false positive from the version table.',
-      },
+        explain: 'Version-based match against a version that already carries the fix. A false positive from the version table.', concept: 'version-range-false-positive' },
       {
         tool: 'Nuclei',
         title: 'Prometheus node_exporter exposed (Medium)',
         scannerSays: '/metrics returned 200.',
         evidence: ['curl host:9100/metrics returns host metrics, kernel version and mounted filesystems'],
         answer: 'true',
-        explain: 'Seen directly. Information disclosure, true positive.',
-      },
+        explain: 'Seen directly. Information disclosure, true positive.', concept: 'reproduced-true-positive' },
       {
         tool: 'OpenVAS',
         title: 'SSH weak key exchange algorithms (Low)',
         scannerSays: 'diffie-hellman-group14-sha1 offered.',
         evidence: ['ssh -Q kex on the client lists it, but the server\'s offered list was not captured', 'No handshake test done'],
         answer: 'validate',
-        explain: 'The evidence is about the client, not the server. Capture the server\'s algorithms before deciding.',
-      },
+        explain: 'The evidence is about the client, not the server. Capture the server\'s algorithms before deciding.', concept: 'needs-validation' },
     ],
   },
 ];
