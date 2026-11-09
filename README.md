@@ -11,13 +11,35 @@ how a finding is written, CVE and CVSS, false positives, and the home lab you pr
 fact the game teaches is meant to be correct; where a topic is simplified, it is simplified
 without becoming wrong.
 
+## How a mission plays
+
+Every one of the thirty missions runs in three parts, so the game teaches first and only then asks.
+
+- **Briefing.** A mentor on the Watch, Ines, walks you through the idea on real material: here is the
+  Set-Cookie line with no HttpOnly flag, tap it; now the one that has it, tap the flag. Three to five
+  beats, each needing an action, each unlocking a codex entry as you go. Once you have cleared a
+  mission you can skip its briefing.
+- **Mission.** The test, and it only asks what the briefing showed. There is a hint button that costs
+  10 XP and highlights the region or narrows the choices, and the first mission in each zone is
+  tutorial difficulty: a mistake costs score, not the run.
+- **Debrief.** For every mistake you see the exact line or choice, one sentence on why, and the right
+  answer, then your grade and a prompt to play again for a better one.
+
+The first time the game opens there is a 60-second interactive prologue: the mentor, the reticle, one
+packet caught, then the board.
+
 ## What it is
 
-Five zones, each one part of the job, unlocking in order. Twenty-plus missions plus a boss at the
-end of every zone.
+Five zones, each one part of the job, unlocking in order. Thirty missions, a boss at the end of every
+zone among them.
 
-- **The Wire** — HTTP, cookies, sessions and tokens. Read raw traffic and find what leaks; fix the
-  auth flows that trust the wrong thing.
+- **The Wire** — HTTP, cookies, sessions and tokens. This zone plays like a game, not a reading test.
+  **Intercept** is a canvas scene: requests and responses stream across the screen through your proxy,
+  each a card with the raw lines showing, and you catch the ones that carry the problem (a cookie with
+  no HttpOnly, a token in the URL, a password in a query string) while the clean ones pass. Hold to
+  slow time and read; combos and the miss meter keep it honest; the waves speed up. **Login Lab** is a
+  live session you watch play out between browser, server and attacker, and you freeze it the moment
+  something breaks, then pick the fix. **Cookie Jar** is sorting under a clock.
 - **The Arena** — the OWASP Top 10. A top-down lane where the attacks come at you by name and you
   neutralise each with the right defence.
 - **The Perimeter** — hosts, ports, versions, CVEs and CVSS. Sweep a host on a radar, score what
@@ -27,9 +49,9 @@ end of every zone.
 - **The Report** — the six phases of an assessment, the seven fields of a finding, the standards,
   and the lab. The boss is building a finding from fragments.
 
-Mechanics include a packet inspector, a fix-the-bug matcher, the OWASP arena, a port-sweep radar,
-a CVSS forge (eight dials, a live base score), a scanner-triage stream, a cloud config auditor, an
-API gate for IDOR/BOLA, a phase-ordering puzzle and the final report builder.
+Other mechanics include the OWASP arena, a port-sweep radar, a CVSS forge (eight dials, a live base
+score), a scanner-triage stream, a cloud config auditor, an API gate for IDOR/BOLA, timed card sorts
+for the reference missions, a phase-ordering puzzle and the final report builder.
 
 Progress is saved in `localStorage`, so it survives a reload. There is no backend and nothing is
 sent anywhere.
@@ -61,17 +83,23 @@ All content lives in a data layer, separate from the engine:
 - `src/content/zones.ts` — the five zones and the mission ids in each
 - `src/content/codex.ts` — the codex entries a mission unlocks
 - `src/content/missions/*.ts` — the missions themselves, typed by `src/content/types.ts`
+- `src/content/briefings/*.ts` — the teach-first briefing for each mission, as data
+- `src/content/concepts.ts` — the named concepts a briefing teaches and a mission tests
 
 To add a mission: write a new object in the right zone file whose `kind` is one of the existing
-mechanics (`inspect`, `match`, `arena`, `sweep`, `cvss`, `triage`, `audit`, `api`, `order`,
-`report`, `boss`), give it a unique `id`, list the `codex` entries it unlocks, and add its `id` to
-the zone's `missionIds` in `zones.ts`. The engine renders it from the data; you do not touch a
-component. The integrity test in `tests/content.test.ts` checks that every mission has a real zone,
-every codex id resolves, there are no duplicates and each mechanic's data is well formed, so a
+mechanics (`intercept`, `live`, `sort`, `inspect`, `match`, `cards`, `arena`, `sweep`, `cvss`,
+`triage`, `audit`, `api`, `order`, `report`, `boss`), give it a unique `id`, list the `codex`
+entries it unlocks, tag each test item with the concept it checks, and add its `id` to the zone's
+`missionIds` in `zones.ts`. Then write its briefing in `src/content/briefings/` with at least three
+beats that introduce the concepts the mission tests. The engine renders both from the data; you do
+not touch a component. The integrity test in `tests/content.test.ts` checks that every mission has a
+real zone and a briefing of three or more beats, every codex id resolves, there are no duplicates,
+each mechanic's data is well formed, and nothing is tested before a briefing has taught it, so a
 mistake shows up as a failing test.
 
-The scoring, the CVSS calculator, the save migration and the progression maths are pure functions
-in `src/engine/`, each covered by tests.
+The scoring, the hint cost, the step engine behind the briefings, the Intercept scoring, the CVSS
+calculator, the save migration and the progression maths are pure functions in `src/engine/`, each
+covered by tests.
 
 ## What is mocked
 
