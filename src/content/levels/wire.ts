@@ -80,8 +80,8 @@ export const WIRE_LEVELS: WireLevel[] = [
     request: SHOP_REQUEST,
     checks: [
       { id: 'sent', label: 'Send a request' },
-      { id: 'robots', label: 'Read /robots.txt' },
-      { id: 'hidden', label: 'Open the page it names' },
+      { id: 'robots', label: 'Read /robots.txt', next: 'Sites list the paths they want search engines to skip in a file called robots.txt. Change the first line to GET /robots.txt and Send.' },
+      { id: 'hidden', label: 'Open the page it names', next: 'robots.txt lists /staff-notes as a path search engines should skip. Type /staff-notes in the address bar and press Enter, or change the first line of the request to GET /staff-notes and Send.' },
     ],
     evaluate: (s) => ({ sent: s.exchanges.length > 0, robots: sent(s, '/robots.txt'), hidden: sent(s, '/staff-notes') }),
     showMe: [
@@ -108,7 +108,7 @@ export const WIRE_LEVELS: WireLevel[] = [
     request: ACCOUNT_REQUEST,
     checks: [
       { id: 'sent', label: 'Open your account' },
-      { id: 'admin', label: 'Reach the admin panel' },
+      { id: 'admin', label: 'Reach the admin panel', next: 'Find the Cookie line in the request, change role=user to role=admin, and Send.' },
     ],
     evaluate: (s) => ({ sent: sent(s, '/account'), admin: s.exchanges.some((e) => e.res.view?.title === 'Admin') }),
     showMe: [
@@ -138,7 +138,7 @@ export const WIRE_LEVELS: WireLevel[] = [
     ],
     checks: [
       { id: 'mine', label: 'Open your own account' },
-      { id: 'mara', label: "Get into Mara's account" },
+      { id: 'mara', label: "Get into Mara's account", next: "Open the café capture in the proxy history, copy Mara's sid value, paste it over yours on the Cookie line, and Send." },
     ],
     evaluate: (s) => ({
       mine: s.exchanges.some((e) => e.res.body.includes('Signed in as sam')),
@@ -168,9 +168,9 @@ export const WIRE_LEVELS: WireLevel[] = [
     console: true,
     checks: [
       { id: 'read', label: 'See the session in document.cookie' },
-      { id: 'flag', label: 'Forward a session cookie flagged HttpOnly' },
-      { id: 'hidden', label: 'Scripts no longer see the session' },
-      { id: 'still', label: 'You are still signed in' },
+      { id: 'flag', label: 'Forward a session cookie flagged HttpOnly', next: 'Press Send again. Before you Forward, add ; HttpOnly to the end of the Set-Cookie line in the response.' },
+      { id: 'hidden', label: 'Scripts no longer see the session', next: 'Type document.cookie in the console again and press Enter.' },
+      { id: 'still', label: 'You are still signed in', next: "Open your account again: the browser still sends the cookie, scripts just can't read it." },
     ],
     evaluate: (s) => {
       const flagged = sessionFlagged(s);
@@ -207,8 +207,8 @@ export const WIRE_LEVELS: WireLevel[] = [
     jwt: true,
     checks: [
       { id: 'tampered', label: 'An edited token is rejected (bad signature)' },
-      { id: 'v1', label: 'v1 accepts alg "none": you are admin' },
-      { id: 'v2', label: 'v2 refuses alg "none"' },
+      { id: 'v1', label: 'v1 accepts alg "none": you are admin', next: 'A changed payload breaks the signature. Set the header to {"alg":"none","typ":"JWT"}, empty the signature, and Send to /v1/admin again.' },
+      { id: 'v2', label: 'v2 refuses alg "none"', next: 'Now change the path to /v2/admin and Send the same token.' },
     ],
     evaluate: (s) => ({
       tampered: s.exchanges.some((e) => e.res.status === 401 && e.res.body.includes('Invalid signature')),
@@ -241,9 +241,9 @@ export const WIRE_LEVELS: WireLevel[] = [
     request: CORS_REQUEST,
     checks: [
       { id: 'evil', label: 'evil.example cannot read the account' },
-      { id: 'bank', label: 'bank.example still can' },
-      { id: 'cookie', label: 'Session cookie: HttpOnly, Secure, SameSite' },
-      { id: 'hsts', label: 'Browsers are told to use HTTPS only' },
+      { id: 'bank', label: 'bank.example still can', next: 'Put https://bank.example on the Access-Control-Allow-Origin line instead of removing it.' },
+      { id: 'cookie', label: 'Session cookie: HttpOnly, Secure, SameSite', next: 'Add ; HttpOnly; Secure; SameSite=Lax to the end of the Set-Cookie line, then Forward.' },
+      { id: 'hsts', label: 'Browsers are told to use HTTPS only', next: 'Add a new header line: Strict-Transport-Security: max-age=31536000, then Forward.' },
     ],
     evaluate: (s) => {
       const last = s.forwarded[s.forwarded.length - 1];

@@ -2,8 +2,8 @@ import type { ArenaLevel, LevelCheck } from '../types';
 
 const CHECKS: LevelCheck[] = [
   { id: 'found', label: 'Point at the line where the input becomes dangerous' },
-  { id: 'blocked', label: 'Replayed against your fix, the attack fails' },
-  { id: 'works', label: 'Normal use still works' },
+  { id: 'blocked', label: 'Replayed against your fix, the attack fails', next: 'Now rewrite the highlighted line in the code editor, then press Replay attack. If you are not sure what the fix looks like, the instruction names it, and Show me fills it in.' },
+  { id: 'works', label: 'Normal use still works', next: 'Your fix stopped the attack but broke the app for normal visitors. Make the line safer without removing what it does, and replay.' },
 ];
 
 const steps = (fixSay: string) => [

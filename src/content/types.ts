@@ -41,6 +41,8 @@ export interface Evidence {
 export interface LevelCheck {
   id: string;
   label: string;
+  /** What to do for this check, shown under the instruction once earlier checks pass. */
+  next?: string;
 }
 
 export interface ShowMeStep<A> {

@@ -115,6 +115,7 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
 
   const api = useMemo<ShellApi>(() => ({ onChecks, fail, act }), [onChecks, fail, act]);
   const passed = level.checks.filter((c) => checks[c.id]?.pass).length;
+  const nextCheck = level.checks.find((c) => !checks[c.id]?.pass);
   const seconds = Math.max(0, Math.round(((outcome ? started + outcome.seconds * 1000 : now) - started) / 1000));
   const nextId = zone.levelIds[index + 1];
 
@@ -155,6 +156,12 @@ export function LevelShell({ level, children }: { level: Level; children: (api: 
               <p className="brief-say">
                 <Rich text={level.instruction} />
               </p>
+              {nextCheck?.next && passed > 0 ? (
+                <p key={nextCheck.id} className="brief-next slide-in" data-testid="next-step">
+                  <span className="lv-label">Next</span>
+                  <Rich text={nextCheck.next} />
+                </p>
+              ) : null}
             </section>
             <div className="stack-12">
               <section className="card brief" aria-live="polite">

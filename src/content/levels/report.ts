@@ -61,7 +61,7 @@ export const REPORT_LEVELS: ReportLevel[] = [
     instruction: 'An assessment runs in [[six-phases|six phases]], and each leaves something behind. Pick an item, then pick the phase it belongs to.',
     checks: [
       { id: 'scope-first', label: 'The signed scope opens the engagement' },
-      { id: 'order', label: 'All six in their phase' },
+      { id: 'order', label: 'All six in their phase', next: 'Place the rest in the order the work happens: find hosts, scan them, prove a problem, write it up, check the fix.' },
     ],
     showMe: [
       { say: 'Nothing happens before the signed scope.', act: { place: ['roe', 0] } },
@@ -96,7 +96,7 @@ export const REPORT_LEVELS: ReportLevel[] = [
     instruction: 'Each line of the evidence card answers one [[cvss|CVSS]] metric. Set the metric to match, and watch the score move.',
     checks: [
       { id: 'exploitability', label: 'How it is exploited: AV, AC, PR, UI' },
-      { id: 'impact', label: 'What it breaks: S, C, I, A' },
+      { id: 'impact', label: 'What it breaks: S, C, I, A', next: 'Now the second half of the card: what can the attacker read (C), change (I) or take down (A)? Set each to match.' },
     ],
     showMe: [
       { say: 'On the internet, nothing special, any customer account, no clicks: AV:N, AC:L, PR:L, UI:N.', act: { vector: { AV: 'N', AC: 'L', PR: 'L', UI: 'N' } } },
@@ -158,8 +158,8 @@ export const REPORT_LEVELS: ReportLevel[] = [
     instruction: 'The developers say the SQL injection is fixed, and their change is on the right. [[retesting|Retest]] it: replay the recorded attack, replay its variants, then set the status you can prove.',
     checks: [
       { id: 'replayed', label: 'Replay the original attack' },
-      { id: 'bypass', label: 'Replay a variant of it' },
-      { id: 'verdict', label: 'Set the status you can prove' },
+      { id: 'bypass', label: 'Replay a variant of it', next: 'The original attack is blocked. Now replay one of the variants: a fix that only blocks one input is not a fix.' },
+      { id: 'verdict', label: 'Set the status you can prove', next: 'If any variant got in, the finding is not fixed. Set the status to what your replays showed.' },
     ],
     showMe: [
       { say: 'Replay the original attack: their filter blocks it now.', act: { retest: 'original' } },
@@ -184,11 +184,11 @@ export const REPORT_LEVELS: ReportLevel[] = [
     instruction: 'A [[home-lab|home lab]] is where you practise all of this legally. Fix the compose file until the checks pass, then Run.',
     checks: [
       { id: 'juice', label: 'Juice Shop is in the stack' },
-      { id: 'local', label: 'Only this machine can reach it' },
-      { id: 'zap', label: 'ZAP is in the stack' },
-      { id: 'target', label: 'ZAP points at Juice Shop' },
-      { id: 'network', label: 'They share a network' },
-      { id: 'run', label: 'The stack runs and ZAP reports' },
+      { id: 'local', label: 'Only this machine can reach it', next: 'Change the Juice Shop port line to "127.0.0.1:3000:3000" so only this machine can reach it.' },
+      { id: 'zap', label: 'ZAP is in the stack', next: 'Add a zap service that uses the image ghcr.io/zaproxy/zaproxy:stable.' },
+      { id: 'target', label: 'ZAP points at Juice Shop', next: 'Inside a container, localhost means the container itself. In the zap command, change http://localhost:3000 to http://juice-shop:3000, the service name.' },
+      { id: 'network', label: 'They share a network', next: 'ZAP is on the scan network but Juice Shop is not. Add the same networks: - scan lines under juice-shop.' },
+      { id: 'run', label: 'The stack runs and ZAP reports', next: 'Everything is wired. Press Run.' },
     ],
     showMe: [
       { say: 'Bind the port to this machine: "127.0.0.1:3000:3000".', act: { text: LAB_COMPOSE.replace('"3000:3000"', '"127.0.0.1:3000:3000"') } },

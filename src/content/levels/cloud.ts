@@ -126,8 +126,8 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     instruction: 'The invoices bucket lets anyone on the internet download every PDF, because of one [[s3-public|policy]] statement. Delete the PublicRead statement, keep BillingApp, and switch Block Public Access on.',
     checks: [
       { id: 'no-public', label: 'No statement grants Principal "*"' },
-      { id: 'app-reads', label: 'The billing app can still read invoices' },
-      { id: 'bpa', label: 'Block Public Access is on' },
+      { id: 'app-reads', label: 'The billing app can still read invoices', next: 'Keep the BillingApp statement in the policy: only the PublicRead one has to go.' },
+      { id: 'bpa', label: 'Block Public Access is on', next: 'Now flip the Block Public Access switch above the policy editor.' },
     ],
     showMe: [
       { say: 'Delete the whole PublicRead statement, from { to },.', act: { text: json({ Version: '2012-10-17', Statement: [BILLING_APP] }) } },
@@ -151,9 +151,9 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     instruction: 'The report export job runs with admin rights. Rewrite its [[iam-least-privilege|policy]] so it can only read monthly/ and write exports/ in the harbor-reports bucket.',
     checks: [
       { id: 'task', label: 'The job can read monthly/ and write exports/' },
-      { id: 'no-star-action', label: 'No wildcard actions' },
-      { id: 'no-star-resource', label: 'No wildcard resources' },
-      { id: 'denied', label: 'Delete, payroll and IAM are denied' },
+      { id: 'no-star-action', label: 'No wildcard actions', next: 'Replace "s3:*" or "*" in Action with exactly the two actions it needs: s3:GetObject and s3:PutObject.' },
+      { id: 'no-star-resource', label: 'No wildcard resources', next: 'Replace "*" in Resource with the two paths: arn:aws:s3:::harbor-reports/monthly/* and arn:aws:s3:::harbor-reports/exports/*.' },
+      { id: 'denied', label: 'Delete, payroll and IAM are denied', next: 'Something still allows more than reading monthly/ and writing exports/. Remove any extra action or path.' },
     ],
     showMe: [
       { say: 'Name the action and the path: s3:GetObject on arn:aws:s3:::harbor-reports/monthly/*, s3:PutObject on .../exports/*.', act: { text: IAM_FIXED } },
@@ -175,10 +175,10 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     instruction: 'This server\'s [[security-groups|firewall]] lets the whole internet try SSH, RDP and the database. Fix the rules, keeping 443 for customers and SSH for the office range 203.0.113.64/27.',
     checks: [
       { id: 'ssh', label: 'SSH (22) closed to the internet' },
-      { id: 'rdp', label: 'RDP (3389) closed to the internet' },
-      { id: 'db', label: 'PostgreSQL (5432) closed to the internet' },
-      { id: 'web', label: 'Customers still reach 443' },
-      { id: 'office', label: 'The office still reaches SSH' },
+      { id: 'rdp', label: 'RDP (3389) closed to the internet', next: 'Remove the rule that opens 3389 to 0.0.0.0/0: nobody needs remote desktop from the internet.' },
+      { id: 'db', label: 'PostgreSQL (5432) closed to the internet', next: 'Remove the rule that opens 5432 to 0.0.0.0/0: only the app talks to the database.' },
+      { id: 'web', label: 'Customers still reach 443', next: 'Put back a rule for port 443 from 0.0.0.0/0: that is the website itself.' },
+      { id: 'office', label: 'The office still reaches SSH', next: 'Keep a rule for port 22, with the source set to the office range 203.0.113.64/27 instead of the whole internet.' },
     ],
     showMe: [
       { say: 'Change the SSH rule\'s source from 0.0.0.0/0 to 203.0.113.64/27.', act: { rules: SG_RULES.map((r) => (r.id === 'r2' ? { ...r, source: '203.0.113.64/27', note: 'SSH from the office' } : r)) } },
@@ -200,9 +200,9 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     instruction: 'Someone committed a cloud access key and deleted it in the next commit, so it is still in the history. Find it, then [[secrets|rotate]] it without breaking the pipeline.',
     checks: [
       { id: 'found', label: 'Find the leaked key' },
-      { id: 'revoked', label: 'The leaked key is switched off' },
-      { id: 'deploys', label: 'Deploys still run' },
-      { id: 'backups', label: 'Backups still run' },
+      { id: 'revoked', label: 'The leaked key is switched off', next: 'Order matters: create a new key first, point the pipeline secret at it, and only then deactivate the leaked one.' },
+      { id: 'deploys', label: 'Deploys still run', next: 'Deploys use the pipeline secret. Point it at the new key.' },
+      { id: 'backups', label: 'Backups still run', next: 'The key list shows one key used by the backup job. Leave that one alone and only deactivate the leaked key.' },
     ],
     showMe: [
       { say: 'Open commit 9c2e41a in the history: .env.production holds the key.', act: { keyOp: 'find' } },
@@ -227,7 +227,7 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     instruction: 'The [[sast|code scanner]] raised five alerts. Trace each one to see whether user input really reaches the dangerous line.',
     checks: [
       { id: 'real', label: 'Real problems sent to fix' },
-      { id: 'noise', label: 'False alarms dismissed' },
+      { id: 'noise', label: 'False alarms dismissed', next: 'Press Trace on each remaining alert. If user input never reaches the flagged line, press Dismiss as false alarm; if it does, press Send to fix.' },
     ],
     showMe: [
       { say: 'Trace the first alert: the status from the URL lands in the SQL.', act: { trace: 'f1', verdicts: { f1: 'fix' } } },
@@ -252,9 +252,9 @@ export const CLOUD_LEVELS: CloudLevel[] = [
     instruction: 'Try the routes as an anonymous caller and as Sam, then change the [[api-security|gateway]] config.',
     checks: [
       { id: 'export', label: 'The customer export needs a token' },
-      { id: 'bola', label: 'Orders are checked against their owner' },
-      { id: 'ratelimit', label: 'Login is rate limited' },
-      { id: 'customers', label: 'Customers can log in and see their orders' },
+      { id: 'bola', label: 'Orders are checked against their owner', next: 'In the gateway config, set ownerCheck to true on the orders route.' },
+      { id: 'ratelimit', label: 'Login is rate limited', next: 'Give /v1/login a rateLimit, for example "5/min", so nobody can try thousands of passwords.' },
+      { id: 'customers', label: 'Customers can log in and see their orders', next: 'Your config now blocks real customers too. Loosen only what you broke, and try the routes as Sam again.' },
     ],
     showMe: [
       { say: 'Call GET /internal/export with no token: it hands over every customer.' },

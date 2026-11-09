@@ -12,7 +12,7 @@ export const PERIMETER_LEVELS: TerminalLevel[] = [
     network: NET_SWEEP,
     checks: [
       { id: 'sweep', label: 'Sweep the subnet for live hosts' },
-      { id: 'answer', label: 'Submit how many are up' },
+      { id: 'answer', label: 'Submit how many are up', next: 'Read the last line of the scan: it says how many hosts are up. Type submit and that number, then Enter.' },
     ],
     goals: [
       { id: 'sweep', facts: ['sweep:*'] },
@@ -40,7 +40,7 @@ export const PERIMETER_LEVELS: TerminalLevel[] = [
     network: NET_PORTS,
     checks: [
       { id: 'scan', label: 'Scan a host for open ports' },
-      { id: 'answer', label: 'Submit the database host' },
+      { id: 'answer', label: 'Submit the database host', next: 'PostgreSQL listens on port 5432. Find the host with 5432/tcp open and type submit and its address.' },
     ],
     goals: [
       { id: 'scan', facts: ['ports:*'] },
@@ -71,8 +71,8 @@ export const PERIMETER_LEVELS: TerminalLevel[] = [
     network: NET_VERSIONS,
     checks: [
       { id: 'version', label: 'Read the FTP version' },
-      { id: 'lookup', label: 'Look it up in vulndb' },
-      { id: 'answer', label: 'Submit the CVE' },
+      { id: 'lookup', label: 'Look it up in vulndb', next: 'Type vulndb followed by the product and version you just read, for example vulndb vsftpd 2.3.4.' },
+      { id: 'answer', label: 'Submit the CVE', next: 'Copy the CVE id from the vulndb result and type submit followed by it.' },
     ],
     goals: [
       { id: 'version', facts: ['version:10.0.8.21:21', 'banner:10.0.8.21:21'] },
@@ -103,8 +103,8 @@ export const PERIMETER_LEVELS: TerminalLevel[] = [
     network: NET_FALSE_POSITIVE,
     checks: [
       { id: 'report', label: 'Read the scanner report' },
-      { id: 'banner', label: 'Check the live version on 10.0.8.15' },
-      { id: 'answer', label: 'Submit your verdict' },
+      { id: 'banner', label: 'Check the live version on 10.0.8.15', next: 'Ask the server what it runs right now: curl -I http://10.0.8.15 shows its Server header.' },
+      { id: 'answer', label: 'Submit your verdict', next: 'Does the live version match what the report says? Type submit real or submit false-positive.' },
     ],
     goals: [
       { id: 'report', facts: ['cat:reports/scan-0311.txt'] },
@@ -134,8 +134,8 @@ export const PERIMETER_LEVELS: TerminalLevel[] = [
     network: NET_SCOPE,
     checks: [
       { id: 'dig', label: 'Resolve the name' },
-      { id: 'whois', label: 'Find who holds the address' },
-      { id: 'answer', label: 'Submit your decision' },
+      { id: 'whois', label: 'Find who holds the address', next: 'Type whois followed by the address dig gave you, and compare the owner with scope.txt.' },
+      { id: 'answer', label: 'Submit your decision', next: 'If the address belongs to the client and is in scope.txt, submit in-scope. If it belongs to someone else, submit out-of-scope.' },
     ],
     goals: [
       { id: 'dig', facts: ['dig:staging.harbor.example'] },
@@ -167,8 +167,8 @@ export const PERIMETER_LEVELS: TerminalLevel[] = [
     network: NET_BOSS,
     checks: [
       { id: 'survey', label: 'Survey the network' },
-      { id: 'verify', label: 'Confirm the vulnerable version on the host' },
-      { id: 'answer', label: 'Submit the CVE' },
+      { id: 'verify', label: 'Confirm the vulnerable version on the host', next: 'Connect to the suspicious port and read its banner: nc -v followed by the host and the port.' },
+      { id: 'answer', label: 'Submit the CVE', next: 'Look the version up with vulndb, then type submit followed by the CVE id.' },
     ],
     goals: [
       { id: 'survey', facts: ['sweep:*', 'ports:*'] },
