@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const SAVE_KEY = 'cybermaster.save';
 
 const RunSchema = z.object({
@@ -31,6 +31,13 @@ const DayResultSchema = z.object({
 
 const StreakSchema = z.object({ count: z.number().int().min(0), lastDay: z.string() });
 
+const ArcadeRunSchema = z.object({
+  best: z.number().int().min(0),
+  stars: z.number().int().min(0).max(3),
+  plays: z.number().int().min(0),
+  lastPlayedAt: z.string(),
+});
+
 /** Version 4: hands-on levels, no challenges, no story. */
 const V4Fields = {
   name: z.string().max(24),
@@ -45,8 +52,7 @@ const V4Fields = {
 };
 const V4Schema = z.object({ version: z.literal(4), ...V4Fields });
 
-export const SaveSchema = z.object({
-  version: z.literal(SAVE_VERSION),
+const V5Fields = {
   name: z.string().max(24),
   xp: z.number().int().min(0),
   levels: z.record(z.string(), RunSchema),
@@ -67,12 +73,22 @@ export const SaveSchema = z.object({
   /** Live incidents won and lost, per boss level. */
   incidents: z.record(z.string(), z.object({ won: z.number().int().min(0), lost: z.number().int().min(0) })),
   bestCombo: z.number().int().min(0),
+};
+/** Version 5: challenges, today's case, the story and the incidents, no arcade. */
+const V5Schema = z.object({ version: z.literal(5), ...V5Fields });
+
+export const SaveSchema = z.object({
+  version: z.literal(SAVE_VERSION),
+  ...V5Fields,
+  /** Best run of each arcade game. */
+  arcade: z.record(z.string(), ArcadeRunSchema),
 });
 
 export type SaveFile = z.infer<typeof SaveSchema>;
 export type LevelRun = z.infer<typeof RunSchema>;
 export type ChallengeRunRecord = z.infer<typeof ChallengeRunSchema>;
 export type DayResult = z.infer<typeof DayResultSchema>;
+export type ArcadeRun = z.infer<typeof ArcadeRunSchema>;
 
 export function emptySave(): SaveFile {
   return {
@@ -91,10 +107,18 @@ export function emptySave(): SaveFile {
     story: { beats: [], closed: false },
     incidents: {},
     bestCombo: 0,
+    arcade: {},
   };
 }
 
-/** Version 4 to 5: everything kept, the new parts start empty. */
+/** Version 5 to 6: everything kept, the arcade starts empty. */
+function fromV5(v5: z.infer<typeof V5Schema>): SaveFile {
+  const { version: _v, ...rest } = v5;
+  void _v;
+  return { ...rest, version: SAVE_VERSION, arcade: {} };
+}
+
+/** Version 4 to 6: everything kept, the new parts start empty. */
 function fromV4(v4: z.infer<typeof V4Schema>): SaveFile {
   const { version: _v, ...rest } = v4;
   void _v;
@@ -147,6 +171,8 @@ function zonesFromCleared(cleared: (id: string) => boolean): string[] {
 export function migrate(raw: unknown, ctx?: MigrationContext): SaveFile {
   const current = SaveSchema.safeParse(raw);
   if (current.success) return current.data;
+  const v5 = V5Schema.safeParse(raw);
+  if (v5.success) return fromV5(v5.data);
   const v4 = V4Schema.safeParse(raw);
   if (v4.success) return fromV4(v4.data);
   const keepCodex = (ids: string[]) => (ctx ? ids.filter((c) => ctx.codexIds.includes(c)) : ids);

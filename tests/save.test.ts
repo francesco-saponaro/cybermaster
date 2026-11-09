@@ -79,20 +79,55 @@ describe('save version 5', () => {
     const { version: _v, ...kept } = v4;
     void _v;
     expect(m).toMatchObject(kept);
-    expect(m.version).toBe(5);
+    expect(m.version).toBe(SAVE_VERSION);
     expect(m.challenges).toEqual({});
     expect(m.daily).toEqual({ streak: { count: 0, lastDay: '' }, days: {} });
     expect(m.story).toEqual({ beats: [], closed: false });
     expect(m.incidents).toEqual({});
     expect(m.bestCombo).toBe(0);
   });
-  it('older versions still arrive at version 5', () => {
-    expect(migrate(v3, ctx).version).toBe(5);
-    expect(migrate({ version: 1, xp: 5 }, ctx).version).toBe(5);
+  it('older versions still arrive at the current version', () => {
+    expect(migrate(v3, ctx).version).toBe(SAVE_VERSION);
+    expect(migrate({ version: 1, xp: 5 }, ctx).version).toBe(SAVE_VERSION);
   });
-  it('a version 5 save round-trips through storage', () => {
+  it('a current save round-trips through storage', () => {
     const store: Record<string, string> = {};
     const s = { ...migrate(v4, ctx), challenges: { 'wire-robots': { stars: 2, clears: 1, bestSeconds: 30, bestPoints: 850, lastPlayedAt: 'x' } }, bestCombo: 4 };
+    persistSave(s, { setItem: (k, v) => { store[k] = v; } });
+    expect(loadSave({ getItem: (k) => store[k] ?? null })).toEqual(s);
+  });
+});
+
+describe('save version 6', () => {
+  const v5 = {
+    version: 5,
+    name: 'Bruno',
+    xp: 2310,
+    levels: { 'wire-cors': { stars: 2, clears: 1, bestSeconds: 95, lastPlayedAt: '2026-11-08T10:00:00Z' } },
+    codex: ['http-anatomy', 'cors'],
+    badges: ['first-clear'],
+    streak: { count: 3, lastDay: '2026-11-08' },
+    settings: { muted: false },
+    evidence: ['ev-jwt-none'],
+    zones: [],
+    challenges: { 'wire-robots': { stars: 3, clears: 2, bestSeconds: 30, bestPoints: 990, lastPlayedAt: 'x' } },
+    daily: { streak: { count: 2, lastDay: '2026-11-08' }, days: { '2026-11-08': { levelId: 'wire-robots', stars: 3, seconds: 40, hints: 0, points: 900 } } },
+    story: { beats: ['wire', 'arena'], closed: false },
+    incidents: { 'wire-cors': { won: 1, lost: 2 } },
+    bestCombo: 7,
+  };
+  it('is the current version', () => {
+    expect(SAVE_VERSION).toBe(6);
+  });
+  it('migrates version 5 keeping every field, with an empty arcade', () => {
+    const m = migrate(v5, ctx);
+    const { version: _v, ...kept } = v5;
+    void _v;
+    expect(m).toEqual({ ...kept, version: 6, arcade: {} });
+  });
+  it('a version 6 save with arcade runs round-trips through storage', () => {
+    const store: Record<string, string> = {};
+    const s = { ...migrate(v5, ctx), arcade: { 'packet-runner': { best: 5200, stars: 2, plays: 3, lastPlayedAt: '2026-11-09T09:00:00Z' } } };
     persistSave(s, { setItem: (k, v) => { store[k] = v; } });
     expect(loadSave({ getItem: (k) => store[k] ?? null })).toEqual(s);
   });

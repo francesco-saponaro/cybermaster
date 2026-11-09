@@ -8,6 +8,8 @@ import { ZONES } from '../content/zones';
 import { CODEX } from '../content/codex';
 import { LEVEL_BY_ID } from '../content/index';
 import { setMuted as setAudioMuted, play } from '../engine/audio';
+import { applyArcade, type ArcadeOutcome } from '../engine/arcade';
+import { ARCADE_BY_ID, type GameId } from '../content/arcade';
 
 /** How a run went beyond the basics: its best combo and whether it was clean. */
 export interface RunExtras {
@@ -56,6 +58,7 @@ interface Store {
   completeLevel: (levelId: string, run: RunStats & RunExtras, today?: string) => LevelOutcome;
   completeChallenge: (levelId: string, run: ChallengeRunStats, daily?: string) => ChallengeOutcome;
   recordIncident: (levelId: string, won: boolean) => void;
+  completeArcade: (gameId: GameId, score: number) => ArcadeOutcome & { newBadges: string[] };
   markBeat: (zoneId: string) => void;
   closeCase: () => void;
   reset: () => void;
@@ -214,6 +217,18 @@ export function StoreProvider({ children, initial }: { children: ReactNode; init
   );
 
   const recordIncident = useCallback((levelId: string, won: boolean) => write(applyIncident(latest.current, levelId, won)), [write]);
+
+  const completeArcade = useCallback(
+    (gameId: GameId, score: number) => {
+      const prev = latest.current;
+      const { save: next, outcome } = applyArcade(prev, gameId, score, ARCADE_BY_ID[gameId].stars, new Date().toISOString().slice(0, 10), new Date().toISOString());
+      const { save: done, newBadges } = withBadges(prev, next);
+      write(done);
+      if (outcome.leveledUp) play('levelup');
+      return { ...outcome, newBadges };
+    },
+    [write],
+  );
   const markBeat = useCallback((zoneId: string) => write(applyBeat(latest.current, zoneId)), [write]);
   const closeCase = useCallback(() => write(applyCloseCase(latest.current).save), [write]);
 
@@ -225,8 +240,8 @@ export function StoreProvider({ children, initial }: { children: ReactNode; init
   }, [write]);
 
   const value = useMemo(
-    () => ({ save, rename, toggleMute, completeLevel, completeChallenge, recordIncident, markBeat, closeCase, reset }),
-    [save, rename, toggleMute, completeLevel, completeChallenge, recordIncident, markBeat, closeCase, reset],
+    () => ({ save, rename, toggleMute, completeLevel, completeChallenge, recordIncident, completeArcade, markBeat, closeCase, reset }),
+    [save, rename, toggleMute, completeLevel, completeChallenge, recordIncident, completeArcade, markBeat, closeCase, reset],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
