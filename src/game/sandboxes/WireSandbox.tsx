@@ -32,7 +32,7 @@ interface Intercepted {
   kept: boolean;
 }
 
-interface Model {
+export interface Model {
   reqText: string;
   exchanges: WireExchange[];
   forwarded: HttpResponse[];
@@ -49,7 +49,7 @@ interface Model {
   focus: { id: string; nonce: number } | null;
 }
 
-type Action =
+export type Action =
   | { t: 'req'; text: string }
   | { t: 'path'; path: string }
   | { t: 'jwt'; header?: string; payload?: string; signature?: string }
@@ -85,7 +85,7 @@ function cookieHeader(jar: StoredCookie[]): string {
   return jar.map((c) => `${c.name}=${c.value}`).join('; ');
 }
 
-function makeReducer(level: WireLevel) {
+export function makeReducer(level: WireLevel) {
   const server = makeServer(level.server, level.params);
   const fail = (m: Model, reason: string): Model => ({ ...m, failure: { reason, nonce: (m.failure?.nonce ?? 0) + 1 } });
   return function reduce(m: Model, a: Action): Model {
@@ -150,7 +150,7 @@ function makeReducer(level: WireLevel) {
   };
 }
 
-function actionsFor(act: WireAct): Action[] {
+export function actionsFor(act: WireAct): Action[] {
   const out: Action[] = [];
   if (act.request !== undefined) out.push({ t: 'req', text: act.request });
   if (act.path !== undefined) out.push({ t: 'path', path: act.path });
@@ -162,9 +162,8 @@ function actionsFor(act: WireAct): Action[] {
   return out;
 }
 
-export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLevel, WireAct>) {
-  const reducer = useRef(makeReducer(level)).current;
-  const [m, dispatch] = useReducer(reducer, null, () => ({
+export function initialModel(level: WireLevel): Model {
+  return {
     reqText: level.request,
     exchanges: [],
     forwarded: [],
@@ -177,7 +176,12 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
     alert: null,
     sends: 0,
     focus: null,
-  }));
+  };
+}
+
+export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLevel, WireAct>) {
+  const reducer = useRef(makeReducer(level)).current;
+  const [m, dispatch] = useReducer(reducer, level, initialModel);
   const [pulse, setPulse] = useState(0);
 
   const state: WireState = { exchanges: m.exchanges, forwarded: m.forwarded, console: m.console, jar: m.jar };
