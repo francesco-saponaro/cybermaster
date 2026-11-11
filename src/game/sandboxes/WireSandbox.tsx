@@ -258,11 +258,12 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
     </div>
   );
 
+  const forward = () => {
+    play('blip');
+    dispatch({ t: 'forward' });
+  };
   const response = level.mode === 'response' ? (
-    <InterceptPane model={m} onEdit={(text) => dispatch({ t: 'resp', text })} onForward={() => {
-      play('blip');
-      dispatch({ t: 'forward' });
-    }} />
+    <InterceptPane model={m} onEdit={(text) => dispatch({ t: 'resp', text })} />
   ) : lastEx ? (
     <RawResponse key={m.sends} res={lastEx.res} />
   ) : (
@@ -301,6 +302,11 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
               <h2>{level.mode === 'response' ? 'Proxy: response held' : 'Response'}</h2>
               <span className="spacer" />
               {level.mode === 'request' && lastEx ? <StatusChip status={lastEx.res.status} /> : null}
+              {level.mode === 'response' && m.intercepted ? (
+                <button type="button" className="cbtn cbtn-go cbtn-sm pulse" onClick={forward}>
+                  Forward
+                </button>
+              ) : null}
             </>
           ),
           body: response,
@@ -329,7 +335,7 @@ function RawResponse({ res }: { res: HttpResponse }) {
   );
 }
 
-function InterceptPane({ model, onEdit, onForward }: { model: Model; onEdit: (t: string) => void; onForward: () => void }) {
+function InterceptPane({ model, onEdit }: { model: Model; onEdit: (t: string) => void }) {
   const it = model.intercepted;
   if (!it) {
     const last = model.forwarded[model.forwarded.length - 1];
@@ -348,10 +354,7 @@ function InterceptPane({ model, onEdit, onForward }: { model: Model; onEdit: (t:
         <Editor label="Held response headers" value={it.text} onChange={onEdit} minRows={6} />
       </div>
       <div className="row pane-pad" style={{ borderTop: '1px solid var(--line)' }}>
-        <span className="grow small muted">{it.kept ? 'Your edits from last time are kept. ' : ''}Body: {it.res.body.length} bytes, unchanged</span>
-        <button type="button" className="cbtn cbtn-go cbtn-sm" onClick={onForward}>
-          Forward
-        </button>
+        <span className="grow small muted">{it.kept ? 'Your edits from last time are kept. ' : ''}Body: {it.res.body.length} bytes, unchanged. Press Forward at the top of this panel to pass it on.</span>
       </div>
     </div>
   );

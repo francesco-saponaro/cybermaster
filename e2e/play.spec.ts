@@ -458,3 +458,15 @@ test('Phone and desktop: one level per zone, nothing wider than the screen', asy
   }
   expect(errors).toEqual([]);
 });
+
+test('Laptop screen: the proxy Forward button is in sight without scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const done = { stars: 2, clears: 1, bestSeconds: 75, lastPlayedAt: '' };
+  await seed(page, { ...OPEN_ALL, levels: { 'wire-robots': done, 'wire-cookie-role': done, 'wire-replay': done } });
+  await page.goto('/play/wire-httponly');
+  await page.getByRole('button', { name: 'Send', exact: true }).first().click();
+  const forward = page.getByRole('button', { name: 'Forward' });
+  await expect(forward).toBeInViewport();
+  const box = await forward.boundingBox();
+  expect(box && box.y + box.height).toBeLessThanOrEqual(720);
+});

@@ -205,7 +205,7 @@ export const WIRE_LEVELS: WireLevel[] = [
       {
         id: 'read',
         label: 'Watch a script read the session',
-        do: 'Press `Send` in the Request panel, then press `Forward` in the Proxy panel. In the Console under the browser, type `document.cookie` and press Enter: the session cookie shows up.',
+        do: 'Press `Send` in the Request panel, then press `Forward` at the top right of the Proxy panel. In the Console under the browser, type `document.cookie` and press Enter: the session cookie shows up.',
         learned: 'Any script on the page can read this cookie, including one an attacker manages to slip in.',
       },
       {
