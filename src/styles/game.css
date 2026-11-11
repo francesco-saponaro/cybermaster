@@ -64,9 +64,10 @@
 
 /* ---- Body grid -------------------------------------------------------- */
 .lv-body {
-  flex: 1;
+  flex: none;
   display: grid;
   grid-template-columns: var(--rail) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   padding: var(--console-pad);
   min-height: 0;
@@ -82,7 +83,7 @@
 .lv-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 
 @media (max-width: 1099px) {
-  .lv-body { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .lv-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; height: auto; }
   .lv-aside { overflow: visible; }
 }
 
@@ -1054,3 +1055,59 @@
 
 .pane-body:has(> .mb) { display: flex; flex-direction: column; }
 .pane-body > .mb { flex: 1; height: auto; }
+
+/* ---- Glossary words ------------------------------------------------------ */
+.gloss-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: help;
+  text-decoration: underline dashed;
+  text-decoration-color: rgba(209, 26, 42, 0.55);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.gloss-link:hover,
+
+.gloss-link[data-open='true'] { text-decoration-color: var(--accent, #d11a2a); }
+.gloss-link:focus-visible,
+.term-link:focus-visible { outline: 2px solid var(--accent, #d11a2a); outline-offset: 2px; border-radius: 2px; }
+.term-pop .gloss-ex {
+  display: block;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: #111;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: #e9e9e4;
+  overflow-wrap: anywhere;
+}
+.words { padding: 0; }
+.words > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+}
+.words > summary::-webkit-details-marker { display: none; }
+.words > summary::after {
+  content: '';
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+  opacity: 0.6;
+}
+.words[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.words-hint { margin: 0 16px 10px; color: var(--muted); font-size: 0.8125rem; }
+.words-list { margin: 0; padding: 0 16px 14px; display: grid; gap: 10px; }
+.words-list div { display: grid; gap: 2px; }
+.words-list dt { font-weight: 650; font-size: 0.875rem; }
+.words-list dd { margin: 0; font-size: 0.875rem; line-height: 1.45; color: #cfcfca; }
+.words-list dd code { font-size: 0.8125rem; color: var(--muted); }

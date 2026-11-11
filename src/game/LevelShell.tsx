@@ -11,6 +11,7 @@ import { COMBO_START, comboBroke, comboStep, type Combo, type ComboEvent } from 
 import { incidentConfig, recordsTaken, type IncidentPace } from '../engine/incident';
 import { remarkFor } from '../engine/caseboard';
 import { Rich } from './Rich';
+import { termsIn } from '../content/glossary';
 import { ResultCard } from './ResultCard';
 import { ChallengeResult } from './ChallengeResult';
 import { Scope } from '../components/Scope';
@@ -374,6 +375,7 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
                 </section>
               ) : null}
             </div>
+            <LevelWords level={level} open={firstPlay} />
           </div>
         </aside>
 
@@ -432,5 +434,47 @@ function ChallengeChecks({ level, checks, burst }: { level: Level; checks: Recor
         })}
       </ol>
     </section>
+  );
+}
+
+/** Every technical word the level uses, explained in plain words. Open the first time you play a level. */
+function LevelWords({ level, open }: { level: Level; open: boolean }) {
+  const words = useMemo(() => {
+    const extra = level as unknown as Record<string, unknown>;
+    const texts = [
+      level.goal,
+      level.instruction,
+      ...level.checks.flatMap((c) => [c.label, c.do, c.learned, c.hint ?? '']),
+      ...level.showMe.map((m) => m.say),
+      typeof extra.request === 'string' ? extra.request : '',
+      level.didWhat,
+    ];
+    return termsIn(texts);
+  }, [level]);
+  if (words.length === 0) return null;
+  return (
+    <details className="card brief words" open={open} data-testid="level-words">
+      <summary>
+        <span className="lv-label" style={{ margin: 0 }}>Words in this level</span>
+        <span className="small muted mono">{words.length}</span>
+      </summary>
+      <p className="words-hint">New to any of these? Here is what they mean. Underlined words in the steps explain themselves too.</p>
+      <dl className="words-list">
+        {words.map((w) => (
+          <div key={w.id}>
+            <dt>{w.term}</dt>
+            <dd>
+              {w.plain}
+              {w.example ? (
+                <>
+                  {' '}
+                  <code>{w.example}</code>
+                </>
+              ) : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }

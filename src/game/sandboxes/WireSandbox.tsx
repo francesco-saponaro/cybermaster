@@ -245,12 +245,13 @@ export function WireSandbox({ level, onChecks, fail, act }: SandboxProps<WireLev
       {parts ? (
         <div className="pane-pad" style={{ borderTop: '1px solid var(--line)' }}>
           <p className="lbl">The token in the Authorization header, decoded</p>
+          <p className="small muted" style={{ margin: '0 0 8px' }}>A JWT is three parts joined by dots. Change them here and the request above is rebuilt for you.</p>
           <div className="stack-12" style={{ gap: 8 }}>
-            <label className="small muted" htmlFor="jwt-h">Header</label>
+            <label className="small muted" htmlFor="jwt-h">Header: how the token says it was signed (alg)</label>
             <input id="jwt-h" className="field mono" value={parts.header} spellCheck={false} onChange={(e) => dispatch({ t: 'jwt', header: e.target.value })} />
-            <label className="small muted" htmlFor="jwt-p">Payload</label>
+            <label className="small muted" htmlFor="jwt-p">Payload: who you are and your role, readable by anyone</label>
             <input id="jwt-p" className="field mono" value={parts.payload} spellCheck={false} onChange={(e) => dispatch({ t: 'jwt', payload: e.target.value })} />
-            <label className="small muted" htmlFor="jwt-s">Signature</label>
+            <label className="small muted" htmlFor="jwt-s">Signature: the server's proof that nobody changed the two parts above</label>
             <input id="jwt-s" className="field mono" value={parts.signature} spellCheck={false} onChange={(e) => dispatch({ t: 'jwt', signature: e.target.value })} />
           </div>
         </div>
