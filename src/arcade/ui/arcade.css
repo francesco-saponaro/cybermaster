@@ -578,3 +578,53 @@
 .sw-key .k-good { color: var(--good-ink); }
 .sw-keyhead { margin: 0; font-size: 0.875rem; font-weight: 650; }
 @media (max-width: 899px) { .sw-legendbox { display: none; } }
+
+/* ---- Board help, rules and practice ------------------------------------------ */
+.ar-board-help { margin-top: 22px; }
+.ar-board-help h3 { font-size: 1rem; letter-spacing: -0.01em; margin-bottom: 10px; }
+.ar-board-help ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-family: var(--font-text); font-size: 1rem; line-height: 1.45; }
+.ar-board-help ul li::marker { color: var(--accent-text); }
+.ar-rules { margin-top: 18px; border: 1px solid var(--line); border-radius: var(--r-sm); background: rgba(255, 255, 255, 0.02); }
+.ar-rules > summary { cursor: pointer; padding: 12px 14px; font-weight: 650; list-style: none; display: flex; align-items: center; }
+.ar-rules > summary::-webkit-details-marker { display: none; }
+.ar-rules > summary::after { content: ''; margin-left: auto; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); opacity: 0.6; }
+.ar-rules[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.ar-rules-body { padding: 0 14px 14px; display: grid; gap: 16px; max-height: 46vh; overflow: auto; }
+.ar-pause .ar-rules-body { max-height: 40vh; }
+.ar-rules h4 { font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 8px; }
+.ar-rules dl { margin: 0; display: grid; gap: 8px; }
+.ar-rules dl div { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 12px; }
+.ar-rules dt { font-weight: 650; font-size: 0.9375rem; }
+.ar-rules dd { margin: 0; font-size: 0.9375rem; line-height: 1.45; color: #cfcfca; }
+@media (max-width: 699px) {
+  .ar-rules dl div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+
+.pp { display: grid; gap: 18px; }
+.pp-top { display: flex; align-items: baseline; gap: 12px; }
+.pp-top h2 { font-size: 1.375rem; letter-spacing: -0.015em; }
+.pp-count { margin-left: auto; font-family: var(--font-mono); font-size: 0.8125rem; color: var(--muted); }
+.pp-intro { margin: 0; font-family: var(--font-text); font-size: 1.0625rem; line-height: 1.5; max-width: 62ch; }
+.pp-card { position: relative; display: grid; gap: 0; border: 1px solid var(--line); border-radius: 10px; background: #f4f3ee; color: #111; overflow: hidden; max-width: 560px; }
+.pp-row { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 10px 14px; border-top: 1px solid rgba(0, 0, 0, 0.08); }
+.pp-row:first-child { border-top: 0; }
+.pp-row[data-key='true'] { background: #fff3c4; }
+.pp-tag { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6b6b66; }
+.pp-row code { font-size: 1rem; font-weight: 600; overflow-wrap: anywhere; }
+.pp-row span:not(.pp-tag) { font-size: 1rem; }
+.pp-look { margin: 0; padding: 12px 14px; border-left: 3px solid var(--accent, #d11a2a); background: rgba(255, 255, 255, 0.03); font-family: var(--font-text); font-size: 1rem; line-height: 1.5; max-width: 62ch; }
+.pp-look strong { font-family: var(--font-display); }
+.pp-verdict { padding: 14px; border-radius: 8px; max-width: 62ch; }
+.pp-verdict[data-ok='true'] { background: rgba(46, 160, 67, 0.12); border: 1px solid rgba(46, 160, 67, 0.4); }
+.pp-verdict[data-ok='false'] { background: rgba(209, 26, 42, 0.1); border: 1px solid rgba(209, 26, 42, 0.45); }
+.pp-verdict p { margin: 0; font-family: var(--font-text); line-height: 1.5; }
+.pp-verdict p + p { margin-top: 6px; }
+.pp-answer { display: flex; gap: 10px; flex-wrap: wrap; }
+.pp-answer .cbtn { min-width: 8rem; }
+.pp-sheet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.pp-sheet h3 { font-size: 1rem; margin-bottom: 8px; }
+.pp-sheet ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-family: var(--font-text); line-height: 1.45; }
+@media (max-width: 699px) {
+  .pp-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .pp-sheet { grid-template-columns: minmax(0, 1fr); }
+}

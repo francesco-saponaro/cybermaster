@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useStore } from '../../state/store';
@@ -13,6 +13,7 @@ import { BADGES } from '../../engine/progress';
 import { ARCADE_XP, arcadeUnlocked } from '../../engine/arcade';
 import { LEVEL_BY_ID } from '../../content/index';
 import { zoneShapes } from '../../state/store';
+import { GLOSS_BY_ID } from '../../content/glossary';
 import type { RunApi } from './useRun';
 import './arcade.css';
 
@@ -60,6 +61,7 @@ export function ArcadeShell({
   overTitle,
   overLine,
   overExtra,
+  practice,
 }: {
   game: ArcadeGame;
   run: RunApi;
@@ -68,6 +70,8 @@ export function ArcadeShell({
   overTitle: string;
   overLine?: string;
   overExtra?: ReactNode;
+  /** A slow, guided round before the real one. It calls `done` to start the real run, `exit` to go back. */
+  practice?: (done: () => void, exit: () => void) => ReactNode;
 }) {
   const { save, toggleMute } = useStore();
   const zone = ZONE_BY_ID[game.zone]!;
@@ -75,6 +79,7 @@ export function ArcadeShell({
   const { phase } = run;
   const unlocked = arcadeUnlocked(save, zoneShapes, game.zone);
   const boss = LEVEL_BY_ID[zone.levelIds[zone.levelIds.length - 1]!]!;
+  const [practising, setPractising] = useState(false);
 
   // P or Esc pauses and resumes; Enter starts and restarts.
   useEffect(() => {
@@ -85,7 +90,7 @@ export function ArcadeShell({
         e.preventDefault();
         if (phase === 'play') run.pause();
         else run.resume();
-      } else if (k === 'Enter' && unlocked && (phase === 'start' || phase === 'over')) {
+      } else if (k === 'Enter' && unlocked && !practising && (phase === 'start' || phase === 'over')) {
         const t = e.target as HTMLElement | null;
         if (t && t.tagName === 'A') return;
         e.preventDefault();
@@ -95,7 +100,7 @@ export function ArcadeShell({
     };
     window.addEventListener('keydown', on);
     return () => window.removeEventListener('keydown', on);
-  }, [phase, run, unlocked]);
+  }, [phase, run, unlocked, practising]);
 
   return (
     <div className="ar" data-phase={phase} data-game={game.id}>
@@ -153,12 +158,22 @@ export function ArcadeShell({
           </dl>
           <main className="ar-main" aria-label={`${game.title} board`}>
             {children}
-            {phase === 'paused' ? <PauseVeil run={run} /> : null}
+            {phase === 'paused' ? <PauseVeil run={run} game={game} /> : null}
           </main>
         </>
+      ) : phase === 'start' && practising && practice ? (
+        <main className="ar-main ar-main-panel">
+          {practice(
+            () => {
+              setPractising(false);
+              run.start();
+            },
+            () => setPractising(false),
+          )}
+        </main>
       ) : phase === 'start' ? (
         <main className="ar-main ar-main-panel">
-          <StartPanel game={game} best={record?.best} stars={record?.stars ?? 0} onStart={run.start} />
+          <StartPanel game={game} best={record?.best} stars={record?.stars ?? 0} onStart={run.start} onPractice={practice ? () => setPractising(true) : undefined} />
         </main>
       ) : (
         <main className="ar-main ar-main-panel">
@@ -171,7 +186,9 @@ export function ArcadeShell({
   );
 }
 
-function StartPanel({ game, best, stars, onStart }: { game: ArcadeGame; best?: number; stars: number; onStart: () => void }) {
+function StartPanel({ game, best, stars, onStart, onPractice }: { game: ArcadeGame; best?: number; stars: number; onStart: () => void; onPractice?: () => void }) {
+  const firstTime = best === undefined;
+  const practiceFirst = !!onPractice && firstTime;
   const go = useRef<HTMLButtonElement>(null);
   useEffect(() => go.current?.focus(), []);
   return (
@@ -198,6 +215,15 @@ function StartPanel({ game, best, stars, onStart }: { game: ArcadeGame; best?: n
           {game.speaker}, {CAST[game.speaker].role.toLowerCase()}
         </footer>
       </blockquote>
+      <section className="ar-board-help" aria-labelledby="ar-what">
+        <h3 id="ar-what">What you are looking at</h3>
+        <ul>
+          {game.board.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
+      </section>
+      <GameRules game={game} open={firstTime} />
       <div className="ar-how">
         <div>
           <h3>How to play</h3>
@@ -224,16 +250,74 @@ function StartPanel({ game, best, stars, onStart }: { game: ArcadeGame; best?: n
       </div>
       <p className="ar-teaches">{game.teaches}</p>
       <div className="ar-actions">
-        <button ref={go} type="button" className="cbtn cbtn-go ar-go" onClick={onStart} data-start="true">
-          Start
-        </button>
-        <span className="small muted hide-sm">or press Enter</span>
+        {practiceFirst ? (
+          <>
+            <button ref={go} type="button" className="cbtn cbtn-go ar-go" onClick={onPractice}>
+              Practice first
+            </button>
+            <button type="button" className="cbtn" onClick={onStart} data-start="true">
+              Skip to the real run
+            </button>
+          </>
+        ) : (
+          <>
+            <button ref={go} type="button" className="cbtn cbtn-go ar-go" onClick={onStart} data-start="true">
+              Start
+            </button>
+            {onPractice ? (
+              <button type="button" className="cbtn" onClick={onPractice}>
+                Practice round
+              </button>
+            ) : null}
+            <span className="small muted hide-sm">or press Enter</span>
+          </>
+        )}
       </div>
+      {practiceFirst ? <p className="small muted" style={{ margin: '8px 0 0' }}>The practice round has no clock and explains every card. It takes about two minutes.</p> : null}
     </section>
   );
 }
 
-function PauseVeil({ run }: { run: RunApi }) {
+/** The rules and the words of a game, as a cheat sheet. */
+export function GameRules({ game, open }: { game: ArcadeGame; open: boolean }) {
+  return (
+    <details className="ar-rules" open={open} data-testid="game-rules">
+      <summary>Rules and words, in plain English</summary>
+      <div className="ar-rules-body">
+        {game.rules.map((g) => (
+          <section key={g.title}>
+            <h4>{g.title}</h4>
+            <dl>
+              {g.items.map((it) => (
+                <div key={it.label}>
+                  <dt>{it.label}</dt>
+                  <dd>{it.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+        <section>
+          <h4>Words on the board</h4>
+          <dl>
+            {game.words.map((id) => {
+              const w = GLOSS_BY_ID[id];
+              if (!w) return null;
+              return (
+                <div key={id}>
+                  <dt>{w.term}</dt>
+                  <dd>{w.plain}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+      </div>
+    </details>
+  );
+}
+
+function PauseVeil({ run, game }: { run: RunApi; game: ArcadeGame }) {
   const ref = useRef<HTMLButtonElement>(null);
   useEffect(() => ref.current?.focus(), []);
   return (
@@ -241,6 +325,7 @@ function PauseVeil({ run }: { run: RunApi }) {
       <div className="ar-pause">
         <h2 id="ar-pause-title">Paused</h2>
         <p className="small muted">The clock is stopped. Press P or Esc to carry on.</p>
+        <GameRules game={game} open={false} />
         <div className="ar-actions">
           <button ref={ref} type="button" className="cbtn cbtn-go" onClick={run.resume}>
             Resume

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearch } from '@tanstack/react-router';
 import { ARCADE_BY_ID } from '../../content/arcade';
 import { PACKET_BY_ID } from '../../content/arcade/packets';
+import { PACKET_PRACTICE } from '../../content/arcade/packetPractice';
 import { actPackets, difficulty, GATE, GATE_ZONE, LANES, LIVES, multiplier, packetSecondsLeft, startPackets, stepPackets, type PacketAction, type PacketState } from '../packet';
 import { ArcadeShell, Lives, PadButton, score } from '../ui/Shell';
 import { useGameKeys, useLoop, usePrefersReducedMotion, useRun } from '../ui/useRun';
@@ -96,6 +97,7 @@ export function PacketRunnerPage() {
       game={game}
       run={run}
       hud={hud}
+      practice={(done, exit) => <PacketPractice onDone={done} onExit={exit} />}
       overTitle={run.won ? 'You held the gate for 90 seconds' : 'Out of lives'}
       overLine={`${s.correct} right calls out of ${s.decided}, best combo ${s.bestCombo}${s.dropped ? `, ${s.dropped} customer${s.dropped === 1 ? '' : 's'} left waiting` : ''}.`}
       overExtra={
@@ -122,7 +124,7 @@ export function PacketRunnerPage() {
     >
       <Board s={s} act={act} />
       <p className="ar-msg" data-tone={s.last ? (s.last.ok ? 'good' : 'bad') : undefined} aria-live="polite" data-testid="pr-msg">
-        {s.last ? s.last.text : 'Pick a lane, then allow or block the request in its gate.'}
+        {s.last ? s.last.text : 'Pick a lane, then allow or block the request waiting at the gate on the right. Pause (P) shows the rules.'}
       </p>
       <div className="ar-pads" style={{ ['--pads' as string]: 4 }}>
         <PadButton label="Up" aria="Lane up" keyHint="↑" onPress={() => act({ t: 'lane', d: -1 })} />
@@ -206,5 +208,145 @@ function Board({ s, act }: { s: PacketState; act: (a: PacketAction) => void }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** The slow round: one card at a time, where to look, then why. */
+export function PacketPractice({ onDone, onExit }: { onDone: () => void; onExit: () => void }) {
+  const [i, setI] = useState(0);
+  const [answer, setAnswer] = useState<boolean | null>(null);
+  const [right, setRight] = useState(0);
+  const finished = i >= PACKET_PRACTICE.length;
+  const card = finished ? null : PACKET_PRACTICE[i]!;
+  const t = card ? PACKET_BY_ID[card.template]! : null;
+  const ok = t && answer !== null ? answer === !t.bad : null;
+  const nextRef = useRef<HTMLButtonElement>(null);
+
+  const decide = (allow: boolean) => {
+    if (!t || answer !== null) return;
+    setAnswer(allow);
+    if (allow === !t.bad) {
+      setRight((r) => r + 1);
+      play('blip');
+    } else play('miss');
+  };
+  const next = () => {
+    setAnswer(null);
+    setI((x) => x + 1);
+  };
+  useEffect(() => {
+    if (answer !== null) nextRef.current?.focus();
+  }, [answer]);
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (finished) return;
+      if (answer === null && (e.key === 'ArrowRight' || e.key === 'a' || e.key === 'A')) decide(true);
+      else if (answer === null && (e.key === 'ArrowLeft' || e.key === 'b' || e.key === 'B')) decide(false);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', on);
+    return () => window.removeEventListener('keydown', on);
+  });
+
+  if (finished) {
+    const rules = game.rules;
+    return (
+      <section className="ar-panel pp" aria-labelledby="pp-done" data-testid="practice-done">
+        <div className="pp-top">
+          <h2 id="pp-done">Practice done: {right} of {PACKET_PRACTICE.length} right</h2>
+        </div>
+        <p className="pp-intro">That is every kind of card the real run uses. Here they are on one sheet. It is also under Pause during the run.</p>
+        <div className="pp-sheet">
+          {rules.map((g) => (
+            <div key={g.title}>
+              <h3>{g.title} when you see</h3>
+              <ul>
+                {g.items.map((it) => (
+                  <li key={it.label}>
+                    <strong>{it.label}.</strong> {it.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <p className="pp-intro">In the real run the cards move and speed up, you have three lives, and a card left waiting too long walks off.</p>
+        <div className="ar-actions">
+          <button type="button" className="cbtn cbtn-go ar-go" onClick={onDone} autoFocus>
+            Start the real run
+          </button>
+          <button type="button" className="cbtn" onClick={() => { setI(0); setRight(0); }}>
+            Practise again
+          </button>
+          <button type="button" className="cbtn" onClick={onExit}>
+            Back
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  const rows: { k: 'req' | 'header' | 'note'; tag: string; value: string; code: boolean }[] = [
+    { k: 'req', tag: 'Asks for', value: t!.req, code: true },
+    { k: 'header', tag: 'Proof it sends', value: t!.header, code: true },
+    { k: 'note', tag: 'The gate knows', value: t!.note, code: false },
+  ];
+  return (
+    <section className="ar-panel pp" aria-labelledby="pp-title" data-testid="practice">
+      <div className="pp-top">
+        <h2 id="pp-title">Practice round</h2>
+        <span className="pp-count">
+          Card {i + 1} of {PACKET_PRACTICE.length}
+        </span>
+      </div>
+      {i === 0 ? (
+        <p className="pp-intro">
+          Each card is one request arriving at the shop. You decide whether it may come in. There is no clock here: read the card, read where to look, then answer.
+        </p>
+      ) : null}
+      <div className="pp-card" data-testid="practice-card" data-template={t!.id}>
+        {rows.map((r) => (
+          <div key={r.k} className="pp-row" data-key={r.k === card!.key}>
+            <span className="pp-tag">{r.tag}</span>
+            {r.code ? <code>{r.value}</code> : <span>{r.value}</span>}
+          </div>
+        ))}
+      </div>
+      <p className="pp-look">
+        <strong>Look at the highlighted line. </strong>
+        {card!.look}
+      </p>
+      {answer === null ? (
+        <div className="pp-answer">
+          <button type="button" className="cbtn" onClick={() => decide(false)}>
+            Block <kbd className="hide-sm">←</kbd>
+          </button>
+          <button type="button" className="cbtn cbtn-go" onClick={() => decide(true)}>
+            Allow <kbd className="hide-sm">→</kbd>
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="pp-verdict" data-ok={ok} role="status" data-testid="practice-verdict">
+            <p>
+              <strong>{ok ? 'Right.' : 'Not this time.'}</strong> {t!.bad ? 'This one should be blocked.' : 'This one should be let in.'} {t!.why}
+            </p>
+            <p>
+              <strong>Rule:</strong> {card!.rule}
+            </p>
+          </div>
+          <div className="ar-actions">
+            <button ref={nextRef} type="button" className="cbtn cbtn-go" onClick={next}>
+              {i + 1 < PACKET_PRACTICE.length ? 'Next card' : 'See the summary'}
+            </button>
+            <button type="button" className="cbtn" onClick={onExit}>
+              Leave practice
+            </button>
+          </div>
+        </>
+      )}
+    </section>
   );
 }
