@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ZONES } from '../src/content/zones';
 import { PACKET_BY_ID } from '../src/content/arcade/packets';
+import { PACKET_PRACTICE } from '../src/content/arcade/packetPractice';
 import { FIXES } from '../src/content/arcade/defence';
 import { startTower, COLS as TD_COLS } from '../src/arcade/tower';
 import { startSweeper, targets, COLS as SW_COLS } from '../src/arcade/sweeper';
@@ -68,7 +69,7 @@ async function start(page: Page, line: RegExp) {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await expect(page.locator('.ar-line')).toContainText(line);
   await expect(page.locator('.ar-how li')).toHaveCount(3);
-  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  await page.locator('[data-start=true]').click();
   await expect(page.locator('.ar-hud')).toBeVisible();
 }
 
@@ -104,7 +105,7 @@ test('The arcade lists all five games with their bests, and locks a game until i
   await page.goto('/zones/wire');
   await page.getByRole('link', { name: 'Play it again' }).click();
   await expect(page).toHaveURL(/\/arcade\/packet-runner/);
-  await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible();
+  await expect(page.locator('[data-start=true]')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -355,9 +356,9 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
     await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
     for (const [id, name, act] of games) {
       await open(page, `/arcade/${id}?seed=4`);
-      await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeVisible();
+      await expect(page.locator('[data-start=true]')).toBeVisible();
       await noSideScroll(page, `${id} start at ${width}`);
-      await page.getByRole('button', { name: 'Start', exact: true }).click();
+      await page.locator('[data-start=true]').click();
       await act(page);
       await noSideScroll(page, `${id} at ${width}`);
       if (width < 500) {
@@ -370,5 +371,31 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
       await shot(page, `${name}-mid-${width}`);
     }
   }
+  expect(errors).toEqual([]);
+});
+
+test('Packet Runner practice: every card explained, answered, then the real run starts', async ({ page }) => {
+  const errors = watchConsole(page);
+  await open(page, '/arcade/packet-runner');
+  await expect(page.locator('.ar-board-help li').first()).toBeVisible();
+  await expect(page.getByTestId('game-rules')).toHaveAttribute('open', '');
+  await page.getByRole('button', { name: 'Practice first' }).click();
+  for (let i = 0; i < PACKET_PRACTICE.length; i++) {
+    const card = page.getByTestId('practice-card');
+    await expect(card).toBeVisible();
+    const t = PACKET_BY_ID[(await card.getAttribute('data-template'))!]!;
+    await expect(page.locator('.pp-row[data-key=true]')).toHaveCount(1);
+    // One wrong answer on purpose, to see the explanation for a mistake.
+    const allow = i === 1 ? t.bad : !t.bad;
+    await page.getByRole('button', { name: allow ? /^Allow/ : /^Block/ }).click();
+    await expect(page.getByTestId('practice-verdict')).toContainText(i === 1 ? 'Not this time' : 'Right');
+    await expect(page.getByTestId('practice-verdict')).toContainText(t.why);
+    await page.getByRole('button', { name: /Next card|See the summary/ }).click();
+  }
+  await expect(page.getByTestId('practice-done')).toContainText(`${PACKET_PRACTICE.length - 1} of ${PACKET_PRACTICE.length} right`);
+  await page.getByRole('button', { name: 'Start the real run' }).click();
+  await expect(page.locator('.ar-hud')).toBeVisible();
+  await page.keyboard.press('p');
+  await expect(page.getByTestId('game-rules')).toBeVisible();
   expect(errors).toEqual([]);
 });

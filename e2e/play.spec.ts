@@ -470,3 +470,16 @@ test('Laptop screen: the proxy Forward button is in sight without scrolling', as
   const box = await forward.boundingBox();
   expect(box && box.y + box.height).toBeLessThanOrEqual(720);
 });
+
+test('A level lists and explains its technical words, and underlined words explain themselves', async ({ page }) => {
+  const done = { stars: 2, clears: 1, bestSeconds: 75, lastPlayedAt: '' };
+  await seed(page, { ...OPEN_ALL, levels: { 'wire-robots': done, 'wire-cookie-role': done, 'wire-replay': done, 'wire-httponly': done } });
+  await page.goto('/play/wire-jwt');
+  const words = page.getByTestId('level-words');
+  await expect(words).toHaveAttribute('open', '');
+  for (const w of ['JWT', 'alg', 'HS256', 'Payload', 'Signature']) await expect(words.locator('dt', { hasText: new RegExp(`^${w}`) }).first()).toBeVisible();
+  const gloss = page.locator('.brief-say .gloss-link').first();
+  await gloss.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('tooltip')).toBeVisible();
+});
