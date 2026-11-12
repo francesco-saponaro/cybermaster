@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { ZONES } from '../src/content/zones';
-import { PACKET_BY_ID } from '../src/content/arcade/packets';
-import { PACKET_PRACTICE } from '../src/content/arcade/packetPractice';
+import { PAIR_BY_ID } from '../src/content/arcade/forgery';
+import { startForgery, ROUNDS } from '../src/arcade/forgery';
 import { FIXES } from '../src/content/arcade/defence';
 import { startTower, COLS as TD_COLS } from '../src/arcade/tower';
 import { startSweeper, targets, COLS as SW_COLS } from '../src/arcade/sweeper';
@@ -94,7 +94,7 @@ async function shot(page: Page, name: string) {
 
 test('The arcade lists all five games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
   const errors = watchConsole(page);
-  await open(page, '/arcade', { ...base, levels: { 'wire-cors': run() }, arcade: { 'packet-runner': { best: 4200, stars: 1, plays: 2, lastPlayedAt: 'x' } } });
+  await open(page, '/arcade', { ...base, levels: { 'wire-cors': run() }, arcade: { 'spot-the-forgery': { best: 4200, stars: 1, plays: 2, lastPlayedAt: 'x' } } });
   await expect(page.getByRole('heading', { name: 'The arcade' })).toBeVisible();
   await expect(page.locator('.arcade-row')).toHaveCount(5);
   await expect(page.locator('.arcade-row').first()).toContainText('Best 4,200');
@@ -104,76 +104,85 @@ test('The arcade lists all five games with their bests, and locks a game until i
   // The zone page offers the bonus round once the boss is beaten.
   await page.goto('/zones/wire');
   await page.getByRole('link', { name: 'Play it again' }).click();
-  await expect(page).toHaveURL(/\/arcade\/packet-runner/);
+  await expect(page).toHaveURL(/\/arcade\/spot-the-forgery/);
   await expect(page.locator('[data-start=true]')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-// ---- Packet Runner ----------------------------------------------------------------
+// ---- Spot the Forgery ---------------------------------------------------------------
 
-async function packetCall(page: Page, right: boolean): Promise<boolean> {
-  const gate = page.locator('[data-testid=packet][data-gate=true]').first();
-  if (!(await gate.count())) return false;
-  const lane = Number(await gate.locator('xpath=..').getAttribute('data-lane'));
-  const sel = Number(await page.locator('.pr-lane[data-sel=true]').getAttribute('data-lane'));
-  for (let k = sel; k < lane; k++) await page.keyboard.press('ArrowDown');
-  for (let k = sel; k > lane; k--) await page.keyboard.press('ArrowUp');
-  const bad = PACKET_BY_ID[(await gate.getAttribute('data-template'))!]!.bad;
-  await page.keyboard.press(bad === right ? 'ArrowLeft' : 'ArrowRight');
-  return true;
-}
-
-test('Packet Runner: a full 90 second run held to the end, then a run lost in three wrong calls', async ({ page }) => {
+test('Spot the Forgery: twelve rounds won by picking every forgery, then a run lost in three mistakes', async ({ page }) => {
   const errors = watchConsole(page);
-  await open(page, '/arcade/packet-runner?seed=7');
+  const dealt = startForgery(7);
+  await open(page, '/arcade/spot-the-forgery?seed=7');
   await start(page, /Monday night/);
-  let shotTaken = false;
-  for (let t = 0; t < 95_000 && !(await page.locator('.ar-over').count()); t += 250) {
-    await packetCall(page, true);
-    await tick(page, 250);
-    if (!shotTaken && t > 20_000) {
-      shotTaken = true;
-      await expect(page.locator('[data-testid=packet]').first()).toBeVisible();
-      await shot(page, 'packet-1440');
+  for (let r = 0; r < ROUNDS; r++) {
+    const pair = PAIR_BY_ID[dealt.rounds[r]!]!;
+    await expect(page.locator('.sf-topic')).toContainText(pair.topic);
+    await tick(page, 1000);
+    if (r === 0) {
+      await expect(page.locator('.sf-tip')).toBeVisible();
+      await shot(page, 'forgery-1440');
     }
+    await page.getByTestId(`card-${dealt.sides[r]}`).click();
+    const explain = page.getByTestId('sf-explain');
+    await expect(explain).toContainText(pair.why);
+    await expect(page.locator(`[data-testid=card-${dealt.sides[r]}] [data-key=true]`)).toHaveCount(1);
+    if (r === 9) await shot(page, 'forgery-reveal-1440');
+    if (r === 0) {
+      // The clock is stopped while the answer is explained: well past the round's time, nothing changes.
+      const hud = await page.locator('.ar-hud').innerText();
+      await tick(page, 20_000);
+      expect(await page.locator('.ar-hud').innerText()).toBe(hud);
+      await expect(page.getByTestId('sf-explain')).toBeVisible();
+    }
+    await page.keyboard.press('Enter');
   }
-  const score = await gameOver(page, 'packet-runner', /You held the gate/);
-  expect(score).toBeGreaterThan(7000);
+  const score = await gameOver(page, 'spot-the-forgery', /All twelve rounds done/);
+  expect(score).toBeGreaterThan(3000);
   await expect(page.locator('.ar-review')).toHaveCount(0);
 
-  // Three wrong calls end the next run, and the game over screen says why.
+  // Wrong, too slow, wrong: out of lives, and the scorecard explains each one.
   await page.getByRole('button', { name: 'Play again' }).click();
-  let wrong = 0;
-  for (let t = 0; t < 30_000 && wrong < 3; t += 200) {
-    if (await packetCall(page, false)) {
-      wrong += 1;
-      // The third wrong call ends the run, so only the first two leave the board up to read.
-      if (wrong < 3) await expect(page.getByTestId('pr-msg')).toContainText(/should have been stopped|was fine/);
-      await tick(page, 1100);
-    }
-    await tick(page, 200);
+  await expect(page.locator('.ar-hud')).toBeVisible();
+  // The seed is in the address, so the second run deals the same rounds.
+  const flip = (side: string) => (side === 'left' ? 'right' : 'left');
+  for (let r = 0; r < 3; r++) {
+    if (r === 1) await tick(page, 19_000);
+    else await page.getByTestId(`card-${flip(dealt.sides[r]!)}`).click();
+    await expect(page.getByTestId('sf-explain')).toContainText('−1 life');
+    await page.keyboard.press('Enter');
   }
-  await gameOver(page, 'packet-runner', /Out of lives/);
+  await gameOver(page, 'spot-the-forgery', /Out of lives/);
   await expect(page.locator('.ar-review li')).toHaveCount(3);
-  await shot(page, 'packet-over-1440');
+  await expect(page.locator('.ar-review')).toContainText('The clock ran out.');
+  await shot(page, 'forgery-over-1440');
   const save = await readSave(page);
-  expect(save.arcade['packet-runner'].best).toBe(score);
-  expect(save.arcade['packet-runner'].plays).toBe(2);
+  expect(save.arcade['spot-the-forgery'].best).toBe(score);
+  expect(save.arcade['spot-the-forgery'].plays).toBe(2);
   expect(errors).toEqual([]);
 });
 
-test('Packet Runner pauses with P and stops the clock', async ({ page }) => {
-  await open(page, '/arcade/packet-runner?seed=3');
+test('Spot the Forgery pauses with P, stops the clock and shows the rules', async ({ page }) => {
+  await open(page, '/arcade/spot-the-forgery?seed=3');
+  await expect(page.locator('.ar-board-help li').first()).toBeVisible();
+  await expect(page.getByTestId('game-rules')).toHaveAttribute('open', '');
   await start(page, /Monday night/);
   await tick(page, 3000);
   await page.keyboard.press('p');
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
-  await shot(page, 'packet-paused-1440');
+  await expect(page.getByTestId('game-rules')).toBeVisible();
   const before = await page.locator('.ar-hud').innerText();
   await tick(page, 10_000);
   expect(await page.locator('.ar-hud').innerText()).toBe(before);
   await page.keyboard.press('p');
   await expect(page.getByRole('dialog', { name: 'Paused' })).toHaveCount(0);
+});
+
+test('The old Packet Runner address opens Spot the Forgery', async ({ page }) => {
+  await open(page, '/arcade/packet-runner');
+  await expect(page).toHaveURL(/\/arcade\/spot-the-forgery/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Spot the Forgery');
 });
 
 // ---- Hold the Line -----------------------------------------------------------------
@@ -334,7 +343,7 @@ test('Triage Rush on a phone: a whole deck by tapping, with two misjudged findin
 test('Every game mid-run at 390 and 1440: on screen, nothing wider than the screen', async ({ page }) => {
   const errors = watchConsole(page);
   const games: [string, string, (p: Page) => Promise<void>][] = [
-    ['packet-runner', 'packet', async (p) => tick(p, 6000)],
+    ['spot-the-forgery', 'forgery', async (p) => tick(p, 4000)],
     ['tower-defence', 'tower', async (p) => {
       await p.keyboard.press('1');
       await p.locator('.td-tile').nth(1 * TD_COLS + 3).click();
@@ -371,31 +380,5 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
       await shot(page, `${name}-mid-${width}`);
     }
   }
-  expect(errors).toEqual([]);
-});
-
-test('Packet Runner practice: every card explained, answered, then the real run starts', async ({ page }) => {
-  const errors = watchConsole(page);
-  await open(page, '/arcade/packet-runner');
-  await expect(page.locator('.ar-board-help li').first()).toBeVisible();
-  await expect(page.getByTestId('game-rules')).toHaveAttribute('open', '');
-  await page.getByRole('button', { name: 'Practice first' }).click();
-  for (let i = 0; i < PACKET_PRACTICE.length; i++) {
-    const card = page.getByTestId('practice-card');
-    await expect(card).toBeVisible();
-    const t = PACKET_BY_ID[(await card.getAttribute('data-template'))!]!;
-    await expect(page.locator('.pp-row[data-key=true]')).toHaveCount(1);
-    // One wrong answer on purpose, to see the explanation for a mistake.
-    const allow = i === 1 ? t.bad : !t.bad;
-    await page.getByRole('button', { name: allow ? /^Allow/ : /^Block/ }).click();
-    await expect(page.getByTestId('practice-verdict')).toContainText(i === 1 ? 'Not this time' : 'Right');
-    await expect(page.getByTestId('practice-verdict')).toContainText(t.why);
-    await page.getByRole('button', { name: /Next card|See the summary/ }).click();
-  }
-  await expect(page.getByTestId('practice-done')).toContainText(`${PACKET_PRACTICE.length - 1} of ${PACKET_PRACTICE.length} right`);
-  await page.getByRole('button', { name: 'Start the real run' }).click();
-  await expect(page.locator('.ar-hud')).toBeVisible();
-  await page.keyboard.press('p');
-  await expect(page.getByTestId('game-rules')).toBeVisible();
   expect(errors).toEqual([]);
 });
