@@ -245,7 +245,7 @@ function StartPanel({ game, best, stars, onStart, onPractice }: { game: ArcadeGa
               ))}
             </tbody>
           </table>
-          <p className="small muted ar-touch">On a touch screen, use the buttons under the board.</p>
+          <p className="small muted ar-touch">{game.touch ?? 'On a touch screen, use the buttons under the board.'}</p>
         </div>
       </div>
       <p className="ar-teaches">{game.teaches}</p>

@@ -32,6 +32,8 @@ export interface ArcadeGame {
   rules: { title: string; items: { label: string; text: string }[] }[];
   /** Glossary ids for every technical word on the board. */
   words: string[];
+  /** How to play on a touch screen, when it is not the buttons under the board. */
+  touch?: string;
 }
 
 export const ARCADE: ArcadeGame[] = [
@@ -56,6 +58,7 @@ export const ARCADE: ArcadeGame[] = [
     ],
     stars: [800, 1800, 3000],
     seconds: 120,
+    touch: 'On a touch screen, tap the card you think is forged.',
     board: [
       'Two cards, A and B, show the same request arriving at the shop: what it asks for, and the proof it carries (a cookie, a token, where it came from).',
       'Line by line they are identical except where the attacker changed something. Find the line that differs, then decide which version is the attack.',
