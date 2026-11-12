@@ -46,7 +46,9 @@ const seedSearch = (search: Record<string, unknown>): { seed?: number } => {
 };
 const arcadeRoute = createRoute({ getParentRoute: () => site, path: 'arcade', component: lazyRouteComponent(() => import('./routes/Arcade'), 'ArcadePage') });
 // Each game is its own chunk, loaded when it is opened.
-const packetRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/packet-runner', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/PacketRunner'), 'PacketRunnerPage') });
+const forgeryRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/spot-the-forgery', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/SpotTheForgery'), 'SpotTheForgeryPage') });
+// The Wire's first arcade game was Packet Runner; old links land on its replacement.
+const packetRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/packet-runner', beforeLoad: () => { throw redirect({ to: '/arcade/spot-the-forgery', search: {} }); } });
 const towerRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/tower-defence', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/TowerDefence'), 'TowerDefencePage') });
 const sweeperRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/network-sweeper', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/Sweeper'), 'SweeperPage') });
 const lockdownRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/lockdown', component: lazyRouteComponent(() => import('./arcade/games/Lockdown'), 'LockdownPage') });
@@ -61,7 +63,8 @@ const oldMission = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, profileRoute, caseRoute, endingRoute, arcadeRoute]), levelRoute, packetRoute, towerRoute, sweeperRoute, lockdownRoute, triageRoute, challengeRoute, dailyRoute, oldMission]);
+const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, profileRoute, caseRoute, endingRoute, arcadeRoute]), levelRoute, forgeryRoute,
+  packetRoute, towerRoute, sweeperRoute, lockdownRoute, triageRoute, challengeRoute, dailyRoute, oldMission]);
 
 export const router = createRouter({
   routeTree,

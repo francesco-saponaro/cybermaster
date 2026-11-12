@@ -127,7 +127,7 @@ describe('save version 6', () => {
   });
   it('a version 6 save with arcade runs round-trips through storage', () => {
     const store: Record<string, string> = {};
-    const s = { ...migrate(v5, ctx), arcade: { 'packet-runner': { best: 5200, stars: 2, plays: 3, lastPlayedAt: '2026-11-09T09:00:00Z' } } };
+    const s = { ...migrate(v5, ctx), arcade: { 'spot-the-forgery': { best: 5200, stars: 2, plays: 3, lastPlayedAt: '2026-11-09T09:00:00Z' } } };
     persistSave(s, { setItem: (k, v) => { store[k] = v; } });
     expect(loadSave({ getItem: (k) => store[k] ?? null })).toEqual(s);
   });

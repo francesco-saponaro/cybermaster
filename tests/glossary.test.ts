@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GLOSSARY, GLOSS_BY_ID, termsIn } from '../src/content/glossary';
 import { ALL_LEVELS } from '../src/content/index';
 import { ARCADE } from '../src/content/arcade';
-import { PACKET_PRACTICE } from '../src/content/arcade/packetPractice';
-import { PACKETS, PACKET_BY_ID } from '../src/content/arcade/packets';
+import { FORGERY_PAIRS, forgedLines } from '../src/content/arcade/forgery';
 
 const levelTexts = (l: (typeof ALL_LEVELS)[number]) => [
   l.goal,
@@ -57,16 +56,9 @@ describe('arcade explanations', () => {
     }
   });
 
-  it('the Packet Runner practice covers every kind of bad request and uses real cards', () => {
-    for (const c of PACKET_PRACTICE) expect(PACKET_BY_ID[c.template], c.template).toBeDefined();
-    const kinds = new Set(PACKET_PRACTICE.map((c) => PACKET_BY_ID[c.template]!.header.split(/[:=]/)[0]));
-    expect(kinds.size).toBeGreaterThan(3);
-    expect(PACKET_PRACTICE.some((c) => !PACKET_BY_ID[c.template]!.bad)).toBe(true);
-    expect(PACKET_PRACTICE.filter((c) => PACKET_BY_ID[c.template]!.bad).length).toBeGreaterThanOrEqual(5);
-  });
-
-  it('every word printed on a Packet Runner card is in the glossary', () => {
-    const ids = termsIn(PACKETS.flatMap((p) => [p.req, p.header, p.note])).map((g) => g.id);
-    for (const id of ['get', 'post', 'options', 'cookie', 'sid', 'alg', 'hs256', 'exp', 'origin', 'robots', 'signature']) expect(ids, id).toContain(id);
+  it('every word printed on a Spot the Forgery card is in the glossary', () => {
+    const texts = FORGERY_PAIRS.flatMap((p) => [...p.real, ...forgedLines(p)].flatMap((l) => [l.label, l.value]));
+    const ids = termsIn(texts).map((g) => g.id);
+    for (const id of ['get', 'post', 'delete', 'options', 'cookie', 'sid', 'alg', 'hs256', 'signature', 'origin', 'https']) expect(ids, id).toContain(id);
   });
 });

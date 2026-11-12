@@ -5,7 +5,7 @@
 import type { ZoneId } from './types';
 import type { Speaker } from './story';
 
-export type GameId = 'packet-runner' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush';
+export type GameId = 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush';
 
 export interface ArcadeGame {
   id: GameId;
@@ -36,56 +36,56 @@ export interface ArcadeGame {
 
 export const ARCADE: ArcadeGame[] = [
   {
-    id: 'packet-runner',
+    id: 'spot-the-forgery',
     zone: 'wire',
-    title: 'Packet Runner',
-    tagline: 'Let the customers in, stop the forged requests',
-    teaches: 'Spotting an edited cookie, a missing login, a foreign Origin, an unsigned or expired token and a copied session at a glance.',
+    title: 'Spot the Forgery',
+    tagline: 'Two requests, one is fake. Which one?',
+    teaches: 'Telling a real request from a forged one: an edited cookie, an unsigned or expired token, a foreign or lookalike Origin, a copied session, a missing login.',
     speaker: 'Bruno',
-    line: "This is Monday night's traffic at the shop's front door, sped up. Let the customers through and stop what the attacker sent.",
+    line: "These came in on Monday night in pairs: the customer's real request, and the attacker's copy with one line changed. Tell me which is which.",
     howTo: [
-      'Requests slide along three lanes towards the gate on the right.',
-      'Pick a lane, then allow or block the request waiting in its gate.',
-      'A wrong call costs a life. Right calls in a row build a multiplier.',
+      'Each round shows the same request twice, side by side. One is real, one was changed by the attacker.',
+      'Click or tap the forged one before the round clock runs out. You then see the line that gave it away and why.',
+      'Twelve rounds, getting harder. A wrong pick or running out of time costs one of three lives.',
     ],
     controls: [
-      { keys: 'Up / Down or W / S', does: 'Change lane' },
-      { keys: 'Right or A', does: 'Allow' },
-      { keys: 'Left or B', does: 'Block' },
+      { keys: 'Left arrow or 1', does: 'Card A is forged' },
+      { keys: 'Right arrow or 2', does: 'Card B is forged' },
+      { keys: 'Enter or Space', does: 'Next round' },
       { keys: 'P or Esc', does: 'Pause' },
     ],
-    stars: [2000, 7000, 15000],
-    seconds: 90,
+    stars: [800, 1800, 3000],
+    seconds: 120,
     board: [
-      'Each card is one request arriving at the shop. It has three lines.',
-      'Top line: what is being asked for, like GET /admin (open the admin page) or POST /api/pay (make a payment).',
-      'Middle line: the one header that decides it: a cookie, a token, or where the request came from.',
-      'Bottom line: what the gate knows about it, like "Server: session is staff" or "Signature checks out".',
-      'Cards wait in the gate on the right. Pick a lane, then Allow or Block the card in that lane. A card left waiting too long walks off and breaks your combo.',
+      'Two cards, A and B, show the same request arriving at the shop: what it asks for, and the proof it carries (a cookie, a token, where it came from).',
+      'Line by line they are identical except where the attacker changed something. Find the line that differs, then decide which version is the attack.',
+      'From round 9 the cards differ in two lines: one harmless (another customer\'s session id, a different expiry time) and one that is the attack. Only one of them matters.',
+      'The bar under the question is the round clock. It stops while the answer is explained, so take your time reading.',
     ],
     rules: [
       {
-        title: 'Allow',
+        title: 'The forged card is the one with',
         items: [
-          { label: 'Public pages', text: 'Products, robots.txt and the login form are meant for anyone, cookie or not.' },
-          { label: 'A real session', text: 'A sid the server has looked up, asking for its own things, or staff asking for staff pages.' },
-          { label: 'A good token', text: 'Token alg: HS256 with "Signature checks out", and not expired.' },
-          { label: 'Our own site', text: 'Origin: shop.lantern.example, including its OPTIONS preflight.' },
+          { label: 'A role in a cookie', text: 'Cookie: role=admin. The browser keeps cookies, so anyone can type one. Roles come from the server.' },
+          { label: 'No login', text: 'No cookie on a private page. Knowing the address, even from robots.txt, is not permission.' },
+          { label: 'The wrong person', text: 'A real session, but the server says it belongs to a customer and it wants a staff page.' },
+          { label: 'alg: none', text: 'A token that says it has no signature, so anyone could have written it.' },
+          { label: 'A broken signature', text: '"Does not match": the token was edited after it was signed.' },
+          { label: 'An expiry in the past', text: 'Yesterday, or two minutes ago: expired is expired.' },
+          { label: 'Another website as Origin', text: 'evil.example, a lookalike like shop-lantern.example or shop.lantern.example.pay-check.io, or http:// instead of https://.' },
+          { label: 'A session in two places', text: 'The same session id in use from another city at the same moment: it was copied.' },
         ],
       },
       {
-        title: 'Block',
+        title: 'Harmless differences',
         items: [
-          { label: 'Role in a cookie', text: 'Cookie: role=admin with no real session. The browser can edit that.' },
-          { label: 'No login on a private page', text: 'No cookie or no token on /admin, /staff-notes or /api/orders. robots.txt does not make a page public.' },
-          { label: 'A bad token', text: 'alg: none (unsigned), a signature that does not match, or exp in the past.' },
-          { label: 'Another website', text: 'Origin: evil.example on a payment or its preflight.' },
-          { label: 'A copied session', text: 'The same sid used from another city at the same time.' },
-          { label: 'Wrong role', text: 'The server says the session is a customer, but it wants /admin.' },
+          { label: 'Different session ids', text: 'Every customer has their own. A different id alone is normal.' },
+          { label: 'Different expiry times', text: 'Tokens are issued at different moments. Only one in the past matters.' },
+          { label: 'Small extras', text: 'A language setting or a theme cookie changes nothing about who you are.' },
         ],
       },
     ],
-    words: ['get', 'post', 'delete', 'options', 'header', 'cookie', 'sid', 'role-cookie', 'robots', 'token', 'alg', 'hs256', 'alg-none', 'signature', 'exp', 'origin', 'replay'],
+    words: ['get', 'post', 'delete', 'options', 'cookie', 'sid', 'role-cookie', 'robots', 'token', 'alg', 'hs256', 'alg-none', 'signature', 'exp', 'origin', 'https', 'replay'],
   },
   {
     id: 'tower-defence',

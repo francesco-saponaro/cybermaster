@@ -5,7 +5,7 @@ import { ARENA_APPS } from '../src/sim/arena';
 import { evaluateTerminal } from '../src/game/evaluate';
 import { SERVERS } from '../src/sim/wire';
 import { ARCADE } from '../src/content/arcade';
-import { PACKETS } from '../src/content/arcade/packets';
+import { FORGERY_PAIRS } from '../src/content/arcade/forgery';
 import { ATTACKS, FIXES } from '../src/content/arcade/defence';
 import { PUZZLES } from '../src/content/arcade/lockdown';
 import { FINDINGS } from '../src/content/arcade/findings';
@@ -72,7 +72,7 @@ describe('content integrity', () => {
     expect(text).not.toMatch(/OR 1=1|onerror=|<script|\/etc\/passwd/i);
   });
   it('no arcade text shows a literal attack string either', () => {
-    const text = JSON.stringify([ARCADE, PACKETS, ATTACKS, FIXES, PUZZLES, FINDINGS, SERVICES]);
+    const text = JSON.stringify([ARCADE, FORGERY_PAIRS, ATTACKS, FIXES, PUZZLES, FINDINGS, SERVICES]);
     expect(text).not.toMatch(/OR 1=1|onerror=|<script|\/etc\/passwd|UNION SELECT|\.\.\/|;\s*rm |\$\(|169\.254\.169\.254|' OR '|--\s*$/im);
     expect(text.length).toBeGreaterThan(5000);
   });

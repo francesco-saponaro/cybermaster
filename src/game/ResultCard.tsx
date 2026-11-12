@@ -96,7 +96,7 @@ export function ResultCard({
             <span>
               Bonus round open: <strong>{ARCADE_BY_ZONE[level.zone].title}</strong>, {ARCADE_BY_ZONE[level.zone].tagline.toLowerCase()}.
             </span>
-            <Link to={`/arcade/${ARCADE_BY_ZONE[level.zone].id}` as '/arcade/packet-runner'} search={{}} className="cbtn">
+            <Link to={`/arcade/${ARCADE_BY_ZONE[level.zone].id}` as '/arcade/spot-the-forgery'} search={{}} className="cbtn">
               Play the bonus round
             </Link>
           </p>

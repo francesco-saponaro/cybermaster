@@ -187,7 +187,7 @@ function BonusRound({ zoneId }: { zoneId: string }) {
       {open ? (
         <>
           <p className="zone-bonus-line tnum">{rec ? <>Best {rec.best.toLocaleString('en-GB')} <Stars count={rec.stars} size={12} /></> : g.tagline}</p>
-          <Link to={`/arcade/${g.id}` as '/arcade/packet-runner'} search={{}} className="btn btn-ghost zone-beat">
+          <Link to={`/arcade/${g.id}` as '/arcade/spot-the-forgery'} search={{}} className="btn btn-ghost zone-beat">
             {rec ? 'Play it again' : 'Play the bonus round'}
           </Link>
         </>

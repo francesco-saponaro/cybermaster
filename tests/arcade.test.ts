@@ -36,13 +36,13 @@ describe('arcade stars, XP and unlocks', () => {
     let save = emptySave();
     let total = 0;
     for (const score of [150, 50, 250, 400, 400, 120, 999]) {
-      const r = applyArcade(save, 'packet-runner', score, [100, 200, 300], '2026-11-09', 'now');
+      const r = applyArcade(save, 'spot-the-forgery', score, [100, 200, 300], '2026-11-09', 'now');
       total += r.outcome.xpGained;
       save = r.save;
     }
     expect(total).toBe(ARCADE_XP[3]);
     expect(save.xp).toBe(ARCADE_XP[3]);
-    expect(save.arcade['packet-runner']).toEqual({ best: 999, stars: 3, plays: 7, lastPlayedAt: 'now' });
+    expect(save.arcade['spot-the-forgery']).toEqual({ best: 999, stars: 3, plays: 7, lastPlayedAt: 'now' });
   });
   it('the arcade cannot carry a new player past the levels: all five at three stars is under two levels of XP', () => {
     expect(ARCADE_XP[3] * ARCADE.length).toBeLessThanOrEqual(500);

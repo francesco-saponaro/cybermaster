@@ -63,7 +63,7 @@ export function ArcadePage() {
                         <span className="muted">Not played yet</span>
                       )}
                     </p>
-                    <Link to={`/arcade/${g.id}` as '/arcade/packet-runner'} search={{}} className="btn btn-primary btn-sm arcade-play">
+                    <Link to={`/arcade/${g.id}` as '/arcade/spot-the-forgery'} search={{}} className="btn btn-primary btn-sm arcade-play">
                       {rec ? 'Play again' : 'Play'}
                     </Link>
                   </>

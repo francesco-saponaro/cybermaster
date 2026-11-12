@@ -22,8 +22,8 @@ export interface GlossEntry {
 
 export const GLOSSARY: GlossEntry[] = [
   // ---- The web, requests and responses ------------------------------------
-  { id: 'http', term: 'HTTP', match: ['HTTP'], plain: 'The language a browser and a website use to talk. The browser sends a request ("give me this page"), and the website sends back a response.' },
-  { id: 'https', term: 'HTTPS', match: ['HTTPS'], plain: 'HTTP sent through an encrypted connection, so nobody else on the same network can read or change it. It is what the padlock in the address bar means.' },
+  { id: 'http', term: 'HTTP', match: ['HTTP', 'http'], plain: 'The language a browser and a website use to talk. The browser sends a request ("give me this page"), and the website sends back a response.' },
+  { id: 'https', term: 'HTTPS', match: ['HTTPS', 'https'], plain: 'HTTP sent through an encrypted connection, so nobody else on the same network can read or change it. It is what the padlock in the address bar means.' },
   { id: 'raw-request', term: 'Raw HTTP request', match: ['raw HTTP request', 'HTTP request', 'raw request'], plain: 'The exact text a browser sends to a website, line by line. Normally you never see it; here you can read and edit it before it goes.', example: 'GET /account HTTP/1.1' },
   { id: 'response', inline: false, term: 'Response', match: ['response', 'responses'], plain: "The website's answer to a request: a status code saying how it went, some header lines, then the page or data itself." },
   { id: 'get', term: 'GET', match: ['GET'], plain: 'A request that only asks to read something, like opening a page. It should never change anything on the server.', example: 'GET /products' },
