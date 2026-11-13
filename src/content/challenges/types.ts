@@ -1,6 +1,7 @@
 import type { Level, LevelCheck, WireAct, CloudAct, ReportAct } from '../types';
 import type { Rng } from '../../engine/rng';
 import type { SgRule, Verdict } from '../../sim/cloud';
+import type { GvmAction } from '../../sim/gvm';
 
 /**
  * How a variant is solved, for the tests that clear every generator across
@@ -11,7 +12,8 @@ export type Solution =
   | { kind: 'arena'; fix: string }
   | { kind: 'terminal'; commands: string[] }
   | { kind: 'cloud'; text?: string; bpa?: boolean; rules?: SgRule[]; keyOps?: CloudAct['keyOp'][]; verdicts?: Record<string, Verdict> }
-  | { kind: 'report'; act: ReportAct[] };
+  | { kind: 'report'; act: ReportAct[] }
+  | { kind: 'scanner'; actions: GvmAction[] };
 
 export type WireMove = WireAct | { held: (text: string) => string };
 

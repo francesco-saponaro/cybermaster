@@ -5,6 +5,7 @@ import { ARENA_CHALLENGES } from './arena';
 import { PERIMETER_CHALLENGES } from './perimeter';
 import { CLOUD_CHALLENGES } from './cloud';
 import { REPORT_CHALLENGES } from './report';
+import { SCANNER_CHALLENGES } from './scanner';
 
 export type { ChallengeVariant, ChallengeGenerator, Solution } from './types';
 export { START_POINTS, HINT_COST } from './types';
@@ -16,6 +17,7 @@ export const CHALLENGES: Record<string, ChallengeGenerator> = {
   ...PERIMETER_CHALLENGES,
   ...CLOUD_CHALLENGES,
   ...REPORT_CHALLENGES,
+  ...SCANNER_CHALLENGES,
 };
 
 /** The variant a seed gives for a level, or null when the level has no challenge. */

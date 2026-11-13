@@ -10,6 +10,7 @@ import { evaluateTerminal, judgeAnswer } from '../src/game/evaluate';
 import { bucketChecks, iamChecks, sgChecks, keyChecks, triageChecks, gatewayChecks, type KeyState } from '../src/sim/cloud';
 import { placeArtifact, readFinding, labChecks, PHASES } from '../src/sim/report';
 import { parseVector, METRICS } from '../src/engine/cvss';
+import { initialGvm, runGvm } from '../src/sim/gvm';
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => (i + 1) * 2654435761);
 const allPass = (checks: Record<string, boolean>, ids: string[]) => ids.every((id) => checks[id] === true);
@@ -66,6 +67,12 @@ function solve(v: ChallengeVariant): { before: Record<string, boolean>; after: R
   const l = v.level;
   const sol = v.solution;
   switch (l.kind) {
+    case 'scanner': {
+      if (sol.kind !== 'scanner') throw new Error('wrong solution kind');
+      const r = runGvm(l.setup, sol.actions);
+      expect(r.errors, `${l.id}: no action is refused`).toEqual([]);
+      return { before: l.evaluate(initialGvm(l.setup)), after: l.evaluate(r.state) };
+    }
     case 'wire': {
       if (sol.kind !== 'wire') throw new Error('wrong solution kind');
       return { before: l.evaluate({ exchanges: [], forwarded: [], console: [], jar: [] }), after: l.evaluate(wireState(l, sol.moves)) };
