@@ -36,6 +36,13 @@ export const ZONES: Zone[] = [
     intro: 'Turn what you found into something a client can act on: order the work, score it, write it, retest it, and build the lab to keep practising.',
     levelIds: ['report-phases', 'report-cvss', 'report-finding', 'report-retest', 'report-lab'],
   },
+  {
+    id: 'scanner',
+    name: 'The Scanner',
+    tagline: 'OpenVAS: feed, targets, scans, false alarms and a weekly routine',
+    intro: "Lantern's own Greenbone box. Update its feed, point it at the right machines, run full and logged-in scans, sort proof from guesses, and make it a weekly habit.",
+    levelIds: ['scan-feed', 'scan-target', 'scan-task', 'scan-qod', 'scan-auth', 'scan-boss'],
+  },
 ];
 
 export const ZONE_BY_ID = Object.fromEntries(ZONES.map((z) => [z.id, z])) as Record<string, Zone>;

@@ -67,6 +67,14 @@ export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
       { who: 'Yasmin', text: 'Then a lab, so their team can practise somewhere that is not production.' },
     ],
   },
+  scanner: {
+    title: 'Friday, 09:30',
+    lines: [
+      { who: 'Claire', text: 'I never want to learn about a hole from a forum again. How do we see them first?' },
+      { who: 'Yasmin', text: 'They have a Greenbone box in the office: OpenVAS and a feed of tests. A contractor installed it in 2024 and nobody has touched it since.' },
+      { who: 'Ines', text: 'Then that is the last job. Fresh feed, the right targets, honest results, and a scan every week.' },
+    ],
+  },
 };
 
 /** One line in the level header, from a teammate, about what the case has turned up so far. */
@@ -100,6 +108,12 @@ export const REMARKS: Record<string, Line & { needs?: string }> = {
   'report-finding': { who: 'Ines', text: "The login bypass started all of it. Write it so Claire's developers cannot misread it.", needs: 'arena-sqli' },
   'report-retest': { who: 'Yasmin', text: 'Their developers pushed a fix overnight. Check it before anyone says closed.' },
   'report-lab': { who: 'Yasmin', text: "Last thing: a lab, so Theo's team can practise on something that is not the shop." },
+  'scan-feed': { who: 'Yasmin', text: 'Before anything else, see how old this thing\'s knowledge is.' },
+  'scan-target': { who: 'Ines', text: 'Same rules as the warehouse: we scan what Claire signed for and nothing else.' },
+  'scan-task': { who: 'Bruno', text: 'Run it once properly and let us see what it says about the office.' },
+  'scan-qod': { who: 'Yasmin', text: 'Two Apache Highs, both at 30%. One of them is noise and one is not.' },
+  'scan-auth': { who: 'Bruno', text: 'db-02 looked clean from outside. I do not believe it.' },
+  'scan-boss': { who: 'Ines', text: 'A week has passed. Make this a habit, and tell Claire what comes next.' },
 };
 
 /** What each cleared level pins to the case board: the evidence, and what it proved. */
@@ -133,6 +147,12 @@ export const PINS: Record<string, { title: string; proved: string }> = {
   'report-finding': { title: 'Finding accepted', proved: 'Claire signed off on the login bypass write-up.' },
   'report-retest': { title: 'Their first fix failed', proved: 'A variant still got in, so the finding stayed open.' },
   'report-lab': { title: 'A practice lab', proved: 'Juice Shop and ZAP, reachable from nowhere else.' },
+  'scan-feed': { title: 'A scanner two years behind', proved: 'The feed was from June 2024 and missed regreSSHion.' },
+  'scan-target': { title: 'The office target', proved: 'All of the office, minus the vendor printer, nas-01 included.' },
+  'scan-task': { title: 'First full scan', proved: 'Three Highs, worst of all an end-of-life NAS.' },
+  'scan-qod': { title: 'One false alarm', proved: 'web-01 was patched; the intranet box was not.' },
+  'scan-auth': { title: 'Holes inside db-02', proved: 'PwnKit and Baron Samedit, visible only with a login.' },
+  'scan-boss': { title: 'A weekly scan', proved: 'Four fixes in a week, one new kiosk, db-02 next.' },
 };
 
 /** The incident as it happened, revealed as the levels that prove each moment are cleared. */
@@ -149,12 +169,13 @@ export const TIMELINE: { time: string; text: string; levelId?: string }[] = [
   { time: 'Mon 04:20', text: '48,211 customers exported through the open route.', levelId: 'cloud-gateway' },
   { time: 'Mon 08:00', text: 'Claire calls the Watch.' },
   { time: 'Thu 18:30', text: 'The finding is accepted, and their first fix fails the retest.', levelId: 'report-retest' },
+  { time: 'Fri 09:30', text: "Lantern's OpenVAS box gets a fresh feed and its first full scan.", levelId: 'scan-task' },
 ];
 
 export const ENDING: Line[] = [
   { who: 'Claire', text: 'The forum post is down, the doors are shut, and my developers know exactly what to change. Thank you.' },
   { who: 'Bruno', text: 'For the record: the logs agree with every word of the report.' },
-  { who: 'Yasmin', text: 'And the lab is running. Theo already broke into it twice.' },
+  { who: 'Yasmin', text: 'And the lab is running. Theo already broke into it twice. The scanner runs every Monday at six.' },
   { who: 'Ines', text: 'Good work. You followed it from a café Wi-Fi to a bucket, and proved each step. Welcome to the Watch.' },
 ];
 
@@ -165,4 +186,5 @@ export const INCIDENTS: Record<string, { threat: string; records: number; unit: 
   'perimeter-boss': { threat: 'The attacker is moving through the dock network looking for one more way in.', records: 2400, unit: 'files copied', loot: "the dock file server's shared folder, copied file by file" },
   'cloud-gateway': { threat: 'The export route is being called again from an address nobody knows.', records: 48211, unit: 'customers out', loot: 'customer records: names, emails and delivery addresses' },
   'report-lab': { threat: 'Your lab is reachable from the office Wi-Fi, and something on the network has found it.', records: 96, unit: 'probes answered', loot: 'a foothold on your laptop, through the lab you left open' },
+  'scan-boss': { threat: 'Something on the office network is probing every machine for old SSH and Samba as you work.', records: 640, unit: 'probes answered', loot: 'a list of every unpatched machine in the office, ready for the next attacker' },
 };

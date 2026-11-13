@@ -9,8 +9,9 @@ import type { Network } from '../sim/terminal';
 import type { SgRule, ScanFinding, Verdict, BucketSetup, IamSetup, SgSetup, KeySetup, GatewaySetup } from '../sim/cloud';
 import type { Artifact, FindingDraft, FindingSpec } from '../sim/report';
 import type { Vector } from '../engine/cvss';
+import type { GvmAction, GvmSetup, GvmState, Tab as ScanTab } from '../sim/gvm';
 
-export type ZoneId = 'wire' | 'arena' | 'perimeter' | 'cloud' | 'report';
+export type ZoneId = 'wire' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
 
 export interface Zone {
   id: ZoneId;
@@ -233,4 +234,27 @@ export type ReportLevel = LevelBase<ReportAct> & { kind: 'report' } & (
     | { panel: 'lab'; compose: string }
   );
 
-export type Level = WireLevel | ArenaLevel | TerminalLevel | CloudLevel | ReportLevel;
+// ---- The Scanner (OpenVAS) -------------------------------------------------------
+
+export interface ScannerAct {
+  /** Open this page of the console. */
+  tab?: ScanTab;
+  /** Fill a form or press a button, through the same reducer the console uses. */
+  actions?: GvmAction[];
+  /** Type into the answer box and check it. */
+  answer?: string;
+}
+
+export interface ScannerLevel extends LevelBase<ScannerAct> {
+  kind: 'scanner';
+  setup: GvmSetup;
+  /** The page the console opens on. */
+  startTab: ScanTab;
+  /** A question answered in the box under the results, when the level has one. */
+  question?: { ask: string; answers: string[]; wrong?: { answers: string[]; reason: string }[]; otherwise: string };
+  /** What Lantern's admin says about a result when you open it: result key to note. */
+  notes?: Record<string, string>;
+  evaluate: (s: GvmState) => Record<string, boolean>;
+}
+
+export type Level = WireLevel | ArenaLevel | TerminalLevel | CloudLevel | ReportLevel | ScannerLevel;

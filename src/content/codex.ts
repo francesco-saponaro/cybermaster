@@ -440,6 +440,86 @@ export const CODEX: CodexEntry[] = [
       'The retest result goes into the report: date, what was tried, and the outcome.',
     ],
   },
+  {
+    id: 'gvm-feed',
+    title: 'OpenVAS and its feed',
+    zone: 'scanner',
+    short: 'OpenVAS runs vulnerability tests (VTs) from a feed; a scanner only finds flaws its feed already describes.',
+    body: [
+      'Greenbone builds OpenVAS: the scanner engine, a manager (gvmd) that stores targets, tasks and results, and a web console (GSA). The free Community Edition uses the Community Feed; the paid appliances use the Enterprise Feed, with more tests and faster updates.',
+      'Each VT is a small script that checks one thing: a version, a behaviour, a missing package update. New tests arrive every day. A box whose feed is old scans happily and reports nothing for every flaw found since, which looks exactly like being safe.',
+    ],
+  },
+  {
+    id: 'gvm-target',
+    title: 'Targets: addresses, ports and alive tests',
+    zone: 'scanner',
+    short: 'A target is the list of addresses to scan, the addresses to leave out, the port list and how to decide a host is up.',
+    body: [
+      'Hosts can be single addresses, ranges or blocks like 10.0.20.0/24; Exclude hosts removes the ones the scope forbids. The port list decides which doors are tried: a narrow list is faster and blind to everything else.',
+      'The alive test decides which addresses are worth scanning. ICMP Ping skips anything that does not answer a ping, and firewalls often drop ping on purpose. Consider Alive scans every address, slower but complete.',
+    ],
+  },
+  {
+    id: 'gvm-task',
+    title: 'Tasks and scan configs',
+    zone: 'scanner',
+    short: 'A task is a target plus a scan config; each run of a task produces a report.',
+    body: [
+      'The scan config chooses which tests run. Full and fast runs every test that matches what it finds and leaves out the ones that could crash a service. Discovery only inventories hosts, ports and products. Host Discovery only checks which hosts are up.',
+      'Run the same task again and you get a second report of the same target, which is what makes comparisons possible.',
+    ],
+  },
+  {
+    id: 'gvm-severity',
+    title: 'Severity in OpenVAS',
+    zone: 'scanner',
+    short: 'Each result carries the CVSS score of its test: High from 7.0, Medium from 4.0, Low above 0, and Log for information.',
+    body: [
+      'The score belongs to the flaw, not to your network: a High on a machine nobody can reach can matter less than a Medium on the internet. Read the host, the port and the solution type next to the number.',
+      'Log results are not problems: they record what the scanner learned, like the operating system or an open port.',
+    ],
+  },
+  {
+    id: 'gvm-qod',
+    title: 'Quality of detection (QoD)',
+    zone: 'scanner',
+    short: 'How sure OpenVAS is that a result is real, from 1% to 100%, set by the way the test detected it.',
+    body: [
+      'A test that proved the flaw scores 100%, one that compared an installed package with the fixed version 97%, one that read a version from a banner 80%. Banners that Linux distributions do not change when they backport a fix score 30%: they are guesses.',
+      'Reports hide results under 70% by default. Lower the filter to see the guesses, then check them on the machine and keep or override each one.',
+    ],
+  },
+  {
+    id: 'gvm-override',
+    title: 'Overrides and false positives',
+    zone: 'scanner',
+    short: 'An override changes how a result is shown in every report, for example to False Positive, and records why.',
+    body: [
+      'Overrides apply to a test on a host and port, so next week\'s scan inherits them. That is the point: nobody re-checks the same false alarm every Monday.',
+      'Always write the reason and the proof. An override without a reason is a hole someone decided not to look at.',
+    ],
+  },
+  {
+    id: 'gvm-auth',
+    title: 'Authenticated scans',
+    zone: 'scanner',
+    short: 'With a login (an SSH key or a Windows account), the scanner reads installed packages and finds flaws invisible from outside.',
+    body: [
+      'From outside, a scanner sees only what a service tells it. Logged in, it lists every package and compares each version with the vendor\'s fixed one: local privilege escalations like PwnKit or Baron Samedit show up with QoD 97%.',
+      'Use a dedicated account with the least rights that still let it read package lists, and keep its key in the scanner\'s credential store only.',
+    ],
+  },
+  {
+    id: 'gvm-delta',
+    title: 'Vulnerability management and delta reports',
+    zone: 'scanner',
+    short: 'Scanning on a schedule and comparing each report with the last: what was fixed, what is new, what is still open.',
+    body: [
+      'A vulnerability assessment is one scan; vulnerability management is the cycle of scanning, prioritising, fixing and scanning again. A weekly schedule and a delta report make that cycle visible.',
+      'The New column is where surprises live: machines plugged in without telling anyone, services switched on, new tests from the feed matching old software.',
+    ],
+  },
 ];
 
 export const CODEX_BY_ID = Object.fromEntries(CODEX.map((c) => [c.id, c])) as Record<string, CodexEntry>;
