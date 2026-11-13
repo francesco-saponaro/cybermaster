@@ -190,7 +190,7 @@ describe('the story and the case board', () => {
   });
   it('is solved when the last zone is cleared, and closing it gives a badge once', () => {
     let save = emptySave();
-    for (const id of ZONES[4]!.levelIds) save = applyClear(save, id, { showMe: 0, fails: 0, seconds: 30 }, '2026-11-09', 'x').save;
+    for (const id of ZONES[ZONES.length - 1]!.levelIds) save = applyClear(save, id, { showMe: 0, fails: 0, seconds: 30 }, '2026-11-09', 'x').save;
     expect(caseBoard(save, ZONES).solved).toBe(true);
     const closed = applyCloseCase(save);
     expect(closed.newBadges).toEqual(['case-closed']);

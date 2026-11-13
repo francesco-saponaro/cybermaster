@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { ZONES } from '../src/content/zones';
 import { PAIR_BY_ID } from '../src/content/arcade/forgery';
 import { startForgery, ROUNDS } from '../src/arcade/forgery';
+import { FIX_BY_ID, FIX_PAIRS } from '../src/content/arcade/fixfirst';
 import { FIXES } from '../src/content/arcade/defence';
 import { startTower, COLS as TD_COLS } from '../src/arcade/tower';
 import { startSweeper, targets, COLS as SW_COLS } from '../src/arcade/sweeper';
@@ -30,7 +31,7 @@ const base = {
   zones: [] as string[],
   challenges: {},
   daily: { streak: { count: 0, lastDay: '' }, days: {} },
-  story: { beats: ['wire', 'arena', 'perimeter', 'cloud', 'report'], closed: true },
+  story: { beats: ['wire', 'arena', 'perimeter', 'cloud', 'report', 'scanner'], closed: true },
   incidents: {},
   bestCombo: 0,
   arcade: {},
@@ -92,11 +93,11 @@ async function shot(page: Page, name: string) {
 
 // ---- The arcade page and its locks -------------------------------------------------
 
-test('The arcade lists all five games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
+test('The arcade lists all six games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
   const errors = watchConsole(page);
   await open(page, '/arcade', { ...base, levels: { 'wire-cors': run() }, arcade: { 'spot-the-forgery': { best: 4200, stars: 1, plays: 2, lastPlayedAt: 'x' } } });
   await expect(page.getByRole('heading', { name: 'The arcade' })).toBeVisible();
-  await expect(page.locator('.arcade-row')).toHaveCount(5);
+  await expect(page.locator('.arcade-row')).toHaveCount(6);
   await expect(page.locator('.arcade-row').first()).toContainText('Best 4,200');
   await expect(page.locator('.arcade-row').nth(1)).toContainText('Opens when you beat Sign up as anyone, the boss of The Arena');
   await page.goto('/arcade/tower-defence');
@@ -360,6 +361,7 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
       await tick(p, 1000);
     }],
     ['triage-rush', 'triage', async (p) => tick(p, 2000)],
+    ['fix-first', 'fixfirst', async (p) => tick(p, 3000)],
   ];
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
@@ -380,5 +382,23 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
       await shot(page, `${name}-mid-${width}`);
     }
   }
+  expect(errors).toEqual([]);
+});
+
+test('Fix First: twelve calls made right, with the reason after each one', async ({ page }) => {
+  const errors = watchConsole(page);
+  const dealt = startForgery(11, FIX_PAIRS);
+  await open(page, '/arcade/fix-first?seed=11');
+  await start(page, /Monday morning/);
+  for (let r = 0; r < ROUNDS; r++) {
+    const pair = FIX_BY_ID[dealt.rounds[r]!]!;
+    await expect(page.locator('.sf-topic')).toContainText(pair.topic);
+    await tick(page, 1000);
+    await page.getByTestId(`card-${dealt.sides[r]}`).click();
+    await expect(page.getByTestId('sf-explain')).toContainText(pair.rule);
+    if (r === 6) await shot(page, 'fixfirst-reveal-1440');
+    await page.keyboard.press('Enter');
+  }
+  await gameOver(page, 'fix-first', /All twelve calls made/);
   expect(errors).toEqual([]);
 });

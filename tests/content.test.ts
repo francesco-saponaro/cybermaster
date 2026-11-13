@@ -16,8 +16,8 @@ function sentences(text: string): number {
 }
 
 describe('content integrity', () => {
-  it('has five zones and between 5 and 7 levels in each, about thirty in all', () => {
-    expect(ZONES.length).toBe(5);
+  it('has six zones and between 5 and 7 levels in each, about thirty-five in all', () => {
+    expect(ZONES.length).toBe(6);
     for (const z of ZONES) expect(z.levelIds.length).toBeGreaterThanOrEqual(5), expect(z.levelIds.length).toBeLessThanOrEqual(7);
     expect(ALL_LEVELS.length).toBeGreaterThanOrEqual(28);
   });

@@ -7,7 +7,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 // the level. Show me is never used. Any console error fails the run.
 
 const SAVE_KEY = 'cybermaster.save';
-const OPEN_ALL = { version: 4, name: '', xp: 0, levels: {}, codex: [], badges: [], streak: { count: 0, lastDay: '' }, settings: { muted: true }, evidence: [], zones: ['arena', 'perimeter', 'cloud', 'report'] };
+const OPEN_ALL = { version: 4, name: '', xp: 0, levels: {}, codex: [], badges: [], streak: { count: 0, lastDay: '' }, settings: { muted: true }, evidence: [], zones: ['arena', 'perimeter', 'cloud', 'report', 'scanner'] };
 
 function watchConsole(page: Page): string[] {
   const errors: string[] = [];
@@ -402,6 +402,122 @@ test('The Report: all five levels, from the steps', async ({ page }) => {
   await compose.fill(s.hint);
   s = await step(page, 'run');
   await btn(page, s.codes[0]!).click();
+  await bossCleared(page);
+  expect(errors).toEqual([]);
+});
+
+test('The Scanner: all six levels, from the steps', async ({ page }) => {
+  const errors = watchConsole(page);
+  await seed(page);
+  const consolePane = page.getByRole('region', { name: 'Greenbone' });
+  const details = page.getByRole('region', { name: 'Details' });
+  const tab = (name: string) => page.getByTestId(`gvm-tab-${name.toLowerCase()}`);
+  const field = (label: string) => consolePane.getByLabel(label, { exact: true });
+
+  await page.goto('/play/scan-feed');
+  let s = await step(page, 'missing');
+  await page.getByLabel('Search vulnerability tests').fill(s.codes[1]!);
+  await btn(page, 'Search').click();
+  await expect(page.getByTestId('vt-none')).toBeVisible();
+  s = await step(page, 'synced');
+  await tab('Feed').click();
+  await btn(page, 'Sync feed').click();
+  await expect(page.getByTestId('gvm-feed')).toContainText('Current', { timeout: 8000 });
+  await step(page, 'found');
+  await tab('VTs').click();
+  await page.getByLabel('Search vulnerability tests').fill('CVE-2024-6387');
+  await btn(page, 'Search').click();
+  await expect(page.getByTestId('vt-hits')).toContainText('regreSSHion');
+  await cleared(page);
+
+  await page.goto('/play/scan-target');
+  s = await step(page, 'hosts');
+  await field('Name').fill(s.codes[1]!);
+  await field('Hosts').fill(s.codes[2]!);
+  await btn(page, 'Save target').click();
+  s = await step(page, 'exclude');
+  await field('Exclude hosts').fill(s.codes[0]!);
+  await btn(page, 'Save target').click();
+  s = await step(page, 'ports');
+  await field('Port list').selectOption(s.codes[0]!);
+  await btn(page, 'Save target').click();
+  s = await step(page, 'alive');
+  await field('Alive test').selectOption(s.codes[0]!);
+  await btn(page, 'Save target').click();
+  await cleared(page);
+
+  await page.goto('/play/scan-task');
+  s = await step(page, 'created');
+  await field('Name').fill(s.codes[1]!);
+  await field('Scan config').selectOption(s.codes[3]!);
+  await btn(page, 'Save task').click();
+  await step(page, 'done');
+  await btn(page, 'Start').click();
+  await expect(page.getByTestId('task-status')).toHaveText('Done', { timeout: 10_000 });
+  await step(page, 'worst');
+  await tab('Results').click();
+  await page.getByTestId('results').locator('tbody tr').first().click();
+  await expect(details.getByTestId('result-detail')).toContainText('End of Life');
+  await step(page, 'count');
+  const highs = await page.getByTestId('results').locator('[data-sev=high]').count();
+  await page.getByLabel(/How many High results/).fill(String(highs));
+  await btn(page, 'Check').click();
+  await cleared(page);
+
+  await page.goto('/play/scan-qod');
+  s = await step(page, 'showall');
+  await page.getByLabel('Minimum QoD').fill(s.codes[1]!);
+  await btn(page, 'Apply').click();
+  s = await step(page, 'opened');
+  await page.getByTestId('results').locator(`tr:has-text("${s.codes[0]}"):has-text("Apache")`).first().click();
+  await expect(details.getByTestId('result-note')).toContainText('every update installed');
+  s = await step(page, 'fp');
+  await details.getByLabel('Override').selectOption(s.codes[0]!);
+  await details.getByLabel('Reason').fill(s.codes[1]!);
+  await btn(page, 'Save override').click();
+  s = await step(page, 'real');
+  await page.getByTestId('results').locator(`tr:has-text("${s.codes[0]}"):has-text("Apache")`).first().click();
+  await cleared(page);
+
+  await page.goto('/play/scan-auth');
+  s = await step(page, 'cred');
+  await field('Name').fill(s.codes[1]!);
+  await field('Username').fill(s.codes[2]!);
+  await consolePane.getByLabel(/Paste private key/).check();
+  await btn(page, 'Save credential').click();
+  await step(page, 'attached');
+  await tab('Targets').click();
+  await field('SSH credential').selectOption({ label: 'gvm-scan key' });
+  await btn(page, 'Save target').click();
+  await step(page, 'rescan');
+  await tab('Tasks').click();
+  await btn(page, 'Start').click();
+  await expect(page.getByTestId('task-status')).toHaveText('Done', { timeout: 10_000 });
+  s = await step(page, 'local');
+  await tab('Results').click();
+  await page.getByTestId('results').locator(`tr:has-text("${s.codes[1]}"):has-text("policykit-1")`).first().click();
+  await cleared(page);
+
+  await page.goto('/play/scan-boss');
+  await incidentRunning(page);
+  await step(page, 'weekly');
+  await consolePane.getByLabel(/Every Monday, 06:00/).check();
+  await btn(page, 'Save task').click();
+  await step(page, 'rescan');
+  await btn(page, 'Start').click();
+  await expect(page.getByTestId('task-status')).toHaveText('Done', { timeout: 10_000 });
+  await step(page, 'delta');
+  await tab('Results').click();
+  await btn(page, 'Compare with last week').click();
+  const added = details.getByTestId('delta').locator('section[data-tone=bad] li');
+  await expect(added).toHaveCount(1);
+  const newIp = (await added.innerText()).match(/\d+\.\d+\.\d+\.\d+/)![0];
+  await step(page, 'newhost');
+  await page.getByLabel(/Answer box/).fill(newIp);
+  await btn(page, 'Check').click();
+  await step(page, 'next');
+  await page.getByLabel(/Answer box/).fill('db-02');
+  await btn(page, 'Check').click();
   await bossCleared(page);
   // The last boss of the game closes the case.
   await page.getByRole('link', { name: 'Close the case' }).click();

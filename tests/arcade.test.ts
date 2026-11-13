@@ -1,3 +1,4 @@
+import { ALL_LEVELS } from '../src/content/index';
 import { describe, it, expect } from 'vitest';
 import { ARCADE, ARCADE_BY_ZONE } from '../src/content/arcade';
 import { ZONES } from '../src/content/zones';
@@ -44,8 +45,9 @@ describe('arcade stars, XP and unlocks', () => {
     expect(save.xp).toBe(ARCADE_XP[3]);
     expect(save.arcade['spot-the-forgery']).toEqual({ best: 999, stars: 3, plays: 7, lastPlayedAt: 'now' });
   });
-  it('the arcade cannot carry a new player past the levels: all five at three stars is under two levels of XP', () => {
-    expect(ARCADE_XP[3] * ARCADE.length).toBeLessThanOrEqual(500);
+  it('the arcade cannot carry a new player past the levels: every game at three stars is under a fifth of the levels\' XP', () => {
+    const levelsXp = ALL_LEVELS.reduce((n, l) => n + l.xp, 0);
+    expect(ARCADE_XP[3] * ARCADE.length).toBeLessThanOrEqual(levelsXp / 5);
   });
   it('a run reports a new best only when it beats the old one', () => {
     const first = applyArcade(emptySave(), 'lockdown', 500, [100, 200, 300], '2026-11-09', 'a');
