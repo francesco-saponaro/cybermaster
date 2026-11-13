@@ -250,6 +250,8 @@ export interface ScannerLevel extends LevelBase<ScannerAct> {
   setup: GvmSetup;
   /** The page the console opens on. */
   startTab: ScanTab;
+  /** The console has CISA's KEV catalog loaded: a KEV page and a Match against KEV button. */
+  kev?: boolean;
   /** A question answered in the box under the results, when the level has one. */
   question?: { ask: string; answers: string[]; wrong?: { answers: string[]; reason: string }[]; otherwise: string };
   /** What Lantern's admin says about a result when you open it: result key to note. */

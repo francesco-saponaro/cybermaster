@@ -15,6 +15,8 @@ import {
   resultKey,
   severityLabel,
   visibleResults,
+  inKev,
+  KEV_BY_CVE,
   type AliveTest,
   type GvmAction,
   type GvmState,
@@ -37,6 +39,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'credentials', label: 'Credentials' },
   { id: 'tasks', label: 'Tasks' },
   { id: 'results', label: 'Results' },
+  { id: 'kev', label: 'KEV' },
 ];
 
 const START_HINTS: Record<Tab, string> = {
@@ -46,6 +49,7 @@ const START_HINTS: Record<Tab, string> = {
   credentials: 'Start here: create the scan login.',
   tasks: 'Start here: set up the task, then press Start.',
   results: 'Start here: the latest report is below.',
+  kev: 'Start here: search the catalog for a CVE number.',
 };
 
 type Model = { s: GvmState; error: { text: string; n: number } | null };
@@ -140,7 +144,7 @@ export function ScannerSandbox({ level, onChecks, fail, act }: SandboxProps<Scan
   const consoleView = (
     <div className="gvm">
       <nav className="gvm-nav" aria-label="Console pages">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== 'kev' || level.kev).map((t) => (
           <button key={t.id} type="button" className="gvm-tab" aria-current={tab === t.id ? 'page' : undefined} onClick={() => setTab(t.id)} data-testid={`gvm-tab-${t.id}`}>
             {t.label}
             {t.id === 'feed' && s.feed.syncing ? <span className="gvm-dot" aria-label="(syncing)" /> : null}
@@ -155,6 +159,7 @@ export function ScannerSandbox({ level, onChecks, fail, act }: SandboxProps<Scan
         {tab === 'targets' ? <TargetsPage s={s} scope={setup.network.scope} onSave={(t) => dispatch({ t: 'target', target: t })} /> : null}
         {tab === 'credentials' ? <CredentialsPage s={s} onSave={(c) => dispatch({ t: 'credential', cred: c })} /> : null}
         {tab === 'tasks' ? <TasksPage s={s} onSave={(t) => dispatch({ t: 'task', task: t })} onStart={(id) => dispatch({ t: 'start', taskId: id })} /> : null}
+        {tab === 'kev' ? <KevPage onSearch={(q) => dispatch({ t: 'kev-search', q })} /> : null}
         {tab === 'results' ? (
           <ResultsPage
             s={s}
@@ -171,6 +176,8 @@ export function ScannerSandbox({ level, onChecks, fail, act }: SandboxProps<Scan
             }}
             question={level.question?.ask}
             onAnswer={judge}
+            kev={!!level.kev}
+            onKev={() => dispatch({ t: 'kev-match' })}
           />
         ) : null}
       </div>
@@ -527,6 +534,8 @@ function ResultsPage({
   onDelta,
   question,
   onAnswer,
+  kev,
+  onKev,
 }: {
   s: GvmState;
   report: Report | undefined;
@@ -536,6 +545,8 @@ function ResultsPage({
   onDelta: () => void;
   question?: string;
   onAnswer: (text: string) => void;
+  kev: boolean;
+  onKev: () => void;
 }) {
   const [qod, setQod] = useState(String(s.minQod));
   const [answer, setAnswer] = useState('');
@@ -573,6 +584,7 @@ function ResultsPage({
             <th scope="col">Host</th>
             <th scope="col">Port</th>
             <th scope="col">QoD</th>
+            {s.kevMatched ? <th scope="col">KEV</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -592,12 +604,18 @@ function ResultsPage({
               </td>
               <td className="mono small">{r.port ? `${r.port}/tcp` : 'general'}</td>
               <td className="mono small tnum">{r.qod}%</td>
+              {s.kevMatched ? <td>{inKev(r.vt) ? <span className="gvm-kev" data-testid="kev-badge">Exploited</span> : <span className="muted small">no</span>}</td> : null}
             </tr>
           ))}
         </tbody>
       </table>
       {rows.length === 0 ? <p className="gvm-empty">Nothing to show with this filter.</p> : null}
       <div className="row" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+        {kev ? (
+          <button type="button" className="cbtn" onClick={onKev} disabled={s.kevMatched}>
+            {s.kevMatched ? 'Matched against KEV' : 'Match against KEV'}
+          </button>
+        ) : null}
         {sameTask.length >= 2 ? (
           <button type="button" className="cbtn" onClick={onDelta}>
             Compare with last week
@@ -622,6 +640,50 @@ function ResultsPage({
           </div>
           {s.answers.length ? <p className="small muted" style={{ margin: '6px 0 0' }}>Answered: {s.answers.join(', ')}</p> : null}
         </form>
+      ) : null}
+    </div>
+  );
+}
+
+function KevPage({ onSearch }: { onSearch: (q: string) => void }) {
+  const [q, setQ] = useState('');
+  const [asked, setAsked] = useState<string | null>(null);
+  const hit = asked ? KEV_BY_CVE[asked.toUpperCase()] : undefined;
+  return (
+    <div className="gvm-card">
+      <p className="small muted" style={{ margin: 0 }}>
+        CISA's Known Exploited Vulnerabilities catalog, downloaded as JSON. Every entry is a CVE that attackers have really used.
+      </p>
+      <form
+        className="row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSearch(q);
+          setAsked(q.trim());
+        }}
+      >
+        <label className="sr-only" htmlFor="kev-q">Search the KEV catalog</label>
+        <input id="kev-q" className="field mono grow" value={q} onChange={(e) => setQ(e.target.value)} placeholder="CVE-2021-4034" spellCheck={false} />
+        <button type="submit" className="cbtn cbtn-go">
+          Search
+        </button>
+      </form>
+      {asked ? (
+        hit ? (
+          <dl className="gvm-dl gvm-kevcard" data-testid="kev-hit">
+            <div><dt>cveID</dt><dd className="mono">{hit.cve}</dd></div>
+            <div><dt>vendorProject</dt><dd>{hit.vendor}</dd></div>
+            <div><dt>product</dt><dd>{hit.product}</dd></div>
+            <div><dt>vulnerabilityName</dt><dd>{hit.name}</dd></div>
+            <div><dt>dateAdded</dt><dd className="mono">{hit.dateAdded}</dd></div>
+            <div><dt>dueDate</dt><dd className="mono">{hit.dueDate} <span className="small muted">(for US federal agencies)</span></dd></div>
+            <div><dt>requiredAction</dt><dd>{hit.requiredAction}</dd></div>
+          </dl>
+        ) : (
+          <p className="gvm-empty" data-testid="kev-none">
+            {asked} is not in the catalog. That means nobody has confirmed attacks with it yet, not that it is safe.
+          </p>
+        )
       ) : null}
     </div>
   );
@@ -759,6 +821,7 @@ function SideHelp({ tab, scope }: { tab: Tab; scope: string }) {
     credentials: ['With a login, OpenVAS reads what is installed on each machine instead of guessing from the outside.', 'Use an account that can read package lists and nothing more.'],
     tasks: ['A task is a target plus a scan config. Each Start makes a new report.', ...Object.entries(SCAN_CONFIGS).map(([k, v]) => `${k}: ${v}`)],
     results: ['Click a result to see what it is, how sure the scanner is (QoD) and the fix.', 'Severity: High from 7.0, Medium from 4.0, Low above 0. QoD under 70% is hidden by default.'],
+    kev: ['KEV is a list kept by CISA, the US cyber security agency, of vulnerabilities attackers are known to exploit in the wild.', 'A CVE gets in when there is reliable evidence of real attacks and a clear fix. Scans, research and proof-of-concept code do not count.', 'US federal agencies must fix each entry by its due date. Everyone else is strongly advised to fix KEV entries first.'],
   };
   return (
     <ul className="gvm-help">

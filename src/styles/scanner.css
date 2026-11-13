@@ -56,3 +56,5 @@
   .gvm-dl > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .gvm-table th:nth-child(4), .gvm-table td:nth-child(4) { display: none; }
 }
+.gvm-kev { display: inline-block; font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; background: #7a0f9e; border-radius: 4px; padding: 2px 6px; }
+.gvm-kevcard { padding: 12px; border: 1px solid #3a2a44; border-radius: 6px; background: rgba(122, 15, 158, 0.08); }

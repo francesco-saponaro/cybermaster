@@ -187,6 +187,27 @@ export function severityLabel(score: number): 'High' | 'Medium' | 'Low' | 'Log' 
   return 'Log';
 }
 
+// ---- CISA's Known Exploited Vulnerabilities catalog -------------------------------------
+
+export interface KevEntry {
+  cve: string;
+  vendor: string;
+  product: string;
+  name: string;
+  dateAdded: string;
+  dueDate: string;
+  requiredAction: string;
+}
+
+/** The entries of the catalog for the CVEs in this game, as CISA publishes them. The game's other CVEs are not in it. */
+export const KEV: KevEntry[] = [
+  { cve: 'CVE-2021-4034', vendor: 'Red Hat', product: 'Polkit', name: 'Red Hat Polkit Out-of-Bounds Read and Write Vulnerability', dateAdded: '2022-06-27', dueDate: '2022-07-18', requiredAction: 'Apply updates per vendor instructions.' },
+  { cve: 'CVE-2021-3156', vendor: 'Sudo', product: 'Sudo', name: 'Sudo Heap-Based Buffer Overflow Vulnerability', dateAdded: '2022-04-06', dueDate: '2022-04-27', requiredAction: 'Apply updates per vendor instructions.' },
+  { cve: 'CVE-2017-7494', vendor: 'Samba', product: 'Samba', name: 'Samba Remote Code Execution Vulnerability', dateAdded: '2023-03-30', dueDate: '2023-04-20', requiredAction: 'Apply updates per vendor instructions.' },
+];
+export const KEV_BY_CVE: Record<string, KevEntry> = Object.fromEntries(KEV.map((k) => [k.cve, k]));
+export const inKev = (vt: string) => !!VTS[vt]?.cve && !!KEV_BY_CVE[VTS[vt]!.cve!];
+
 // ---- The network ------------------------------------------------------------------
 
 export interface GvmHost {
@@ -289,7 +310,7 @@ export interface Override {
   reason: string;
 }
 
-export type Tab = 'feed' | 'vts' | 'targets' | 'credentials' | 'tasks' | 'results';
+export type Tab = 'feed' | 'vts' | 'targets' | 'credentials' | 'tasks' | 'results' | 'kev';
 
 export interface GvmState {
   feed: { date: string; vts: number; syncing: number };
@@ -306,6 +327,8 @@ export interface GvmState {
   /** Report ids compared as a delta, "a>b". */
   deltas: string[];
   answers: string[];
+  /** The report was matched against the KEV catalog. */
+  kevMatched: boolean;
 }
 
 export interface GvmSetup {
@@ -432,7 +455,9 @@ export type GvmAction =
   | { t: 'qod'; min: number }
   | { t: 'override'; resultKey: string; cvss: number; reason: string }
   | { t: 'delta'; a: string; b: string }
-  | { t: 'answer'; text: string };
+  | { t: 'answer'; text: string }
+  | { t: 'kev-search'; q: string }
+  | { t: 'kev-match' };
 
 /** What went wrong with an action, in plain words, or null. */
 export type GvmError = string | null;
@@ -450,6 +475,7 @@ export function initialGvm(setup: GvmSetup): GvmState {
     seen: [],
     deltas: [],
     answers: [],
+    kevMatched: false,
   };
   for (const h of setup.history ?? []) {
     for (let i = 0; i < h.scans; i++) {
@@ -550,6 +576,15 @@ export function reduceGvm(setup: GvmSetup, s: GvmState, a: GvmAction): { state: 
       return ok(s.deltas.includes(`${a.a}>${a.b}`) ? s : { ...s, deltas: [...s.deltas, `${a.a}>${a.b}`] });
     case 'answer':
       return ok({ ...s, answers: [...s.answers, a.text.trim()] });
+    case 'kev-search': {
+      const q = a.q.trim().toUpperCase();
+      const hit = KEV_BY_CVE[q];
+      const what = hit ? `kev:${q}` : `kev-miss:${q}`;
+      return ok(s.seen.includes(what) ? s : { ...s, seen: [...s.seen, what] });
+    }
+    case 'kev-match':
+      if (!s.reports.length) return no('Run a scan first: there is no report to match.');
+      return ok({ ...s, kevMatched: true });
   }
 }
 
