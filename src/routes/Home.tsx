@@ -33,7 +33,7 @@ export function HomePage() {
           <div style={{ maxWidth: 660 }}>
             <h1 className="rise" style={{ fontSize: 'var(--step-hero)', lineHeight: 0.92 }}>Join the Watch.</h1>
             <p className="rise" style={{ fontSize: 'var(--step-lead)', marginTop: 20, maxWidth: 560 }}>
-              Learn security by doing it in small sandboxes: edit raw HTTP, fix vulnerable code, sweep a network from a terminal, lock down a cloud account and write the finding.
+              Learn security by doing it in small sandboxes: lock down a Linux server, edit raw HTTP, read a packet capture, fix vulnerable code, sweep a network, lock down a cloud account and write the finding.
             </p>
             <div className="rise" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 28 }}>
               <Link to="/play/$levelId" params={{ levelId: next.id }} className="btn btn-primary">
@@ -61,7 +61,7 @@ export function HomePage() {
       <section className="wrap" style={{ paddingBlock: 'clamp(40px, 6vw, 72px)' }}>
         <h2 style={{ fontSize: 'var(--step-head)', marginBottom: 8 }}>The route</h2>
         <p style={{ color: 'var(--muted)', marginTop: 0, marginBottom: 32, maxWidth: 600 }}>
-          Five zones, one sandbox each, in the order the job goes. Clear a zone's last level to open the next.
+          One sandbox per zone, in the order the job goes. Clear a zone's last level to open the next.
         </p>
         <ol className="route">
           {ZONES.map((zone, i) => {
