@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, devices, type Page } from '@playwright/test';
 import { generateChallenge, type ChallengeVariant } from '../src/content/challenges';
 import { listing } from '../src/sim/arena';
 import { METRIC_LABELS, METRICS, parseVector } from '../src/engine/cvss';
@@ -413,4 +413,71 @@ test('Study: the roadmap lists every line with its levels, and the acronyms can 
   }
   await expect(page.getByTestId('quiz-done')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+// ---- Phone and offline ------------------------------------------------------------------------
+
+test.describe('On a phone', () => {
+  const { defaultBrowserType: _ignored, ...iphone } = devices['iPhone 13'];
+  test.use(iphone);
+
+  test('a level is played by tapping the commands in the steps, with nothing to type and no page zoom', async ({ page }) => {
+    const errors = watchConsole(page);
+    await seed(page, base);
+    await page.goto('/play/net-subnet');
+    // Every text box is at least 16px, so iOS does not zoom in on focus.
+    for (const el of await page.locator('input, textarea').all()) {
+      if (await el.isVisible()) expect(parseFloat(await el.evaluate((x) => getComputedStyle(x).fontSize))).toBeGreaterThanOrEqual(16);
+    }
+    const tap = async (code: string) => {
+      const chip = page.locator('.step[data-state="current"] .step-do code.kbd[data-fill="1"]', { hasText: code }).first();
+      await chip.tap();
+      await expect(page.getByRole('textbox', { name: 'Command' })).toHaveValue(code);
+      await page.getByRole('button', { name: 'Run', exact: true }).tap();
+    };
+    await tap('cat notes.txt');
+    await tap('ipcalc 192.168.40.0/24');
+    await tap('ipcalc 192.168.40.192/27');
+    await expect(page.locator('.term')).toContainText('Hosts/Net: 30');
+    await page.getByRole('textbox', { name: 'Command' }).fill('submit 30');
+    await page.getByRole('button', { name: 'Run', exact: true }).tap();
+    await tap('submit yes');
+    await expect(page.getByRole('dialog')).toContainText(/cleared/, { timeout: 8000 });
+    await noSideScroll(page, 'net-subnet on a phone');
+    expect(errors).toEqual([]);
+  });
+
+  test('a capture filter is filled by a tap, and packet rows are big enough for a finger', async ({ page }) => {
+    await seed(page, { ...base, zones: ['wire', 'capture'] });
+    await page.goto('/play/pcap-filter');
+    await page.locator('.step-do code.kbd[data-fill="1"]', { hasText: /^http$/ }).first().tap();
+    await expect(page.getByLabel('Display filter')).toHaveValue('http');
+    await page.getByRole('button', { name: 'Apply', exact: true }).tap();
+    const row = await page.locator('.ws-table tbody tr').first().boundingBox();
+    expect(row!.height).toBeGreaterThanOrEqual(36);
+    await noSideScroll(page, 'pcap-filter on a phone');
+  });
+});
+
+test('Installable and offline: a manifest, and after one visit the game loads and plays with no network', async ({ page, context }) => {
+  const manifest = await (await page.request.get('/manifest.webmanifest')).json();
+  expect(manifest).toMatchObject({ name: 'CyberMaster', display: 'standalone', start_url: '/' });
+  expect((await page.request.get('/apple-touch-icon.png')).ok()).toBe(true);
+  await seed(page, base);
+  await page.goto('/');
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await expect.poll(() => page.evaluate(async () => (await caches.keys()).length)).toBeGreaterThan(0);
+  await context.setOffline(true);
+  await page.goto('/zones/capture');
+  await expect(page.getByRole('heading', { name: 'The Capture', level: 1 })).toBeVisible();
+  await page.goto('/play/net-subnet');
+  const input = page.getByRole('textbox', { name: 'Command' });
+  await input.fill('ipcalc 192.168.40.192/27');
+  await input.press('Enter');
+  await expect(page.locator('.term')).toContainText('HostMax:   192.168.40.222');
+  await page.goto('/arcade/harden-up');
+  await expect(page.locator('[data-start=true]')).toBeVisible();
+  await context.setOffline(false);
 });

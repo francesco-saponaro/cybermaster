@@ -66,3 +66,7 @@
   .ws-list { min-height: 220px; }
   .ws-bar-label { display: none; }
 }
+@media (pointer: coarse) {
+  .ws-table td { padding-block: 10px; }
+  .ws-asf { padding: 4px 10px; }
+}

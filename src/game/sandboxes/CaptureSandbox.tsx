@@ -4,6 +4,7 @@ import { applyFilter, asFilter, conversations, details, followStream, initialCap
 import { evaluateCapture, judgeCapture } from '../evaluateCapture';
 import { Panes } from '../Panes';
 import { StartHint } from '../StartHint';
+import { useStepChips, coarsePointer } from '../useStepChips';
 import type { SandboxProps } from '../types';
 import { play } from '../../engine/audio';
 import '../../styles/capture.css';
@@ -147,6 +148,18 @@ export function CaptureSandbox({ level, onChecks, fail, act }: SandboxProps<Capt
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [act]);
 
+  // On a phone, tapping a filter in the steps puts it in the filter bar; the buttons the steps name press themselves.
+  useStepChips(
+    (code) => code === 'Follow TCP Stream' || code === 'Conversations' || (parseFilter(code).ok && /[a-z]/.test(code) && !/^(Check)$/.test(code)),
+    (code) => {
+      if (code === 'Follow TCP Stream') return follow();
+      if (code === 'Conversations') return stats();
+      setDraft(code);
+      setFocus({ id: 'capture', nonce: Date.now() });
+      requestAnimationFrame(() => document.getElementById('ws-filter')?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    },
+  );
+
   const stream = side === 'stream' && s.followed.length ? followStream(level.packets, s.followed[s.followed.length - 1]!) : null;
   const convs = side === 'stats' ? conversations(level.packets) : [];
 
@@ -178,7 +191,7 @@ export function CaptureSandbox({ level, onChecks, fail, act }: SandboxProps<Capt
           Apply
         </button>
       </form>
-      <StartHint text="Type the filter from the step here and press Enter." arrow="up" />
+      <StartHint text={coarsePointer() ? 'Tap a filter in the steps to put it here, then press Apply.' : 'Type the filter from the step here and press Enter.'} arrow="up" />
       <div className="ws-tools">
         <p className="ws-status small" aria-live="polite">
           {errText ? (

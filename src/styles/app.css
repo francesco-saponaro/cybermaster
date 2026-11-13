@@ -287,3 +287,12 @@
 .zone-bonus { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
 .zone-bonus-name { margin: 0; font-family: var(--font-display); font-size: 0.9375rem; }
 .zone-bonus-line { margin: 4px 0 0; color: var(--muted); font-size: var(--step-small); display: flex; gap: 8px; align-items: center; }
+
+/* Touch screens: no input below 16px (iOS zooms the page on focus), finger-sized
+   targets, and commands in the steps marked as tappable. */
+@media (pointer: coarse) {
+  input, textarea, select { font-size: 16px !important; }
+  .navlink { min-height: 40px; display: inline-flex; align-items: center; }
+  .step-do code.kbd[data-fill='1'], .stepbar code.kbd[data-fill='1'] { cursor: pointer; border-color: var(--accent); text-decoration: underline dotted; text-underline-offset: 3px; }
+  .step-do code.kbd[data-fill='1']::after, .stepbar code.kbd[data-fill='1']::after { content: ' \21B5'; opacity: 0.7; }
+}

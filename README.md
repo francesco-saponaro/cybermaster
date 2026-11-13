@@ -78,6 +78,12 @@ Forty-eight levels in all. A zone opens when you clear the last level of the one
 
 Clearing levels earns XP, ranks, badges and a daily streak, and fills the codex and the case board. Evidence collected in the earlier zones lands in your locker for the Report zone (anything missing comes from the case file). Progress is saved in `localStorage` and nothing is sent anywhere.
 
+## On a phone
+
+Everything works on a phone, and it installs like an app: open the site, then Share > Add to Home Screen on an iPhone, or Install app in Chrome on Android. After the first visit a service worker keeps every file of the game, so it opens and plays with no connection, on the metro or a plane. Progress stays on the device.
+
+On a touch screen, the commands and filters printed in the steps are marked with a small return arrow and can be tapped: the command lands at the terminal prompt or in the filter bar, and you still press Run or Apply yourself. The terminal has on-screen Tab, Up, Down and Run keys for completion and history. Every text box uses 16px text so iOS does not zoom the page, and rows, menu links and buttons are sized for a finger. The Playwright run plays a level on an emulated iPhone by tapping, and loads and plays the game with the network switched off.
+
 ## Run it
 
 ```bash

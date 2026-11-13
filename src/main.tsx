@@ -24,3 +24,12 @@ if (el) {
     </StrictMode>,
   );
 }
+
+// Installable and playable offline: the service worker stores the whole game on the first visit.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // No offline copy this time; the game still works online.
+    });
+  });
+}

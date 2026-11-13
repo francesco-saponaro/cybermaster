@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TerminalAct, TerminalLevel } from '../../content/types';
-import { execute, complete, MAN, boxNow, BOX_COMMANDS } from '../../sim/terminal';
+import { execute, complete, MAN, boxNow, BOX_COMMANDS, COMMANDS } from '../../sim/terminal';
 import { evaluateTerminal, judgeAnswer } from '../evaluate';
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
 import type { SandboxProps } from '../types';
 import { StartHint } from '../StartHint';
+import { useStepChips, coarsePointer } from '../useStepChips';
 
 interface Line {
   id: number;
@@ -100,6 +101,19 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
     } else finish();
   };
 
+  // On a phone, tapping a command in the steps puts it at the prompt.
+  useStepChips(
+    (code) => {
+      const first = code.trim().split(/\s+/)[0] ?? '';
+      return (COMMANDS.includes(first) || BOX_COMMANDS.includes(first)) && first !== 'man' && !(first === 'submit' && code.trim() === 'submit');
+    },
+    (code) => {
+      setInput(code.trim());
+      setFocus({ id: 'terminal', nonce: Date.now() });
+      requestAnimationFrame(() => inputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    },
+  );
+
   const doComplete = () => {
     const c = complete(input, { net: level.network, history });
     setInput(c.line);
@@ -146,7 +160,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
           ),
         )}
       </div>
-      <StartHint text="Click this prompt, type the command from the step and press Enter." />
+      <StartHint text={coarsePointer() ? 'Tap a command in the steps to put it here, then press Run.' : 'Click this prompt, type the command from the step and press Enter.'} />
       <form
         className="term-input"
         onSubmit={(e) => {
