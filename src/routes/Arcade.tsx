@@ -20,7 +20,7 @@ export function ArcadePage() {
       <header className="arcade-head">
         <div>
           <h1>The arcade</h1>
-          <p className="arcade-lead">Five quick games, one for each zone, built on what its levels teach. Each run lasts a minute or two. Beat a score to earn stars.</p>
+          <p className="arcade-lead">One quick game for each zone, built on what its levels teach. Each run lasts a minute or two. Beat a score to earn stars.</p>
         </div>
         <dl className="arcade-totals tnum">
           <div>
