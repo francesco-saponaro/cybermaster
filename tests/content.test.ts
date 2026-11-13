@@ -16,10 +16,18 @@ function sentences(text: string): number {
 }
 
 describe('content integrity', () => {
-  it('has six zones and between 5 and 7 levels in each, about thirty-five in all', () => {
-    expect(ZONES.length).toBe(6);
+  it('has seven zones and between 5 and 7 levels in each, about thirty-five in all', () => {
+    expect(ZONES.length).toBe(7);
     for (const z of ZONES) expect(z.levelIds.length).toBeGreaterThanOrEqual(5), expect(z.levelIds.length).toBeLessThanOrEqual(7);
     expect(ALL_LEVELS.length).toBeGreaterThanOrEqual(28);
+  });
+  it('every zone has a named badge for clearing it and for its challenges', async () => {
+    const { BADGES } = await import('../src/engine/progress');
+    const ids = new Set(BADGES.map((b) => b.id));
+    for (const z of ZONES) {
+      expect(ids.has(`zone-${z.id}`), z.id).toBe(true);
+      expect(ids.has(`challenge-${z.id}`), z.id).toBe(true);
+    }
   });
   it('every zone level exists, is in exactly one zone and the ids are unique', () => {
     const ids = ZONES.flatMap((z) => z.levelIds);

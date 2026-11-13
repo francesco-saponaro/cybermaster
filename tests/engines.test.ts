@@ -58,7 +58,7 @@ describe('challenge scoring', () => {
   });
   it('a challenge clear records the best result and gives the zone badge when every challenge is cleared', () => {
     let save = emptySave();
-    for (const id of ZONES[0]!.levelIds) save = applyChallenge(save, id, { hints: 0, seconds: 20, par: 60, comboBest: 2, clean: false }, '2026-11-09', 'now').save;
+    for (const id of ZONES.find((z) => z.id === 'wire')!.levelIds) save = applyChallenge(save, id, { hints: 0, seconds: 20, par: 60, comboBest: 2, clean: false }, '2026-11-09', 'now').save;
     expect(save.challenges['wire-robots']).toMatchObject({ stars: 3, clears: 1, bestPoints: 1000 });
     expect(save.badges).toContain('challenge-wire');
     const again = applyChallenge(save, 'wire-robots', { hints: 2, seconds: 99, par: 60, comboBest: 0, clean: false }, '2026-11-09', 'now');
@@ -129,7 +129,7 @@ describe("today's case", () => {
     expect(dailyPick('2026-11-09', [])).toBeNull();
   });
   it('only picks from the pool it is given (the open zones)', () => {
-    const wire = ZONES[0]!.levelIds;
+    const wire = ZONES.find((z) => z.id === 'wire')!.levelIds;
     for (let i = 0; i < 30; i++) expect(wire).toContain(dailyPick(`2026-12-${String(i + 1).padStart(2, '0')}`, wire)!.levelId);
   });
   it('shares the date, zone, stars and time, and nothing about the puzzle', () => {

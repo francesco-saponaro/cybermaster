@@ -2,6 +2,13 @@ import type { Zone } from './types';
 
 export const ZONES: Zone[] = [
   {
+    id: 'basics',
+    name: 'The Basics',
+    tagline: 'Subnets, NAT, DNS, TCP and UDP, Linux permissions, services and the firewall',
+    intro: 'A shell on your own workstation, then on lab-01, the practice server. Work out where the network ends, what the box runs and who may reach it, and lock it down.',
+    levelIds: ['net-subnet', 'net-dns-nat', 'net-tcp-udp', 'linux-perms', 'linux-services', 'linux-firewall'],
+  },
+  {
     id: 'wire',
     name: 'The Wire',
     tagline: 'HTTP, cookies, sessions and tokens',

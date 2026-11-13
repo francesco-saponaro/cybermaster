@@ -2,6 +2,8 @@
 // and the handful of tools an analyst reaches for first. Output follows the
 // real tools' formats closely enough that it reads the same on a real job.
 
+import { boxCommand, replayBox, ipcalc } from './linux';
+
 export interface HttpService {
   status: number;
   headers: [string, string][];
@@ -17,6 +19,10 @@ export interface Port {
   /** What the service says first when you connect (FTP, SSH, SMTP). */
   banner?: string;
   http?: HttpService;
+  /** A UDP service: only nmap -sU sees it. */
+  udp?: boolean;
+  /** UDP ports that never answer show as open|filtered: nmap cannot tell. */
+  state?: 'open|filtered';
 }
 
 export interface Host {
@@ -34,6 +40,61 @@ export interface Network {
   dns: Record<string, { A?: string[]; MX?: string[]; TXT?: string[] }>;
   whois: Record<string, string>;
   files: Record<string, string>;
+  /** The machine you are logged in to, for the Linux levels. */
+  box?: LinuxBox;
+}
+
+export interface BoxFile {
+  mode: number;
+  owner: string;
+  group: string;
+  size?: number;
+  body?: string;
+  dir?: boolean;
+}
+
+export interface BoxService {
+  unit: string;
+  description: string;
+  /** The process name ps and ss show. */
+  process: string;
+  user: string;
+  pid: number;
+  enabled: boolean;
+  active: boolean;
+  /** Why this one must stay running, said when someone tries to stop it. */
+  keep?: string;
+  listen: { proto: 'tcp' | 'udp'; addr: string; port: number }[];
+}
+
+export interface UfwRule {
+  action: 'allow' | 'deny' | 'limit';
+  /** Undefined means every port. */
+  port?: number;
+  proto?: 'tcp' | 'udp';
+  /** 'any' or a CIDR or address. */
+  from: string;
+}
+
+export interface LinuxBox {
+  hostname: string;
+  user: string;
+  uid: number;
+  groups: string[];
+  home: string;
+  cwd: string;
+  iface: { name: string; ip: string; prefix: number; mac: string };
+  gateway: string;
+  publicIp: string;
+  /** Where your SSH session comes from, for the lock-yourself-out check. */
+  sshFrom?: string;
+  /** An address on the internet, to say whether a port is open to the world. */
+  internet?: string;
+  files: Record<string, BoxFile>;
+  services: BoxService[];
+  ufw: { active: boolean; defaultIn: 'allow' | 'deny'; rules: UfwRule[] };
+  /** What the firewall should end up doing per port, for the fw:as-planned fact. */
+  want?: Record<number, 'public' | 'office-only' | 'closed'>;
 }
 
 export interface CveEntry {
@@ -97,18 +158,20 @@ export interface NmapOptions {
   pingOnly: boolean;
   versions: boolean;
   noPing: boolean;
+  udp: boolean;
   ports: number[] | 'all' | null;
   targets: string[];
 }
 
 export function parseNmap(args: string[]): { ok: true; opts: NmapOptions } | { ok: false; error: string } {
-  const opts: NmapOptions = { pingOnly: false, versions: false, noPing: false, ports: null, targets: [] };
+  const opts: NmapOptions = { pingOnly: false, versions: false, noPing: false, udp: false, ports: null, targets: [] };
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === '-sn') opts.pingOnly = true;
     else if (a === '-sV') opts.versions = true;
     else if (a === '-A') opts.versions = true;
     else if (a === '-Pn') opts.noPing = true;
+    else if (a === '-sU') opts.udp = true;
     else if (a === '-sS' || a === '-sT' || a === '-v' || a === '-n' || /^-T[0-5]$/.test(a) || a === '--open' || a === '-sC') continue;
     else if (a === '-p-') opts.ports = 'all';
     else if (a === '-p' || a.startsWith('-p')) {
@@ -128,7 +191,7 @@ export function parsePorts(spec: string): number[] | 'all' | null {
   if (spec === '-') return 'all';
   const out: number[] = [];
   for (const part of spec.split(',')) {
-    const m = /^(\d+)(?:-(\d+))?$/.exec(part.trim());
+    const m = /^(?:[TU]:)?(\d+)(?:-(\d+))?$/.exec(part.trim());
     if (!m) return null;
     const a = Number(m[1]);
     const b = m[2] ? Number(m[2]) : a;
@@ -139,7 +202,7 @@ export function parsePorts(spec: string): number[] | 'all' | null {
   return out;
 }
 
-function ipToInt(ip: string): number | null {
+export function ipToInt(ip: string): number | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
   if (!m) return null;
   const parts = m.slice(1).map(Number);
@@ -207,6 +270,9 @@ export interface CommandResult {
 
 export const COMMANDS = ['help', 'man', 'ls', 'cat', 'clear', 'history', 'nmap', 'curl', 'nc', 'dig', 'whois', 'vulndb', 'searchsploit', 'submit', 'whoami', 'pwd', 'echo'];
 
+/** Extra commands on a box you are logged in to. */
+export const BOX_COMMANDS = ['sudo', 'ipcalc', 'ip', 'id', 'chmod', 'ps', 'ss', 'systemctl', 'ufw', 'tail', 'grep', 'cd', 'hostname'];
+
 export const MAN: Record<string, { synopsis: string; lines: string[] }> = {
   nmap: {
     synopsis: 'nmap [options] <target>',
@@ -217,6 +283,7 @@ export const MAN: Record<string, { synopsis: string; lines: string[] }> = {
       '-p <list> ports to scan: -p 22,80 or -p 1-1024. -p- scans all 65535.',
       '-sV       ask each open port what it is and which version it runs.',
       '-Pn       skip host discovery and scan anyway (for hosts that ignore pings).',
+      '-sU       scan UDP instead of TCP. Needs root (sudo) and is slow: UDP has no handshake, so nmap waits for answers.',
       'Without -p, nmap scans the 1,000 most common TCP ports.',
     ],
   },
@@ -244,8 +311,65 @@ export const MAN: Record<string, { synopsis: string; lines: string[] }> = {
     synopsis: 'submit <answer>',
     lines: ['Hands your answer to the lead. The goal in the corner says what kind of answer it wants: a number, an address, a CVE id or a verdict.'],
   },
-  ls: { synopsis: 'ls [folder]', lines: ['Lists the files in your working folder.'] },
+  ls: {
+    synopsis: 'ls [-l] [-a] [folder or file]',
+    lines: [
+      'Lists files. -l shows the long form: permissions, owner, group, size and date. -a also shows hidden files, whose names start with a dot.',
+      'The permissions column reads like -rw-r--r--: the type (- file, d folder), then three letters for the owner, three for the group and three for everyone else.',
+      'r is read, w is write, x is execute (for a folder: enter it). A dash means no.',
+    ],
+  },
   cat: { synopsis: 'cat <file>', lines: ['Prints a file.'] },
+  ipcalc: {
+    synopsis: 'ipcalc <address>/<bits>',
+    lines: [
+      'Works out a subnet from an address and a prefix length (the /24 part, called CIDR notation).',
+      'Network is the first address and Broadcast the last; neither can be given to a machine. HostMin to HostMax are the usable ones, and Hosts/Net counts them.',
+      'Example: ipcalc 192.168.40.0/24',
+    ],
+  },
+  ip: { synopsis: 'ip addr | ip route', lines: ['ip addr shows this machine\'s network cards and their addresses.', 'ip route shows where packets go; the "default via" line is the router that takes everything else to the internet.'] },
+  id: { synopsis: 'id', lines: ['Shows who you are: your user, your user id, and the groups you belong to. Group membership decides the middle three permission letters.'] },
+  chmod: {
+    synopsis: 'chmod <mode> <file>',
+    lines: [
+      'Changes who may read, write or run a file. Only the owner or root can.',
+      'In numbers, each of owner, group and others gets a digit: read 4 + write 2 + execute 1. So 600 is owner read and write, nobody else anything; 644 is owner read and write, everyone else read.',
+      'In letters: o-r takes read away from others, go-rwx takes everything away from group and others.',
+      'Example: chmod 600 .env',
+    ],
+  },
+  ps: { synopsis: 'ps aux', lines: ['Lists every process running on the machine, with the user it runs as and its process id (PID).'] },
+  ss: {
+    synopsis: 'ss -tlnp',
+    lines: [
+      'Shows sockets. -t TCP, -u UDP, -l only the ones listening for connections, -n numbers instead of names, -p the process behind each (sudo shows them all).',
+      'The Local Address column says who can connect: 127.0.0.1 is this machine only, 0.0.0.0 (or *) is every network the machine is on.',
+      'Example: sudo ss -tlnp',
+    ],
+  },
+  systemctl: {
+    synopsis: 'systemctl <status|stop|start|disable|enable> <service>',
+    lines: [
+      'Controls services through systemd, the program that starts everything on a Linux machine.',
+      'stop ends it now; disable stops it starting at the next boot. You usually want both: sudo systemctl disable --now <service>.',
+      'status shows whether it is running (Active) and whether it starts at boot (enabled or disabled, on the Loaded line).',
+    ],
+  },
+  ufw: {
+    synopsis: 'ufw <command>',
+    lines: [
+      'Uncomplicated Firewall, the usual firewall front end on Ubuntu. Every ufw command needs sudo.',
+      'sudo ufw status verbose shows whether it is on, the default policy and the rules.',
+      'sudo ufw default deny incoming blocks every new connection that no rule allows.',
+      'sudo ufw allow 443/tcp opens a port to everyone; sudo ufw allow from 192.168.40.0/24 to any port 22 proto tcp opens it to one network only.',
+      'sudo ufw enable turns it on. Add the rule for your own SSH first, or you lock yourself out.',
+      'sudo ufw status numbered then sudo ufw delete 2 removes rule number 2.',
+    ],
+  },
+  sudo: { synopsis: 'sudo <command>', lines: ['Runs one command as root, the administrator. Changing services, the firewall or files you do not own needs it. Use it only for the commands that need it.'] },
+  tail: { synopsis: 'tail [-n N] <file>', lines: ['Prints the last lines of a file, 10 unless you say -n. Logs grow at the bottom, so this is where the latest events are.'] },
+  grep: { synopsis: 'grep [-c] [-i] <text> <file>', lines: ['Prints the lines of a file that contain the text. -c prints how many instead, -i ignores upper and lower case.', 'Example: grep "Failed password" /var/log/auth.log'] },
 };
 
 function pad(s: string, n: number): string {
@@ -256,12 +380,20 @@ function versionString(p: Port): string {
   return [p.product, p.version, p.extra].filter(Boolean).join(' ');
 }
 
-const TOP_PORTS = new Set([21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3000, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 2121, 8081, 9200, 10000, 27017]);
+const TOP_PORTS = new Set([67, 69, 123, 137, 161, 500, 514, 1900, 5353, 21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3000, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 2121, 8081, 9200, 10000, 27017]);
 
-function nmap(args: string[], net: Network): CommandResult {
+function nmap(args: string[], net: Network, root = false): CommandResult {
   const parsed = parseNmap(args);
   if (!parsed.ok) return { out: [parsed.error], facts: [], fail: parsed.error };
   const { opts } = parsed;
+  if (opts.udp && !root) {
+    return {
+      out: ['You requested a scan type which requires root privileges.', 'QUITTING!'],
+      facts: [],
+      fail: net.box ? 'A UDP scan needs root: put sudo in front, like sudo nmap -sU 192.168.40.1.' : 'A UDP scan needs root, and this account cannot use sudo here.',
+    };
+  }
+  const proto = opts.udp ? 'udp' : 'tcp';
   const out: string[] = ['Starting Nmap 7.95 ( https://nmap.org ) at 2026-11-09 10:14 CET'];
   const facts: string[] = ['nmap'];
   let addresses = 0;
@@ -290,13 +422,14 @@ function nmap(args: string[], net: Network): CommandResult {
       out.push(`Host is up (0.00${(ipToInt(h.ip)! % 9) + 1}1s latency).`);
       if (opts.pingOnly) continue;
       const wanted = opts.ports === 'all' ? null : opts.ports;
-      const open = h.ports.filter((p) => (wanted ? wanted.includes(p.port) : opts.ports === 'all' || TOP_PORTS.has(p.port)));
-      const closed = wanted ? wanted.filter((n) => !h.ports.some((p) => p.port === n)) : [];
+      const mine = h.ports.filter((p) => !!p.udp === opts.udp);
+      const open = mine.filter((p) => (wanted ? wanted.includes(p.port) : opts.ports === 'all' || TOP_PORTS.has(p.port)));
+      const closed = wanted ? wanted.filter((n) => !mine.some((p) => p.port === n)) : [];
       const scanned = opts.ports === 'all' ? 65535 : wanted ? wanted.length : 1000;
       const notShown = scanned - open.length - (closed.length <= 5 ? closed.length : 0);
-      if (notShown > 0) out.push(`Not shown: ${notShown} closed tcp ports (reset)`);
-      const rows: string[][] = open.map((p) => [`${p.port}/tcp`, 'open', p.service, opts.versions ? versionString(p) : '']);
-      if (closed.length <= 5) for (const c of closed) rows.push([`${c}/tcp`, 'closed', SERVICE_NAMES[c] ?? 'unknown', '']);
+      if (notShown > 0) out.push(`Not shown: ${notShown} closed ${proto} ports (${opts.udp ? 'port-unreach' : 'reset'})`);
+      const rows: string[][] = open.map((p) => [`${p.port}/${proto}`, p.state ?? 'open', p.service, opts.versions ? versionString(p) : '']);
+      if (closed.length <= 5) for (const c of closed) rows.push([`${c}/${proto}`, 'closed', SERVICE_NAMES[c] ?? 'unknown', '']);
       rows.sort((a, b) => parseInt(a[0]!) - parseInt(b[0]!));
       if (rows.length === 0) {
         out.push(`All ${scanned} scanned ports on ${label} are in ignored states.`);
@@ -308,22 +441,25 @@ function nmap(args: string[], net: Network): CommandResult {
         for (const r of rows) out.push(pad(r[0]!, w0) + pad(r[1]!, w1) + (opts.versions ? pad(r[2]!, w2) + r[3] : r[2]));
       }
       for (const p of open) {
-        facts.push(`port:${h.ip}:${p.port}`);
+        if (opts.udp) facts.push(p.state ? `udp-maybe:${h.ip}:${p.port}` : `udp:${h.ip}:${p.port}`);
+        else facts.push(`port:${h.ip}:${p.port}`);
         if (opts.versions) facts.push(`version:${h.ip}:${p.port}`);
       }
-      facts.push(`ports:${h.ip}`);
+      facts.push(opts.udp ? `uports:${h.ip}` : `ports:${h.ip}`);
       out.push('');
     }
     if (hosts.length === 0 && exp.count === 1) {
       out.push('Note: Host seems down. If it is really up, but blocking our ping probes, try -Pn');
     }
   }
-  const secs = opts.pingOnly ? (1.4 + addresses / 300).toFixed(2) : (2.1 + up * 1.7 + (opts.versions ? 6 : 0)).toFixed(2);
+  const secs = opts.pingOnly ? (1.4 + addresses / 300).toFixed(2) : (2.1 + up * (opts.udp ? 41.3 : 1.7) + (opts.versions ? 6 : 0)).toFixed(2);
   out.push(`Nmap done: ${addresses} IP address${addresses === 1 ? '' : 'es'} (${up} host${up === 1 ? '' : 's'} up) scanned in ${secs} seconds`);
-  return { out, facts, delay: opts.versions ? 900 : 600 };
+  return { out, facts, delay: opts.versions || opts.udp ? 900 : 600 };
 }
 
-const SERVICE_NAMES: Record<number, string> = { 3000: 'ppp', 10000: 'snet-sensor-mgmt', 9200: 'wap-wsp', 27017: 'mongod', 21: 'ftp', 22: 'ssh', 23: 'telnet', 25: 'smtp', 53: 'domain', 80: 'http', 110: 'pop3', 139: 'netbios-ssn', 143: 'imap', 443: 'https', 445: 'microsoft-ds', 3306: 'mysql', 3389: 'ms-wbt-server', 5432: 'postgresql', 6379: 'redis', 8080: 'http-proxy' };
+const SERVICE_NAMES: Record<number, string> = { 123: 'ntp', 161: 'snmp', 67: 'dhcps', 69: 'tftp', 500: 'isakmp', 1900: 'upnp', 5353: 'zeroconf', 3000: 'ppp', 10000: 'snet-sensor-mgmt', 9200: 'wap-wsp', 27017: 'mongod', 21: 'ftp', 22: 'ssh', 23: 'telnet', 25: 'smtp', 53: 'domain', 80: 'http', 110: 'pop3', 139: 'netbios-ssn', 143: 'imap', 443: 'https', 445: 'microsoft-ds', 3306: 'mysql', 3389: 'ms-wbt-server', 5432: 'postgresql', 6379: 'redis', 8080: 'http-proxy' };
+
+const PUBLIC_IP_SITES = ['ifconfig.me', 'icanhazip.com', 'api.ipify.org'];
 
 function curl(args: string[], net: Network): CommandResult {
   let head = false;
@@ -346,10 +482,11 @@ function curl(args: string[], net: Network): CommandResult {
   } catch {
     return { out: [`curl: (3) URL rejected: Malformed input to a URL function`], facts: [] };
   }
+  if (net.box && PUBLIC_IP_SITES.includes(u.hostname)) return { out: [net.box.publicIp], facts: ['public-ip', `public-ip:${net.box.publicIp}`] };
   const host = findHost(u.hostname, net);
   const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
   if (host?.outOfScope) return { out: [`Stopped: ${host.ip} is not in scope.`], facts: ['out-of-scope-scan'], fail: `${host.ip} is out of scope: nothing gets touched without permission. Run cat scope.txt and only touch what it lists.` };
-  const svc = host?.ports.find((p) => p.port === port);
+  const svc = host?.ports.find((p) => p.port === port && !p.udp);
   if (!host) return { out: [`curl: (6) Could not resolve host: ${u.hostname}`], facts: [] };
   if (!svc) return { out: [`curl: (7) Failed to connect to ${u.hostname} port ${port} after 2 ms: Couldn't connect to server`], facts: [] };
   if (!svc.http) return { out: [`curl: (1) Received HTTP/0.9 when not allowed`], facts: [] };
@@ -382,7 +519,7 @@ function nc(args: string[], net: Network): CommandResult {
   const host = findHost(target, net);
   const port = Number(portArg);
   if (host?.outOfScope) return { out: [`Stopped: ${host.ip} is not in scope.`], facts: ['out-of-scope-scan'], fail: `${host.ip} is out of scope: nothing gets touched without permission. Run cat scope.txt and only touch what it lists.` };
-  const svc = host?.ports.find((p) => p.port === port);
+  const svc = host?.ports.find((p) => p.port === port && !p.udp);
   if (!host || !svc) return { out: [`nc: connect to ${target} port ${port} (tcp) failed: Connection refused`], facts: [] };
   const out: string[] = [];
   if (verbose) out.push(`Connection to ${target} ${port} port [tcp/${svc.service}] succeeded!`);
@@ -443,9 +580,24 @@ export interface TermContext {
   history: string[];
 }
 
+/** The box as the player has left it: the level's box with the earlier commands replayed. */
+export function boxNow(ctx: TermContext): LinuxBox | undefined {
+  return ctx.net.box ? replayBox(ctx.net.box, ctx.history.slice(0, -1), splitArgs) : undefined;
+}
+
 export function execute(line: string, ctx: TermContext): CommandResult {
-  const args = splitArgs(line.trim());
+  const box = boxNow(ctx);
+  const net = box ? { ...ctx.net, box } : ctx.net;
+  return run(splitArgs(line.trim()), { ...ctx, net }, false);
+}
+
+function run(args: string[], ctx: TermContext, root: boolean): CommandResult {
   const [cmd = '', ...rest] = args;
+  const box = ctx.net.box;
+  if (box && cmd !== 'sudo') {
+    const r = boxCommand(box, cmd, rest, root);
+    if (r) return r;
+  }
   switch (cmd) {
     case '':
       return { out: [], facts: [] };
@@ -457,6 +609,16 @@ export function execute(line: string, ctx: TermContext): CommandResult {
           '  nc        connect to a port, read its banner  dig     look up a DNS name',
           '  whois     who owns a domain or address        vulndb  search known CVEs',
           '  ls, cat   read your notes                     submit  hand in your answer',
+          ...(box
+            ? [
+                '  ipcalc    work out a subnet                   ip      this machine\'s addresses and routes',
+                '  ls -l     files and their permissions         chmod   change who may read a file',
+                '  ps aux    running processes                   ss      ports this machine listens on',
+                '  systemctl start, stop and disable services     ufw     the firewall',
+                '  tail      last lines of a log                 grep    lines that contain some text',
+                '  sudo <command> runs one command as root.',
+              ]
+            : []),
           '  man <command> opens its manual on the side. Tab completes, arrow keys recall.',
         ],
         facts: [],
@@ -494,7 +656,9 @@ export function execute(line: string, ctx: TermContext): CommandResult {
       return { out: body.split('\n'), facts: [`cat:${f.replace(/^\.\//, '')}`] };
     }
     case 'nmap':
-      return nmap(rest, ctx.net);
+      return nmap(rest, ctx.net, root);
+    case 'ipcalc':
+      return ipcalc(rest);
     case 'curl':
       return curl(rest, ctx.net);
     case 'nc':
@@ -513,7 +677,10 @@ export function execute(line: string, ctx: TermContext): CommandResult {
       return { out: [`Submitted: ${answer}`], facts: [], submit: answer };
     }
     case 'sudo':
-      return { out: ['analyst is not in the sudoers file. This incident will be reported.'], facts: [] };
+      if (!box) return { out: ['analyst is not in the sudoers file. This incident will be reported.'], facts: [] };
+      if (!rest.length) return { out: ['usage: sudo <command>'], facts: [] };
+      if (rest[0] === 'sudo' || rest[0] === 'su' || rest[0] === '-i' || rest[0] === '-s') return { out: ['Run one command at a time with sudo in front of it.'], facts: [] };
+      return run(rest, ctx, true);
     default:
       return { out: [`${cmd}: command not found. Type help for the list.`], facts: [] };
   }
@@ -521,7 +688,7 @@ export function execute(line: string, ctx: TermContext): CommandResult {
 
 // ---- Tab completion ---------------------------------------------------------
 
-const NMAP_FLAGS = ['-sn', '-sV', '-p', '-p-', '-Pn'];
+const NMAP_FLAGS = ['-sn', '-sV', '-sU', '-p', '-p-', '-Pn'];
 
 /** Complete the last word of a line. Returns the new line and, when ambiguous, the options. */
 export function complete(line: string, ctx: TermContext): { line: string; options: string[] } {
@@ -531,13 +698,20 @@ export function complete(line: string, ctx: TermContext): { line: string; option
   const index = endsWithSpace ? words.length : Math.max(0, words.length - 1);
   const cmd = words[0] ?? '';
   let pool: string[];
-  if (index === 0) pool = COMMANDS;
+  const box = boxNow({ ...ctx, history: [...ctx.history, ''] });
+  const sub = cmd === 'sudo' ? (words[1] ?? '') : cmd;
+  const subIndex = cmd === 'sudo' ? index - 1 : index;
+  const boxFiles = box ? Object.keys(box.files).filter((f) => f.startsWith(box.cwd + '/')).map((f) => f.slice(box.cwd.length + 1)).filter((f) => !f.includes('/')) : [];
+  if (index === 0 || (cmd === 'sudo' && subIndex === 0)) pool = box ? [...COMMANDS, ...BOX_COMMANDS] : COMMANDS;
   else if (cmd === 'man') pool = Object.keys(MAN);
+  else if (box && ['cat', 'ls', 'chmod', 'tail', 'grep'].includes(sub)) pool = [...boxFiles, ...Object.keys(box.files)];
+  else if (box && sub === 'systemctl') pool = subIndex === 1 ? ['status', 'stop', 'start', 'disable', 'enable', 'is-enabled', 'list-units'] : box.services.map((s) => s.unit);
+  else if (box && sub === 'ufw') pool = subIndex === 1 ? ['status', 'enable', 'disable', 'default', 'allow', 'deny', 'limit', 'delete'] : ['verbose', 'numbered', 'deny', 'incoming', 'from', 'to', 'any', 'port', 'proto', 'tcp'];
   else if (cmd === 'cat' || cmd === 'ls') pool = Object.keys(ctx.net.files);
-  else if (['nmap', 'curl', 'nc', 'whois', 'dig'].includes(cmd)) {
+  else if (['nmap', 'curl', 'nc', 'whois', 'dig'].includes(sub)) {
     const hosts = ctx.net.hosts.flatMap((h) => [h.ip, ...(h.name ? [h.name] : [])]);
     const names = Object.keys(ctx.net.dns);
-    pool = [...(cmd === 'nmap' ? [...NMAP_FLAGS, ctx.net.cidr] : []), ...(cmd === 'curl' ? hosts.map((h) => `http://${h}`) : []), ...hosts, ...names];
+    pool = [...(sub === 'nmap' ? [...NMAP_FLAGS, ctx.net.cidr] : []), ...(sub === 'curl' ? [...hosts.map((h) => `http://${h}`), ...(box ? ['ifconfig.me'] : [])] : []), ...hosts, ...names];
   } else pool = [];
   const matches = [...new Set(pool.filter((p) => p.startsWith(current)))].sort();
   if (matches.length === 0) return { line, options: [] };

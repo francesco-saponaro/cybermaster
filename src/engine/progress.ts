@@ -45,21 +45,25 @@ export const BADGES: Badge[] = [
   { id: 'first-clear', name: 'On the roster', how: 'Clear your first level.' },
   { id: 'flawless', name: 'Flawless', how: 'Clear a level with three stars.' },
   { id: 'five-flawless', name: 'Steady hands', how: 'Clear five levels with three stars.' },
+  { id: 'zone-basics', name: 'Root of it', how: 'Clear every level in The Basics.' },
   { id: 'zone-wire', name: 'Wire reader', how: 'Clear every level in The Wire.' },
   { id: 'zone-arena', name: 'Arena veteran', how: 'Clear every level in The Arena.' },
   { id: 'zone-perimeter', name: 'Sweeper', how: 'Clear every level in The Perimeter.' },
   { id: 'zone-cloud', name: 'Cloud watcher', how: 'Clear every level in The Cloud.' },
   { id: 'zone-report', name: 'Report writer', how: 'Clear every level in The Report.' },
+  { id: 'zone-scanner', name: 'Scan keeper', how: 'Clear every level in The Scanner.' },
   { id: 'streak-3', name: 'Three days running', how: 'Play on three days in a row.' },
   { id: 'streak-7', name: 'A week on watch', how: 'Play on seven days in a row.' },
   { id: 'codex-half', name: 'Half the codex', how: 'Fill half of the codex.' },
   { id: 'codex-full', name: 'The whole codex', how: 'Fill every codex entry.' },
   { id: 'master', name: 'Master of the Watch', how: 'Reach the Master rank.' },
+  { id: 'challenge-basics', name: 'Basics, unguided', how: 'Clear every challenge in The Basics.' },
   { id: 'challenge-wire', name: 'Wire, unguided', how: 'Clear every challenge in The Wire.' },
   { id: 'challenge-arena', name: 'Arena, unguided', how: 'Clear every challenge in The Arena.' },
   { id: 'challenge-perimeter', name: 'Perimeter, unguided', how: 'Clear every challenge in The Perimeter.' },
   { id: 'challenge-cloud', name: 'Cloud, unguided', how: 'Clear every challenge in The Cloud.' },
   { id: 'challenge-report', name: 'Report, unguided', how: 'Clear every challenge in The Report.' },
+  { id: 'challenge-scanner', name: 'Scanner, unguided', how: 'Clear every challenge in The Scanner.' },
   { id: 'clean-run', name: 'Clean hands', how: 'Clear a level with no mistakes, no hints and no Show me.' },
   { id: 'daily-3', name: 'Three cases running', how: "Solve today's case three days in a row." },
   { id: 'case-closed', name: 'Case closed', how: 'Close the Lantern & Co. case.' },
@@ -93,11 +97,16 @@ export function earnedBadges(save: SaveFile, zones: ZoneShape[], codexTotal: num
   return [...out];
 }
 
-/** A zone opens when the previous zone's last level is cleared, or when an older save opened it. */
+/**
+ * A zone opens when the previous zone's last level is cleared, when an older
+ * save opened it, or when one of its levels is already cleared (a zone added
+ * in front of zones a player had finished does not lock them out).
+ */
 export function zoneUnlocked(save: SaveFile, zones: ZoneShape[], zoneId: string): boolean {
   const index = zones.findIndex((z) => z.id === zoneId);
   if (index <= 0) return index === 0;
   if (save.zones.includes(zoneId)) return true;
+  if (zones[index]!.levelIds.some((id) => cleared(save, id))) return true;
   const previous = zones[index - 1]!;
   const last = previous.levelIds[previous.levelIds.length - 1];
   return !!last && cleared(save, last);

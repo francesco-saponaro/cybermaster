@@ -34,8 +34,8 @@ export const ROADMAP: RoadmapBlock[] = [
     title: 'Weeks 1–2: networks, Linux and HTTP',
     it: 'Settimane 1–2 | Reti, Linux e HTTP',
     items: [
-      { it: 'TCP/IP, DNS, NAT, subnet, porte e firewall', en: 'TCP/IP, DNS, NAT, subnets, ports and firewalls', levels: ['net-subnet', 'net-dns-nat', 'net-tcp-udp', 'perimeter-ports', 'cloud-sg'], codex: ['ports-and-services', 'dns'] },
-      { it: 'Linux: shell, permessi, processi e servizi', en: 'Linux: shell, permissions, processes and services', levels: ['linux-perms', 'linux-services', 'linux-firewall'] },
+      { it: 'TCP/IP, DNS, NAT, subnet, porte e firewall', en: 'TCP/IP, DNS, NAT, subnets, ports and firewalls', levels: ['net-subnet', 'net-dns-nat', 'net-tcp-udp', 'perimeter-ports', 'linux-firewall', 'cloud-sg'], codex: ['subnets', 'nat', 'tcp-udp', 'ports-and-services', 'dns', 'host-firewall'] },
+      { it: 'Linux: shell, permessi, processi e servizi', en: 'Linux: shell, permissions, processes and services', levels: ['linux-perms', 'linux-services', 'linux-firewall'], codex: ['linux-permissions', 'linux-services', 'host-firewall'] },
       { it: 'HTTP/HTTPS, cookie, sessioni, JWT, REST', en: 'HTTP/HTTPS, cookies, sessions, JWT, REST', levels: ['wire-robots', 'wire-cookie-role', 'wire-replay', 'wire-httponly', 'wire-jwt', 'wire-cors'], codex: ['http-anatomy', 'cookies', 'jwt-basics'] },
       { it: 'Wireshark per leggere traffico HTTP', en: 'Wireshark to read HTTP traffic', levels: ['pcap-filter', 'pcap-stream', 'pcap-handshake'] },
     ],

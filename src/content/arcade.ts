@@ -1,11 +1,11 @@
-// The five arcade games: one bonus round per zone, opened by the zone's boss.
+// The arcade games: one bonus round per zone, opened by the zone's boss.
 // What each one is called, who sends you in, how to play it, and the scores
 // its stars need.
 
 import type { ZoneId } from './types';
 import type { Speaker } from './story';
 
-export type GameId = 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
+export type GameId = 'harden-up' | 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
 
 export interface ArcadeGame {
   id: GameId;
@@ -37,6 +37,48 @@ export interface ArcadeGame {
 }
 
 export const ARCADE: ArcadeGame[] = [
+  {
+    id: 'harden-up',
+    zone: 'basics',
+    title: 'Harden Up',
+    tagline: 'Two versions of the same box: pick the locked-down one.',
+    teaches: 'Reading permissions, listening addresses, service states, firewall rules and address blocks at a glance, and knowing which is safe.',
+    speaker: 'Yasmin',
+    line: 'Every server you touch from now on, you will read lines like these in seconds. Practise on lab-01 before it counts.',
+    howTo: [
+      'Each round shows two versions of the same thing on lab-01: a file, a port, a service, a firewall rule or a network layout.',
+      'Click or tap the one that is locked down before the round clock runs out. You then see why.',
+      'Twelve rounds, getting harder. A wrong call or running out of time costs one of three lives.',
+    ],
+    controls: [
+      { keys: 'Left arrow or 1', does: 'Card A is safer' },
+      { keys: 'Right arrow or 2', does: 'Card B is safer' },
+      { keys: 'Enter or Space', does: 'Next round' },
+      { keys: 'P or Esc', does: 'Pause' },
+    ],
+    stars: [800, 1800, 3000],
+    seconds: 120,
+    touch: 'On a touch screen, tap the safer card.',
+    board: [
+      'Two cards, A and B, show the same thing on lab-01 set up two ways, as a command would print it: ls -l for a file, ss for a listening port, ps or systemctl for a service, ufw for the firewall.',
+      'Only one line differs, or two from round 9. Read the permissions letters, the address before the port, the source of a rule, the number after the slash.',
+      'From round 5 you need the rule behind it. From round 9 the difference is one small detail, like the order of two rules.',
+      'The bar under the question is the round clock. It stops while the answer is explained.',
+    ],
+    rules: [
+      {
+        title: 'Locked down looks like',
+        items: [
+          { label: 'Permissions', text: 'Secrets and keys 600 (rw-------). Nothing writable by others (no w in the last three letters).' },
+          { label: 'Listening', text: '127.0.0.1 or [::1] answers only the box. 0.0.0.0 or [::] answers every network.' },
+          { label: 'Services', text: 'Not needed: stopped and disabled. Needed: running as its own user, not root.' },
+          { label: 'Firewall', text: 'Default deny incoming. Admin ports from your own network only. First matching rule wins.' },
+          { label: 'Address blocks', text: 'A smaller block (bigger number after the slash) lets fewer machines in. Guests apart from office machines.' },
+        ],
+      },
+    ],
+    words: ['permissions', 'owner-group', 'dotenv', 'localhost', 'all-interfaces', 'ufw', 'default-deny', 'cidr', 'snmp', 'udp', 'process', 'disable-now', 'root'],
+  },
   {
     id: 'spot-the-forgery',
     zone: 'wire',

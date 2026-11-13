@@ -1,5 +1,6 @@
 import { makeRng } from '../../engine/rng';
 import type { ChallengeGenerator, ChallengeVariant } from './types';
+import { BASICS_CHALLENGES } from './basics';
 import { WIRE_CHALLENGES } from './wire';
 import { ARENA_CHALLENGES } from './arena';
 import { PERIMETER_CHALLENGES } from './perimeter';
@@ -12,6 +13,7 @@ export { START_POINTS, HINT_COST } from './types';
 
 /** Every level's challenge: a generator that takes a seeded RNG and returns a variant. */
 export const CHALLENGES: Record<string, ChallengeGenerator> = {
+  ...BASICS_CHALLENGES,
   ...WIRE_CHALLENGES,
   ...ARENA_CHALLENGES,
   ...PERIMETER_CHALLENGES,

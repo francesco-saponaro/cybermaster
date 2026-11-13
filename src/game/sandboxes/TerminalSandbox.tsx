@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TerminalAct, TerminalLevel } from '../../content/types';
-import { execute, complete, MAN } from '../../sim/terminal';
+import { execute, complete, MAN, boxNow, BOX_COMMANDS } from '../../sim/terminal';
 import { evaluateTerminal, judgeAnswer } from '../evaluate';
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
@@ -11,20 +11,36 @@ interface Line {
   id: number;
   text: string;
   kind: 'cmd' | 'out' | 'ok' | 'err' | 'dim';
+  /** The prompt a command was typed at. */
+  prompt?: string;
 }
 
 const PROMPT = 'analyst@watch:~$';
 
+/** The prompt for where you are: user, machine and folder, as bash prints it. */
+function promptFor(level: TerminalLevel, history: string[]): string {
+  const box = boxNow({ net: level.network, history: [...history, ''] });
+  if (!box) return PROMPT;
+  const dir = box.cwd === box.home ? '~' : box.cwd.startsWith(box.home + '/') ? '~' + box.cwd.slice(box.home.length) : box.cwd;
+  return `${box.user}@${box.hostname}:${dir}$`;
+}
+
 export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<TerminalLevel, TerminalAct>) {
   const [lines, setLines] = useState<Line[]>(() => [
-    { id: 0, text: `Connected to the ${level.network.cidr} engagement. Type help for commands, man <command> for a manual.`, kind: 'dim' },
+    {
+      id: 0,
+      text: level.network.box
+        ? `Logged in to ${level.network.box.hostname} as ${level.network.box.user}. Type help for commands, man <command> for a manual.`
+        : `Connected to the ${level.network.cidr} engagement. Type help for commands, man <command> for a manual.`,
+      kind: 'dim',
+    },
   ]);
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<string[]>([]);
   const [hIndex, setHIndex] = useState<number | null>(null);
   const [facts, setFacts] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState<string[]>([]);
-  const [man, setMan] = useState<string>('nmap');
+  const [man, setMan] = useState<string>(level.manual ?? 'nmap');
   const [busy, setBusy] = useState(false);
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
   const nextId = useRef(1);
@@ -44,7 +60,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
   const runLine = (raw: string) => {
     const line = raw.trim();
     if (busy) return;
-    push([{ text: line, kind: 'cmd' }]);
+    push([{ text: line, kind: 'cmd', prompt: promptFor(level, history) }]);
     setInput('');
     setHIndex(null);
     if (!line) return;
@@ -87,7 +103,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
   const doComplete = () => {
     const c = complete(input, { net: level.network, history });
     setInput(c.line);
-    if (c.options.length) push([{ text: `${PROMPT} ${input}`, kind: 'dim' }, { text: c.options.join('   '), kind: 'dim' }]);
+    if (c.options.length) push([{ text: `${promptFor(level, history)} ${input}`, kind: 'dim' }, { text: c.options.join('   '), kind: 'dim' }]);
   };
 
   const recall = (dir: -1 | 1) => {
@@ -121,7 +137,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
         {lines.map((l) =>
           l.kind === 'cmd' ? (
             <div key={l.id} className="term-line cmd new">
-              <span className="prompt">{PROMPT}</span> {l.text}
+              <span className="prompt">{l.prompt ?? PROMPT}</span> {l.text}
             </div>
           ) : (
             <div key={l.id} className={`term-line new ${l.kind}`}>
@@ -138,7 +154,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
           runLine(input);
         }}
       >
-        <span className="prompt">{PROMPT}</span>
+        <span className="prompt">{promptFor(level, history)}</span>
         <input
           ref={inputRef}
           aria-label="Command"
@@ -179,7 +195,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
   const manual = (
     <div className="pane-pad man">
       <div className="wrap-row" style={{ marginBottom: 12 }}>
-        {Object.keys(MAN).map((k) => (
+        {Object.keys(MAN).filter((k) => level.network.box || !BOX_COMMANDS.includes(k)).map((k) => (
           <button key={k} type="button" className="tab" aria-selected={k === man} style={{ padding: '6px 8px' }} onClick={() => setMan(k)}>
             {k}
           </button>

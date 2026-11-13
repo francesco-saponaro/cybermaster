@@ -27,6 +27,14 @@ export interface Line {
 
 /** The short scene before each zone. */
 export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
+  basics: {
+    title: 'Monday, 07:30',
+    lines: [
+      { who: 'Ines', text: 'Welcome to the Watch. Before any client calls, you need to know our own network and our own server.' },
+      { who: 'Yasmin', text: 'lab-01 is our practice box. It has been on the internet all weekend and nobody has looked at it.' },
+      { who: 'Bruno', text: 'Learn where our network ends and what the box runs. Every job after this assumes you can.' },
+    ],
+  },
   wire: {
     title: 'Monday, 08:10',
     lines: [
@@ -79,6 +87,12 @@ export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
 
 /** One line in the level header, from a teammate, about what the case has turned up so far. */
 export const REMARKS: Record<string, Line & { needs?: string }> = {
+  'net-subnet': { who: 'Yasmin', text: 'Your notes have two blocks in them. Find out where each one starts and ends.' },
+  'net-dns-nat': { who: 'Ines', text: "Lantern's IT wants an address to allow-list. Make sure you send the right one." },
+  'net-tcp-udp': { who: 'Bruno', text: 'The router has something on it the last audit missed. They only scanned TCP.' },
+  'linux-perms': { who: 'Yasmin', text: 'On lab-01 now. Start with who can read what in the shop folder.' },
+  'linux-services': { who: 'Bruno', text: 'Something on lab-01 answers the whole office and nobody remembers installing it.' },
+  'linux-firewall': { who: 'Yasmin', text: 'Someone is guessing passwords on lab-01 right now. Close the door, and do not lock yourself out.', needs: 'linux-services' },
   'wire-robots': { who: 'Ines', text: 'Start where anyone would: what the shop shows, and what it would rather you did not see.' },
   'wire-cookie-role': { who: 'Bruno', text: "Theo's notes say the old admin is still up. Let's see how the shop decides who is admin.", needs: 'wire-robots' },
   'wire-replay': { who: 'Bruno', text: 'Mara shops from the café by the quai. Let us see what that Wi-Fi carried.' },
@@ -119,6 +133,12 @@ export const REMARKS: Record<string, Line & { needs?: string }> = {
 
 /** What each cleared level pins to the case board: the evidence, and what it proved. */
 export const PINS: Record<string, { title: string; proved: string }> = {
+  'net-subnet': { title: 'Printer on the guest Wi-Fi', proved: 'Every visitor can reach it: the /27 includes .201.' },
+  'net-dns-nat': { title: 'Our public address', proved: 'Tests leave the office from 203.0.113.45, behind NAT.' },
+  'net-tcp-udp': { title: 'SNMP on the router', proved: 'UDP 161 answers with "public", missed by TCP scans.' },
+  'linux-perms': { title: 'Secrets readable by all', proved: '.env was 644 and deploy.sh 777 on lab-01.' },
+  'linux-services': { title: 'Redis open to the office', proved: 'Listening on 0.0.0.0:6379, used by nothing.' },
+  'linux-firewall': { title: 'No firewall on lab-01', proved: 'SSH open to the internet, under a brute-force run.' },
   'wire-robots': { title: "Theo's staff notes", proved: 'The notes were public and named /admin-old.' },
   'wire-cookie-role': { title: 'A cookie that says admin', proved: 'The shop let the browser decide who was staff.' },
   'wire-replay': { title: "Mara's session, replayed", proved: 'Her session id was copied on open Wi-Fi and worked for anyone.' },
@@ -183,6 +203,7 @@ export const ENDING: Line[] = [
 
 /** The boss levels run as live incidents: what the attacker is after, and what they leave with if they win. */
 export const INCIDENTS: Record<string, { threat: string; records: number; unit: string; loot: string }> = {
+  'linux-firewall': { threat: 'An address on the internet is trying passwords on lab-01 over SSH, several a second.', records: 1800, unit: 'passwords tried', loot: 'a shell on lab-01, and from there the office network' },
   'wire-cors': { threat: 'A page on another site is reading customer accounts right now.', records: 1204, unit: 'accounts read', loot: 'account details, IBANs and balances, read through the customers\' own browsers' },
   'arena-mass': { threat: 'Someone is signing up accounts with roles the form never offers, as you watch.', records: 312, unit: 'accounts made', loot: 'new accounts with staff rights, each one a way back in' },
   'perimeter-boss': { threat: 'The attacker is moving through the dock network looking for one more way in.', records: 2400, unit: 'files copied', loot: "the dock file server's shared folder, copied file by file" },

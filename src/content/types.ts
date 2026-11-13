@@ -11,7 +11,7 @@ import type { Artifact, FindingDraft, FindingSpec } from '../sim/report';
 import type { Vector } from '../engine/cvss';
 import type { GvmAction, GvmSetup, GvmState, Tab as ScanTab } from '../sim/gvm';
 
-export type ZoneId = 'wire' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
+export type ZoneId = 'basics' | 'wire' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
 
 export interface Zone {
   id: ZoneId;
@@ -180,6 +180,8 @@ export interface TerminalGoal {
 export interface TerminalLevel extends LevelBase<TerminalAct> {
   kind: 'terminal';
   network: Network;
+  /** The manual open on the side at the start; nmap unless set. */
+  manual?: string;
   goals: TerminalGoal[];
   /** Specific feedback for answers that are wrong in an instructive way. */
   wrong: { answers: string[]; reason: string }[];

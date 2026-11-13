@@ -57,6 +57,12 @@
 .navlink:hover { color: var(--ink); background: var(--surface); }
 .navlink[data-active='true'] { color: var(--ink); background: var(--surface-2); }
 
+@media (max-width: 900px) {
+  .navlinks { gap: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .navlinks::-webkit-scrollbar { display: none; }
+  .navlink { padding: 8px 10px; white-space: nowrap; }
+}
+
 @media (max-width: 480px) {
   .topbar-inner { gap: 8px; height: 58px; }
   .brand { font-size: 1.05rem; gap: 8px; }
@@ -218,7 +224,7 @@
   .zone-side .panel > p:first-child { display: none; }
 }
 .eyebrow { margin: 0; color: var(--accent-text); font-family: var(--font-display); font-weight: 700; font-size: 0.8125rem; }
-.zmap { position: relative; }
+.zmap { position: relative; overflow-x: clip; }
 .zmap-line { position: absolute; inset: 0; pointer-events: none; }
 .zmap-list { position: relative; list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; }
 .zstop { display: flex; }

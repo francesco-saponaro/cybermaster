@@ -7,7 +7,7 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 // the level. Show me is never used. Any console error fails the run.
 
 const SAVE_KEY = 'cybermaster.save';
-const OPEN_ALL = { version: 4, name: '', xp: 0, levels: {}, codex: [], badges: [], streak: { count: 0, lastDay: '' }, settings: { muted: true }, evidence: [], zones: ['arena', 'perimeter', 'cloud', 'report', 'scanner'] };
+const OPEN_ALL = { version: 4, name: '', xp: 0, levels: {}, codex: [], badges: [], streak: { count: 0, lastDay: '' }, settings: { muted: true }, evidence: [], zones: ['wire', 'arena', 'perimeter', 'cloud', 'report', 'scanner'] };
 
 function watchConsole(page: Page): string[] {
   const errors: string[] = [];
@@ -84,7 +84,7 @@ const appendToLine = (s: string, start: string, add: string) => s.split('\n').ma
 
 test('The Wire: all six levels, from the steps', async ({ page }) => {
   const errors = watchConsole(page);
-  await seed(page, { ...OPEN_ALL, zones: [] });
+  await seed(page, { ...OPEN_ALL, zones: ['wire'] });
 
   await page.goto('/play/wire-robots');
   await expect(page.getByRole('note', { name: 'Where to start' })).toContainText('Send');
@@ -250,6 +250,60 @@ test('The Perimeter: all six levels, from the steps', async ({ page }) => {
     else await cleared(page);
   }
   expect(errors).toEqual([]);
+});
+
+// ---- The Basics -------------------------------------------------------------------
+
+const BOX_COMMAND = /^(sudo |ipcalc |ip |cat |curl |dig |nmap |ls|chmod |ps |ss |systemctl |ufw |submit \S)/;
+
+/** The answer a bare "submit" step in The Basics asks for, read off the terminal. */
+function basicsAnswer(out: string, stepText: string): string {
+  if (/Hosts\/Net/.test(stepText)) return [...out.matchAll(/Hosts\/Net:\s+(\d+)/g)].pop()![1]!;
+  if (/public address/.test(stepText)) return /^(\d+\.\d+\.\d+\.\d+)$/m.exec(out.slice(out.indexOf('curl ifconfig.me')))![1]!;
+  const tcp = new Set([...out.matchAll(/^(\d+)\/tcp\s+open/gm)].map((m) => m[1]));
+  return [...out.matchAll(/^(\d+)\/udp\s+open\s/gm)].map((m) => m[1]!).find((p) => !tcp.has(p))!;
+}
+
+test('The Basics: all six levels, from the steps', async ({ page }) => {
+  const errors = watchConsole(page);
+  await seed(page, { ...OPEN_ALL, zones: [] });
+  const levels: Record<string, string[]> = {
+    'net-subnet': ['notes', 'office', 'guest', 'count', 'printer'],
+    'net-dns-nat': ['local', 'route', 'public', 'dns', 'answer'],
+    'net-tcp-udp': ['tcp', 'udp', 'answer'],
+    'linux-perms': ['look', 'env', 'script', 'verify'],
+    'linux-services': ['procs', 'sockets', 'off', 'closed'],
+    'linux-firewall': ['log', 'deny', 'ssh', 'https', 'enable', 'verify'],
+  };
+  for (const [id, steps] of Object.entries(levels)) {
+    await page.goto(`/play/${id}`);
+    if (id === 'linux-firewall') await incidentRunning(page);
+    for (const sid of steps) {
+      const s = await step(page, sid);
+      const commands = s.codes.filter((c) => BOX_COMMAND.test(c));
+      for (const c of commands.filter((c) => !c.startsWith('submit'))) await terminal(page, c);
+      const submit = commands.find((c) => c.startsWith('submit'));
+      if (submit) await terminal(page, submit);
+      else if (s.codes.includes('submit')) await terminal(page, `submit ${basicsAnswer(await page.locator('.term').innerText(), s.text)}`);
+      if (sid !== steps[steps.length - 1]) await done(page, sid);
+    }
+    if (id === 'linux-firewall') await bossCleared(page);
+    else await cleared(page);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('The Basics: enabling the firewall too early locks you out, and the prompt shows where you are', async ({ page }) => {
+  const won = { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' };
+  await seed(page, { ...OPEN_ALL, zones: [], levels: Object.fromEntries(['net-subnet', 'net-dns-nat', 'net-tcp-udp', 'linux-perms', 'linux-services'].map((id) => [id, won])) });
+  await page.goto('/play/linux-firewall');
+  await expect(page.locator('.term-input .prompt')).toHaveText('deploy@lab-01:/srv/shop$');
+  await terminal(page, 'sudo ufw default deny incoming');
+  await terminal(page, 'sudo ufw enable');
+  await expect(page.locator('.term')).toContainText('closed by remote host');
+  await expect(page.getByText(/You just locked yourself out/).first()).toBeVisible();
+  await terminal(page, 'cd /home/deploy');
+  await expect(page.locator('.term-input .prompt')).toHaveText('deploy@lab-01:~$');
 });
 
 // ---- The Cloud ------------------------------------------------------------------
@@ -555,7 +609,7 @@ async function noSideScroll(page: Page, what: string) {
 test('Phone: a first level played through the tabs, with the step bar in sight', async ({ page }) => {
   const errors = watchConsole(page);
   await page.setViewportSize({ width: 390, height: 667 });
-  await seed(page, { ...OPEN_ALL, zones: [] });
+  await seed(page, { ...OPEN_ALL, zones: ['wire'] });
   await page.goto('/play/wire-robots');
   // The tab that holds the first control is marked.
   await expect(page.getByRole('tab', { name: /Request/ })).toContainText('Start here');

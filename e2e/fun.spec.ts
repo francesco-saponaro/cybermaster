@@ -3,6 +3,7 @@ import { generateChallenge, type ChallengeVariant } from '../src/content/challen
 import { listing } from '../src/sim/arena';
 import { METRIC_LABELS, METRICS, parseVector } from '../src/engine/cvss';
 import { dailyPick, shareText, utcDay } from '../src/engine/daily';
+import { openLevels } from '../src/engine/progress';
 import { ZONES } from '../src/content/zones';
 import { LEVEL_BY_ID } from '../src/content/index';
 
@@ -23,7 +24,7 @@ const base = {
   streak: { count: 0, lastDay: '' },
   settings: { muted: true },
   evidence: [] as string[],
-  zones: [] as string[],
+  zones: ['wire'] as string[],
   challenges: {},
   daily: { streak: { count: 0, lastDay: '' }, days: {} },
   story: { beats: ['wire', 'arena', 'perimeter', 'cloud', 'report'], closed: false },
@@ -114,7 +115,7 @@ async function challengeCleared(page: Page) {
 test('Each zone: clear a guided level, then its challenge from the zone map', async ({ page }) => {
   const errors = watchConsole(page);
   // The report pick is its second level, so the first is already cleared.
-  await seed(page, { ...base, zones: ['arena', 'perimeter', 'cloud', 'report'], levels: cleared(['report-phases']) });
+  await seed(page, { ...base, zones: ['wire', 'arena', 'perimeter', 'cloud', 'report'], levels: cleared(['report-phases']) });
   const picks: [string, string, (p: Page) => Promise<void>][] = [
     ['wire', 'wire-robots', async (p) => {
       await btn(p, 'Send').click();
@@ -198,7 +199,7 @@ test('A challenge with hints: each costs points, and New variant changes the val
 test('A boss lost to the clock, then retried and won', async ({ page }) => {
   const errors = watchConsole(page);
   await page.clock.install();
-  await seed(page, { ...base, zones: ['arena', 'perimeter'], levels: cleared(ZONES[2]!.levelIds.slice(0, 5)) });
+  await seed(page, { ...base, zones: ['wire', 'arena', 'perimeter'], levels: cleared(ZONES.find((z) => z.id === 'perimeter')!.levelIds.slice(0, 5)) });
   await page.goto('/play/perimeter-boss');
   const inc = page.getByRole('region', { name: 'Live incident' });
   await expect(inc).toHaveAttribute('data-status', 'running');
@@ -227,7 +228,7 @@ test('A boss lost to the clock, then retried and won', async ({ page }) => {
 
 test('A challenge boss runs a harsher incident and can be won', async ({ page }) => {
   const errors = watchConsole(page);
-  await seed(page, { ...base, zones: ['arena', 'perimeter', 'cloud'], levels: cleared(['cloud-gateway']) });
+  await seed(page, { ...base, zones: ['wire', 'arena', 'perimeter', 'cloud'], levels: cleared(['cloud-gateway']) });
   await page.goto('/challenge/cloud-gateway?seed=99');
   const inc = page.getByRole('region', { name: 'Live incident' });
   await expect(inc).toHaveAttribute('data-status', 'running');
@@ -281,8 +282,8 @@ test('Combo, clean run and a mute toggle that survives a reload', async ({ page 
 test("Today's case: the same puzzle for the date, a streak, a share text and come back tomorrow", async ({ page, context }) => {
   const errors = watchConsole(page);
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  // Find a day whose case, with only The Wire open, is the robots level, and play on that day.
-  const wire = ZONES[0]!.levelIds;
+  // Find a day whose case, with The Basics and The Wire open, is the robots level, and play on that day.
+  const wire = openLevels(base as never, ZONES.map((z) => ({ id: z.id, levelIds: z.levelIds })));
   let day = '';
   for (let i = 0; i < 400 && !day; i++) {
     const d = utcDay(new Date(Date.UTC(2026, 10, 9 + i)));
@@ -340,7 +341,7 @@ test('Story beats show once per zone, can be skipped and replayed; the case boar
   await expect(page.locator('.beat')).toHaveCount(0);
 
   // A teammate's remark in the level header refers to what was found earlier.
-  await seed(page, { ...base, zones: ['arena'], levels: cleared(['wire-robots', 'wire-replay', 'arena-idor']) });
+  await seed(page, { ...base, zones: ['wire', 'arena'], levels: cleared(['wire-robots', 'wire-replay', 'arena-idor']) });
   await page.goto('/play/arena-sqli');
   await expect(page.locator('.brief-remark')).toContainText('/admin-old');
 
@@ -351,7 +352,7 @@ test('Story beats show once per zone, can be skipped and replayed; the case boar
   await expect(page.getByRole('link', { name: 'Close the case' })).toHaveCount(0);
 
   // Everything cleared: the board offers the ending, and the ending closes the case.
-  await seed(page, { ...base, zones: ['arena', 'perimeter', 'cloud', 'report'], levels: cleared(ALL) });
+  await seed(page, { ...base, zones: ['wire', 'arena', 'perimeter', 'cloud', 'report'], levels: cleared(ALL) });
   await page.goto('/case');
   await expect(page.locator('.pin[data-found="true"]')).toHaveCount(ALL.length);
   await page.getByRole('link', { name: 'Close the case' }).click();
@@ -366,14 +367,14 @@ test('Story beats show once per zone, can be skipped and replayed; the case boar
 
 test('New screens fit at 390 and 1440, with screenshots for review', async ({ page }) => {
   const errors = watchConsole(page);
-  const mid = { ...base, zones: ['arena', 'perimeter', 'cloud'], levels: cleared(ALL.slice(0, 23)), challenges: { 'wire-robots': { stars: 2, clears: 1, bestSeconds: 40, bestPoints: 850, lastPlayedAt: '' }, 'wire-jwt': { stars: 3, clears: 1, bestSeconds: 40, bestPoints: 1000, lastPlayedAt: '' } } };
+  const mid = { ...base, zones: ['wire', 'arena', 'perimeter', 'cloud'], levels: cleared(ALL.slice(0, 23)), challenges: { 'wire-robots': { stars: 2, clears: 1, bestSeconds: 40, bestPoints: 850, lastPlayedAt: '' }, 'wire-jwt': { stars: 3, clears: 1, bestSeconds: 40, bestPoints: 1000, lastPlayedAt: '' } } };
   const screens: [string, object, string][] = [
     ['/', mid, 'title'],
     ['/zones/wire', mid, 'zone-medals'],
     ['/challenge/arena-idor?seed=31', mid, 'challenge'],
     ['/play/cloud-gateway', mid, 'boss-incident'],
     ['/case', mid, 'case'],
-    ['/ending', { ...mid, zones: ['arena', 'perimeter', 'cloud', 'report'], levels: cleared(ALL) }, 'ending'],
+    ['/ending', { ...mid, zones: ['wire', 'arena', 'perimeter', 'cloud', 'report'], levels: cleared(ALL) }, 'ending'],
     ['/zones/perimeter', { ...mid, story: { beats: [], closed: false } }, 'beat'],
   ];
   for (const width of [390, 1440]) {

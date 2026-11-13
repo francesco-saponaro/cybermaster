@@ -3,6 +3,7 @@ import { ZONES } from '../src/content/zones';
 import { PAIR_BY_ID } from '../src/content/arcade/forgery';
 import { startForgery, ROUNDS } from '../src/arcade/forgery';
 import { FIX_BY_ID, FIX_PAIRS } from '../src/content/arcade/fixfirst';
+import { HARDEN_BY_ID, HARDEN_PAIRS } from '../src/content/arcade/harden';
 import { FIXES } from '../src/content/arcade/defence';
 import { startTower, COLS as TD_COLS } from '../src/arcade/tower';
 import { startSweeper, targets, COLS as SW_COLS } from '../src/arcade/sweeper';
@@ -10,7 +11,7 @@ import { PUZZLES, OPTIONS } from '../src/content/arcade/lockdown';
 import { initialConfig, solve } from '../src/arcade/lockdown';
 import { DRIVERS, FINDING_BY_ID, SEVERITIES } from '../src/content/arcade/findings';
 
-// The five arcade games played in a real browser. The page clock is installed
+// The arcade games played in a real browser. The page clock is installed
 // before the app loads, so a 90 second run takes a few seconds and the same
 // seed always deals the same requests, waves, network and deck. Answers come
 // from the same content and rules the page uses. Any console error fails.
@@ -28,7 +29,7 @@ const base = {
   streak: { count: 0, lastDay: '' },
   settings: { muted: true },
   evidence: [] as string[],
-  zones: [] as string[],
+  zones: ['wire'] as string[],
   challenges: {},
   daily: { streak: { count: 0, lastDay: '' }, days: {} },
   story: { beats: ['wire', 'arena', 'perimeter', 'cloud', 'report', 'scanner'], closed: true },
@@ -93,13 +94,14 @@ async function shot(page: Page, name: string) {
 
 // ---- The arcade page and its locks -------------------------------------------------
 
-test('The arcade lists all six games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
+test('The arcade lists all seven games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
   const errors = watchConsole(page);
   await open(page, '/arcade', { ...base, levels: { 'wire-cors': run() }, arcade: { 'spot-the-forgery': { best: 4200, stars: 1, plays: 2, lastPlayedAt: 'x' } } });
   await expect(page.getByRole('heading', { name: 'The arcade' })).toBeVisible();
-  await expect(page.locator('.arcade-row')).toHaveCount(6);
-  await expect(page.locator('.arcade-row').first()).toContainText('Best 4,200');
-  await expect(page.locator('.arcade-row').nth(1)).toContainText('Opens when you beat Sign up as anyone, the boss of The Arena');
+  await expect(page.locator('.arcade-row')).toHaveCount(7);
+  await expect(page.locator('.arcade-row').first()).toContainText('Harden Up');
+  await expect(page.locator('.arcade-row').nth(1)).toContainText('Best 4,200');
+  await expect(page.locator('.arcade-row').nth(2)).toContainText('Opens when you beat Sign up as anyone, the boss of The Arena');
   await page.goto('/arcade/tower-defence');
   await expect(page.getByRole('heading', { name: 'Hold the Line is still locked' })).toBeVisible();
   // The zone page offers the bonus round once the boss is beaten.
@@ -362,6 +364,7 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
     }],
     ['triage-rush', 'triage', async (p) => tick(p, 2000)],
     ['fix-first', 'fixfirst', async (p) => tick(p, 3000)],
+    ['harden-up', 'harden', async (p) => tick(p, 3000)],
   ];
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
@@ -400,5 +403,24 @@ test('Fix First: twelve calls made right, with the reason after each one', async
     await page.keyboard.press('Enter');
   }
   await gameOver(page, 'fix-first', /All twelve calls made/);
+  expect(errors).toEqual([]);
+});
+
+test('Harden Up: twelve boxes hardened, with the reason after each one', async ({ page }) => {
+  const errors = watchConsole(page);
+  const dealt = startForgery(5, HARDEN_PAIRS);
+  await open(page, '/arcade/harden-up?seed=5');
+  await start(page, /Practise on lab-01/);
+  for (let r = 0; r < ROUNDS; r++) {
+    const pair = HARDEN_BY_ID[dealt.rounds[r]!]!;
+    await expect(page.locator('.sf-topic')).toContainText(pair.topic);
+    await expect(page.locator('.sf-q')).toHaveText('Which one is locked down?');
+    await tick(page, 1000);
+    await page.getByTestId(`card-${dealt.sides[r]}`).click();
+    await expect(page.getByTestId('sf-explain')).toContainText(pair.rule);
+    if (r === 8) await shot(page, 'harden-reveal-1440');
+    await page.keyboard.press('Enter');
+  }
+  await gameOver(page, 'harden-up', /All twelve boxes hardened/);
   expect(errors).toEqual([]);
 });

@@ -4,6 +4,75 @@ import type { CodexEntry } from './types';
 // it lists; the game never shows an entry the player has not earned.
 
 export const CODEX: CodexEntry[] = [
+  // The Basics
+  {
+    id: 'subnets',
+    title: 'Subnets and CIDR notation',
+    zone: 'basics',
+    short: 'A subnet is a block of addresses; /24 says the first 24 bits are the network and the rest number the devices.',
+    body: [
+      'An IPv4 address is 32 bits, written as four numbers from 0 to 255. CIDR notation adds a slash and a prefix length: 192.168.40.0/24 means the first 24 bits (192.168.40) are fixed for the whole network, and the last 8 bits number the devices on it.',
+      'Size: a /24 has 2^8 = 256 addresses, a /25 128, a /26 64, a /27 32, a /28 16. Each extra bit halves the block. The first address is the network address and the last is the broadcast address, so a /24 has 254 usable addresses and a /27 has 30. The netmask is the same idea written out: /24 is 255.255.255.0, /27 is 255.255.255.224.',
+      'Why it matters in security: scope documents and firewall rules are written in CIDR, so misreading /16 for /24 means scanning 65,536 addresses instead of 256, many of them someone else\'s. Splitting a network into subnets (guests, staff, servers) and filtering between them is called segmentation, and a flat network where the guest Wi-Fi reaches the printers and servers is a common finding.',
+      'Tools: ipcalc prints the range, mask and usable count for any block. Private ranges, which are never routed on the internet, are 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 (RFC 1918).',
+    ],
+  },
+  {
+    id: 'nat',
+    title: 'Private addresses and NAT',
+    zone: 'basics',
+    short: 'Devices inside use private addresses; the router rewrites them to its one public address on the way out (NAT).',
+    body: [
+      'Inside a home or office, devices get private addresses (10.x, 172.16-31.x, 192.168.x). The internet never routes those. The router has one public address, and when a device talks to the internet the router rewrites the packet\'s source to its public address and remembers the mapping so the reply can come back. That rewriting is Network Address Translation, NAT.',
+      'Consequences you meet on a job: a client allow-lists your public address, not your laptop\'s; a log on a web server shows the office\'s public address for everyone in that office; and nobody on the internet can start a connection to a device behind NAT unless the router forwards a port to it (port forwarding), which is exactly what attackers look for.',
+      'ip addr shows your private address and ip route the router (the default gateway). A site like ifconfig.me shows the public address your traffic leaves from. DNS A records map names to public addresses, so dig tells you whether a name really points at you.',
+    ],
+  },
+  {
+    id: 'tcp-udp',
+    title: 'TCP and UDP',
+    zone: 'basics',
+    short: 'TCP sets up a connection with a handshake and guarantees delivery; UDP just sends packets, with no handshake and no guarantee.',
+    body: [
+      'TCP opens every connection with a three-way handshake: SYN, SYN-ACK, ACK. It numbers and acknowledges every byte, resends what is lost and closes cleanly. Web (80, 443), SSH (22), mail (25), databases (3306, 5432) use it.',
+      'UDP sends single datagrams with no handshake and no delivery guarantee. It is fast and simple, and is used for DNS (53), time (NTP, 123), SNMP (161), DHCP (67/68), VPNs such as WireGuard and IPsec (500), and video calls. DNS uses both: UDP for normal lookups, TCP for large answers and zone transfers.',
+      'Scanning: nmap scans TCP by default, because a handshake gives a clear open or closed. A UDP scan (nmap -sU, needs root) sends a datagram and waits. A reply means open, an ICMP "port unreachable" means closed, and silence is reported as open|filtered because nmap cannot tell a quiet service from a firewall. UDP scans are slow, so people skip them, and that is why services like SNMP with the default community string "public" survive for years unnoticed.',
+    ],
+  },
+  {
+    id: 'linux-permissions',
+    title: 'Linux file permissions',
+    zone: 'basics',
+    short: 'Each file has an owner, a group and nine permission bits: read, write and execute for the owner, the group and everyone else.',
+    body: [
+      'ls -l shows them as ten characters: the type (- file, d folder, l link), then rwx for the owner, rwx for the group and rwx for others. -rw-r--r-- is owner read and write, group read, everyone read. On a folder, x means you may enter it and r that you may list it.',
+      'In numbers each triplet is a digit: read 4, write 2, execute 1, added up. 600 is owner read and write only, 644 adds read for everyone, 755 is the usual for programs and folders, 777 lets anyone do anything and is almost always a finding. chmod changes the mode, chown the owner, and only the owner or root can change either.',
+      'What auditors look for: secrets (.env, private keys, database passwords) readable by others; scripts or config files writable by others, which lets any local user run code as whoever runs them next; and setuid programs (an s instead of x) that run as their owner. ssh refuses a private key that others can read, and many CIS Benchmark checks are permission checks like these.',
+    ],
+  },
+  {
+    id: 'linux-services',
+    title: 'Processes, ports and services',
+    zone: 'basics',
+    short: 'A service is a program systemd keeps running; ss shows which ports it listens on and for which addresses.',
+    body: [
+      'Every running program is a process with a PID and the user it runs as (ps aux lists them). Long-running ones, such as web servers, databases and SSH, are services, started and supervised by systemd. systemctl status shows whether one is running and whether it starts at boot; stop and start act now, disable and enable act at the next boot, and disable --now does both.',
+      'A service listening on a port is reachable by anyone who can reach that address. ss -tlnp lists listening TCP sockets with their process. 127.0.0.1 means only the machine itself can connect; 0.0.0.0 (or * or [::]) means every network the machine is on. A database or cache like Redis on 0.0.0.0 with no password is one of the most common real findings.',
+      'Hardening order: remove what is not needed (the cheapest fix), bind what must stay to 127.0.0.1 if only local programs use it, require authentication, and only then rely on the firewall. Run services as their own unprivileged users, never root, so a bug in one does not hand over the whole box.',
+    ],
+  },
+  {
+    id: 'host-firewall',
+    title: 'Host firewalls and ufw',
+    zone: 'basics',
+    short: 'A host firewall decides which connections reach a machine; deny by default and allow only what is needed.',
+    body: [
+      'A firewall compares each new connection with its rules (port, protocol, source address) and lets it in or drops it. A network firewall sits in front of many machines; a host firewall runs on the machine itself. Cloud security groups are the same idea managed by the provider.',
+      'ufw (Uncomplicated Firewall) is the front end on Ubuntu. The safe recipe: ufw default deny incoming, then allow only what is needed (ufw allow 443/tcp for a public site, ufw allow from 192.168.40.0/24 to any port 22 proto tcp for admin access from one network), then ufw enable, then ufw status verbose to read it back. ufw limit 22/tcp also slows password guessing by refusing an address that connects six times in thirty seconds.',
+      'Two classic mistakes: enabling deny-by-default over SSH before allowing yourself, which locks you out; and one broad allow (all ports from anywhere) that silently undoes the policy. Firewalls reduce exposure, they do not fix a weak service: SSH should still use keys, not passwords, and fail2ban or similar can ban addresses that keep failing.',
+      'auth.log (/var/log/auth.log on Ubuntu) records every SSH login attempt. Hundreds of "Failed password" lines from one address within minutes is a brute-force attack; reading that log is one of the first things to do on an incident.',
+    ],
+  },
   // The Wire
   {
     id: 'http-anatomy',
