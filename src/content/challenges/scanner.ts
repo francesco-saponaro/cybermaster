@@ -4,7 +4,7 @@ import { asChallenge } from './types';
 import { LEVEL_BY_ID } from '../index';
 import type { Rng } from '../../engine/rng';
 import { VTS, type GvmAction } from '../../sim/gvm';
-import { authChecks, bossChecks, feedChecks, goodTarget, qodChecks, setups, targetChecks, taskChecks, type OfficePlan } from '../levels/scanner';
+import { authChecks, bossChecks, kevChecks, kevQuestion, feedChecks, goodTarget, qodChecks, setups, targetChecks, taskChecks, type OfficePlan } from '../levels/scanner';
 
 const guided = (id: string) => LEVEL_BY_ID[id] as ScannerLevel;
 
@@ -151,6 +151,28 @@ const auth: ChallengeGenerator = (rng) => {
   };
 };
 
+// ---- KEV --------------------------------------------------------------------------------
+
+const kev: ChallengeGenerator = (rng) => {
+  const p = plan(rng);
+  const setup = setups(p).kev;
+  const first = names(p, p.nas, 'nas-01');
+  const look = rng.pick(['CVE-2021-4034', 'CVE-2021-3156', 'CVE-2017-7494']);
+  const level = asChallenge(guided('scan-kev'), {
+    goal: 'Say how many results attackers are already exploiting, and which host to fix first.',
+    instruction: `Start by looking up ${look} in the KEV catalog.`,
+    setup,
+    question: kevQuestion(p),
+    evaluate: (s) => kevChecks(s, 3, first),
+  });
+  return {
+    level,
+    signature: `${p.prefix}:${p.nas}:${look}`,
+    hints: ['The KEV page holds CISA\'s list; the Results page can match against it.', 'Match against KEV, count the Exploited badges, then think about which needs no login.', 'Three are exploited; SambaCry on nas-01 needs no login.'],
+    solution: { kind: 'scanner', actions: [{ t: 'kev-search', q: look }, { t: 'kev-match' }, { t: 'answer', text: '3' }, { t: 'answer', text: 'nas-01' }] },
+  };
+};
+
 // ---- Boss --------------------------------------------------------------------------------
 
 const boss: ChallengeGenerator = (rng) => {
@@ -189,6 +211,7 @@ export const SCANNER_CHALLENGES: Record<string, ChallengeGenerator> = {
   'scan-task': task,
   'scan-qod': qod,
   'scan-auth': auth,
+  'scan-kev': kev,
   'scan-boss': boss,
 };
 

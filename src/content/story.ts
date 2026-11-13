@@ -113,6 +113,7 @@ export const REMARKS: Record<string, Line & { needs?: string }> = {
   'scan-task': { who: 'Bruno', text: 'Run it once properly and let us see what it says about the office.' },
   'scan-qod': { who: 'Yasmin', text: 'Two Apache Highs, both at 30%. One of them is noise and one is not.' },
   'scan-auth': { who: 'Bruno', text: 'db-02 looked clean from outside. I do not believe it.' },
+  'scan-kev': { who: 'Bruno', text: 'Seven results and one morning. Find out which ones attackers are already using.' },
   'scan-boss': { who: 'Ines', text: 'A week has passed. Make this a habit, and tell Claire what comes next.' },
 };
 
@@ -152,6 +153,7 @@ export const PINS: Record<string, { title: string; proved: string }> = {
   'scan-task': { title: 'First full scan', proved: 'Three Highs, worst of all an end-of-life NAS.' },
   'scan-qod': { title: 'One false alarm', proved: 'web-01 was patched; the intranet box was not.' },
   'scan-auth': { title: 'Holes inside db-02', proved: 'PwnKit and Baron Samedit, visible only with a login.' },
+  'scan-kev': { title: 'Three already exploited', proved: 'SambaCry, PwnKit and Baron Samedit are in KEV; nas-01 goes first.' },
   'scan-boss': { title: 'A weekly scan', proved: 'Four fixes in a week, one new kiosk, db-02 next.' },
 };
 

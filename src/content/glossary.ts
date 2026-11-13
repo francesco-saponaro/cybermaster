@@ -166,6 +166,11 @@ export const GLOSSARY: GlossEntry[] = [
   { id: 'package', term: 'Package', match: ['package', 'packages'], plain: 'A piece of installed software on Linux, with an exact version. Comparing it with the fixed version is the surest way to know a flaw is there.' },
   { id: 'privesc', term: 'Privilege escalation (root)', match: ['root', 'privilege escalation'], plain: 'Turning a normal account into the all-powerful one (root on Linux). Flaws like PwnKit and Baron Samedit do exactly that.' },
 
+  { id: 'kev-word', term: 'KEV catalog', match: ['KEV', 'Known Exploited Vulnerabilities', 'KEV catalog'], plain: "A free list kept by CISA of vulnerabilities attackers are really using. If a CVE from your scan is in it, fix that one first." },
+  { id: 'cisa', term: 'CISA', match: ['CISA'], plain: 'The Cybersecurity and Infrastructure Security Agency, the United States government agency for cyber security. It publishes the KEV catalog.' },
+  { id: 'in-the-wild', term: 'Exploited in the wild', match: ['in the wild', 'exploited', 'Exploited'], plain: 'Used by real attackers against real systems, as opposed to only shown possible by researchers.' },
+  { id: 'poc', term: 'Proof of concept', match: ['proof of concept', 'proof-of-concept', 'PoC'], plain: 'Code that shows a flaw can be used, written by researchers. It makes attacks easier but is not evidence that anyone has attacked yet.' },
+  { id: 'bod', term: 'BOD 22-01', match: ['BOD 22-01', 'Binding Operational Directive 22-01'], plain: 'The CISA order that makes US federal agencies fix every KEV entry by its due date. Other organisations are not bound by it but are urged to follow it.' },
   // ---- Cloud (The Cloud) -----------------------------------------------------
   { id: 'cloud', term: 'Cloud account', match: ['cloud account', 'AWS'], plain: "Servers, storage and databases rented from a provider like AWS, set up and controlled through settings rather than physical machines." },
   { id: 'bucket', term: 'Bucket (S3)', match: ['bucket', 'buckets', 'Bucket', 'S3', 's3'], plain: 'A folder of files stored in the cloud. S3 is the AWS service for them. A bucket open to the public can be read by anyone who finds its address.' },

@@ -139,6 +139,15 @@ export const FIX_PAIRS: FixPair[] = [
     why: 'Same flaw, same score. On the intranet the scanner logged in and read the old package: confirmed. On web-02 it only read a banner.',
     rule: 'Same score: the confirmed one first, then go and check the guess.',
   },
+  {
+    id: 'kev-tiebreak',
+    tier: 3,
+    topic: 'Two 9.8s inside the office',
+    first: card('Samba remote code execution (SambaCry), in KEV', 'nas-01', 'High 9.8', '80%', 'The office network'),
+    later: card('apache2 package out of date', 'intranet', 'High 9.8', '97%', 'The office network'),
+    why: 'Same score, same reach. SambaCry is in CISA\'s Known Exploited Vulnerabilities catalog: attackers are using it. The Apache flaw is real, but there is no record of it being exploited.',
+    rule: 'When scores tie, known-exploited (KEV) goes first.',
+  },
 ];
 
 export const FIX_BY_ID = Object.fromEntries(FIX_PAIRS.map((p) => [p.id, p])) as Record<string, FixPair>;

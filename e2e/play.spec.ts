@@ -406,7 +406,7 @@ test('The Report: all five levels, from the steps', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('The Scanner: all six levels, from the steps', async ({ page }) => {
+test('The Scanner: all seven levels, from the steps', async ({ page }) => {
   const errors = watchConsole(page);
   await seed(page);
   const consolePane = page.getByRole('region', { name: 'Greenbone' });
@@ -496,6 +496,26 @@ test('The Scanner: all six levels, from the steps', async ({ page }) => {
   s = await step(page, 'local');
   await tab('Results').click();
   await page.getByTestId('results').locator(`tr:has-text("${s.codes[1]}"):has-text("policykit-1")`).first().click();
+  await cleared(page);
+
+  await page.goto('/play/scan-kev');
+  s = await step(page, 'search');
+  await page.getByLabel('Search the KEV catalog').fill(s.codes[1]!);
+  await btn(page, 'Search').click();
+  await expect(page.getByTestId('kev-hit')).toContainText('2022-06-27');
+  await step(page, 'match');
+  await tab('Results').click();
+  await btn(page, 'Match against KEV').click();
+  await step(page, 'count');
+  const exploited = await page.getByTestId('kev-badge').count();
+  await page.getByLabel(/Answer box/).fill(String(exploited));
+  await btn(page, 'Check').click();
+  await step(page, 'first');
+  await page.getByLabel(/Answer box/).fill('gw');
+  await btn(page, 'Check').click();
+  await expect(page.getByRole('alert')).toContainText('not in KEV');
+  await page.getByLabel(/Answer box/).fill('nas-01');
+  await btn(page, 'Check').click();
   await cleared(page);
 
   await page.goto('/play/scan-boss');

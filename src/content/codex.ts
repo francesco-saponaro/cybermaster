@@ -511,6 +511,17 @@ export const CODEX: CodexEntry[] = [
     ],
   },
   {
+    id: 'kev',
+    title: 'CISA KEV: Known Exploited Vulnerabilities',
+    zone: 'scanner',
+    short: "CISA's catalog of vulnerabilities attackers have really used; KEV entries go to the top of the fix list.",
+    body: [
+      'CISA, the US Cybersecurity and Infrastructure Security Agency, keeps the catalog. A vulnerability is added when it has a CVE number, there is reliable evidence it has been exploited in the wild (attempted or successful, not just scanning, research or proof-of-concept code), and there is a clear fix, which can be removing an end-of-life product.',
+      'Each entry has the CVE, the vendor and product, the date it was added, a due date and the required action. Binding Operational Directive 22-01 obliges US federal agencies to fix entries by their due dates; everyone else is urged to fix KEV entries first and to use the catalog in their prioritisation. It is free to download as CSV or JSON.',
+      'Not being in KEV does not mean safe: it means no confirmed attacks yet. Use it next to severity and exposure, not instead of them.',
+    ],
+  },
+  {
     id: 'gvm-delta',
     title: 'Vulnerability management and delta reports',
     zone: 'scanner',

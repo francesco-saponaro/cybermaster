@@ -304,12 +304,13 @@ export const ARCADE: ArcadeGame[] = [
           { label: 'Higher severity', text: 'High (7.0 and up) before Medium (4.0 and up) before Low. Log results are information, not problems.' },
           { label: 'Proof over guesses', text: 'QoD 97% (checked from inside) beats 30% (a version read from a banner that may already be patched). Verify the guess, fix the proof.' },
           { label: 'Who can reach it', text: 'The internet beats the office, and no login needed beats a login needed.' },
+          { label: 'Known exploited (KEV)', text: 'A flaw in CISA\'s KEV catalog is being used by attackers right now: it goes before a similar one that is not.' },
           { label: 'What it holds', text: 'Same flaw, same proof: the machine with customer data before the empty test box.' },
           { label: 'Already handled', text: 'A result overridden as a false positive, with a reason, has been dealt with.' },
         ],
       },
     ],
-    words: ['gvm-qod-word', 'severity', 'cvss', 'false-positive', 'banner', 'gvm-override-word', 'eol', 'telnet-word'],
+    words: ['gvm-qod-word', 'severity', 'cvss', 'false-positive', 'banner', 'gvm-override-word', 'kev-word', 'eol', 'telnet-word'],
   },
 ];
 

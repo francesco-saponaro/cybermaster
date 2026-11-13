@@ -70,6 +70,7 @@ export function setups(p: OfficePlan) {
     task: { network, feed: FEED_NEW, synced: FEED_NEW, targets: [goodTarget(p)] } satisfies GvmSetup,
     qod: { network, feed: FEED_NEW, synced: FEED_NEW, targets: [goodTarget(p)], tasks: [fullTask()], history: [{ taskId: 'task-1', scans: 1 }] } satisfies GvmSetup,
     auth: { network, feed: FEED_NEW, synced: FEED_NEW, targets: [goodTarget(p)], tasks: [fullTask()], history: [{ taskId: 'task-1', scans: 1 }] } satisfies GvmSetup,
+    kev: { network, feed: FEED_NEW, synced: FEED_NEW, targets: [goodTarget(p, { sshCredential: 'cred-1' })], credentials: [scanKey], tasks: [fullTask()], history: [{ taskId: 'task-1', scans: 1 }] } satisfies GvmSetup,
     boss: { network: week, feed: FEED_NEW, synced: FEED_NEW, targets: [goodTarget(p, { sshCredential: 'cred-1' })], credentials: [scanKey], tasks: [fullTask()], history: [{ taskId: 'task-1', scans: 1 }] } satisfies GvmSetup,
   };
 }
@@ -145,6 +146,31 @@ export function authChecks(s: GvmState, localKey: string) {
     local: s.seen.includes(`result:${localKey}`),
   };
 }
+
+export function kevChecks(s: GvmState, count: number, first: string[]) {
+  return {
+    search: s.seen.some((x) => x.startsWith('kev:')),
+    match: s.kevMatched,
+    count: answered(s, [String(count)]),
+    first: answered(s, first),
+  };
+}
+
+/** The KEV question: how many, then which host first. */
+export const kevQuestion = (p: OfficePlan) => {
+  const h = (n: number, name: string) => [p.prefix + n, name, `${name}.${p.domain}`];
+  return {
+    ask: 'Answer box: how many results are in KEV, then the host to fix first.',
+    answers: ['3', 'three', ...h(p.nas, 'nas-01')],
+    wrong: [
+      { answers: h(p.gw, 'gw'), reason: "regreSSHion on gw is serious, but it is not in KEV: there is public proof-of-concept code and no confirmed attacks yet. Fix it soon, after what is being exploited now." },
+      { answers: h(p.db, 'db-02'), reason: 'db-02 has two KEV entries, but both need someone already logged in to db-02. Look for a KEV entry anyone on the network can use with no login.' },
+      { answers: h(p.intranet, 'intranet'), reason: 'The intranet result scores 9.8 but is not in KEV. A known-exploited flaw with the same score comes first.' },
+      { answers: ['2', 'two', '4', 'four'], reason: 'Count the rows with the Exploited badge after Match against KEV, with the filter as it is.' },
+    ],
+    otherwise: 'Not that one. Match the report against KEV and look at what is exploited, how bad it is and who can reach it.',
+  };
+};
 
 export function bossChecks(s: GvmState, newHost: string[], nextHost: string[]) {
   const reports = s.reports.filter((r) => r.taskId === 'task-1');
@@ -409,6 +435,56 @@ export const SCANNER_LEVELS: ScannerLevel[] = [
     par: 140,
   },
   {
+    id: 'scan-kev',
+    zone: 'scanner',
+    kind: 'scanner',
+    title: 'Known to be exploited',
+    goal: 'Check the report against CISA\'s KEV catalog and decide what to fix first.',
+    instruction: 'The [[kev|KEV catalog]] lists the vulnerabilities attackers are really using, kept by CISA, the US cyber security agency. A High that is being exploited right now goes before a High that is not.',
+    setup: S.kev,
+    startTab: 'kev',
+    kev: true,
+    question: kevQuestion(P),
+    checks: [
+      {
+        id: 'search',
+        label: 'Look up a CVE in KEV',
+        do: 'On the `KEV` page, search `CVE-2021-4034`, the PwnKit flaw from the last level. Read its entry: when CISA added it and the action it requires.',
+        learned: 'PwnKit has been in KEV since June 2022: attackers have used it, not just researchers.',
+      },
+      {
+        id: 'match',
+        label: 'Match the report against KEV',
+        do: 'Open `Results` and press `Match against KEV`. A KEV column appears with an Exploited badge on every result whose CVE is in the catalog.',
+        learned: 'Tools can flag KEV entries automatically, which is exactly what CISA recommends.',
+      },
+      {
+        id: 'count',
+        label: 'Count the exploited results',
+        do: 'Count the rows with the `Exploited` badge, type the number in the answer box and press `Check`.',
+        learned: 'Three of the office\'s results are flaws attackers are already using.',
+      },
+      {
+        id: 'first',
+        label: 'Pick the first fix',
+        do: 'Of the exploited ones, which can anyone on the network use with no login? Type that host\'s name (like `web-01`) and press `Check`.',
+        learned: 'SambaCry on nas-01 is in KEV, scores 9.8 and needs no login: it goes first, then the two on db-02, then regreSSHion.',
+      },
+    ],
+    showMe: [
+      { say: 'Search KEV for CVE-2021-4034.', act: { tab: 'kev', actions: [{ t: 'kev-search', q: 'CVE-2021-4034' }] } },
+      { say: 'Open Results and press Match against KEV.', act: { tab: 'results', actions: [{ t: 'kev-match' }] } },
+      { say: 'Three rows say Exploited.', act: { tab: 'results', answer: '3' } },
+      { say: 'nas-01 first: SambaCry, exploited, no login.', act: { tab: 'results', answer: 'nas-01' } },
+    ],
+    evaluate: (s) => kevChecks(s, 3, host(P.nas, 'nas-01')),
+    realName: 'Prioritising with the CISA Known Exploited Vulnerabilities catalog',
+    didWhat: 'You matched the scan against KEV and put the vulnerability attackers are already using at the top of the list.',
+    codex: ['kev'],
+    xp: 110,
+    par: 110,
+  },
+  {
     id: 'scan-boss',
     zone: 'scanner',
     kind: 'scanner',
@@ -418,6 +494,7 @@ export const SCANNER_LEVELS: ScannerLevel[] = [
     instruction: 'Vulnerability management is the same scan every week and the [[gvm-delta|difference]] between two reports. Something on the network is probing the office while you work, so do not stop.',
     setup: S.boss,
     startTab: 'tasks',
+    kev: true,
     question: {
       ask: 'Answer box: the new host\'s address, then the host to fix next.',
       answers: [...host(P.kiosk, 'kiosk-01'), ...host(P.db, 'db-02')],
@@ -457,7 +534,7 @@ export const SCANNER_LEVELS: ScannerLevel[] = [
         id: 'next',
         label: 'Say what to fix next',
         do: 'Of the results still open, which host has the highest score? Type its name (like `web-01`) in the answer box and press `Check`.',
-        learned: 'Fix by severity, then by how sure the scanner is: a High proven with a login beats a Medium.',
+        learned: 'Fix by severity and by what is known to be exploited: sudo on db-02 is a High, proven with a login, and in KEV.',
       },
     ],
     showMe: [

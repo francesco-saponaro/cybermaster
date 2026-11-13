@@ -39,9 +39,9 @@ export const ZONES: Zone[] = [
   {
     id: 'scanner',
     name: 'The Scanner',
-    tagline: 'OpenVAS: feed, targets, scans, false alarms and a weekly routine',
-    intro: "Lantern's own Greenbone box. Update its feed, point it at the right machines, run full and logged-in scans, sort proof from guesses, and make it a weekly habit.",
-    levelIds: ['scan-feed', 'scan-target', 'scan-task', 'scan-qod', 'scan-auth', 'scan-boss'],
+    tagline: 'OpenVAS and KEV: feed, targets, scans, false alarms, what is exploited and a weekly routine',
+    intro: "Lantern's own Greenbone box. Update its feed, point it at the right machines, run full and logged-in scans, sort proof from guesses, check what attackers are already using, and make it a weekly habit.",
+    levelIds: ['scan-feed', 'scan-target', 'scan-task', 'scan-qod', 'scan-auth', 'scan-kev', 'scan-boss'],
   },
 ];
 
