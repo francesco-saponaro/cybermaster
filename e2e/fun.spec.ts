@@ -388,3 +388,28 @@ test('New screens fit at 390 and 1440, with screenshots for review', async ({ pa
   }
   expect(errors).toEqual([]);
 });
+
+test('Study: the roadmap lists every line with its levels, and the acronyms can be drilled', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/study');
+  await expect(page.getByRole('heading', { name: 'Study' })).toBeVisible();
+  await expect(page.getByTestId('rm-item').first()).toBeVisible();
+  await expect(page.getByText('Settimane 5–6 | Network vulnerability assessment')).toBeVisible();
+  await page.getByRole('tab', { name: 'Acronyms' }).click();
+  await expect(page.getByTestId('acronym-list')).toContainText('Common Vulnerabilities and Exposures');
+  await expect(page.getByTestId('acronym-list')).toContainText('Known Exploited Vulnerabilities');
+  await page.getByLabel('Search acronyms').fill('KEV');
+  await expect(page.getByTestId('acronym-list').locator('dt').first()).toContainText('KEV');
+  await page.getByRole('button', { name: 'Flashcards' }).click();
+  await page.getByTestId('flashcard').click();
+  await page.getByRole('button', { name: 'I knew it' }).click();
+  await expect(page.getByText(/1 of \d+ marked as known/)).toBeVisible();
+  await page.getByRole('button', { name: 'Quiz' }).click();
+  for (let i = 0; i < 10; i++) {
+    await page.locator('.quiz-opt').first().click();
+    await page.getByRole('button', { name: /Next question|See the score/ }).click();
+  }
+  await expect(page.getByTestId('quiz-done')).toBeVisible();
+  expect(errors).toEqual([]);
+});

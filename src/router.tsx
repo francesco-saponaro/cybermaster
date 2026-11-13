@@ -44,6 +44,7 @@ const seedSearch = (search: Record<string, unknown>): { seed?: number } => {
   const n = Number(search.seed);
   return Number.isFinite(n) && n >= 0 && search.seed !== undefined && search.seed !== '' ? { seed: Math.floor(n) >>> 0 } : {};
 };
+const studyRoute = createRoute({ getParentRoute: () => site, path: 'study', component: lazyRouteComponent(() => import('./routes/Study'), 'StudyPage') });
 const arcadeRoute = createRoute({ getParentRoute: () => site, path: 'arcade', component: lazyRouteComponent(() => import('./routes/Arcade'), 'ArcadePage') });
 // Each game is its own chunk, loaded when it is opened.
 const forgeryRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/spot-the-forgery', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/SpotTheForgery'), 'SpotTheForgeryPage') });
@@ -64,7 +65,7 @@ const oldMission = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, profileRoute, caseRoute, endingRoute, arcadeRoute]), levelRoute, forgeryRoute,
+const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, studyRoute, profileRoute, caseRoute, endingRoute, arcadeRoute]), levelRoute, forgeryRoute,
   packetRoute, towerRoute, sweeperRoute, lockdownRoute, triageRoute, fixRoute, challengeRoute, dailyRoute, oldMission]);
 
 export const router = createRouter({

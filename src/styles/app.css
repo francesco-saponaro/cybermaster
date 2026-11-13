@@ -60,8 +60,9 @@
 @media (max-width: 480px) {
   .topbar-inner { gap: 8px; height: 58px; }
   .brand { font-size: 1.05rem; gap: 8px; }
-  .navlinks { gap: 2px; }
-  .navlink { padding: 6px 8px; font-size: 0.8rem; }
+  .navlinks { gap: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .navlinks::-webkit-scrollbar { display: none; }
+  .navlink { padding: 6px 6px; font-size: 0.78rem; white-space: nowrap; }
   .rank-pill { display: none; }
 }
 

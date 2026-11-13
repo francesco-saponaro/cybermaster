@@ -38,6 +38,9 @@ export function TopBar() {
           <Link to="/codex" className="navlink" data-active={is('/codex')}>
             Codex
           </Link>
+          <Link to="/study" className="navlink" data-active={is('/study')}>
+            Study
+          </Link>
           <Link to="/profile" className="navlink" data-active={is('/profile')}>
             Profile
           </Link>
