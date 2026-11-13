@@ -11,6 +11,8 @@ import { bucketChecks, iamChecks, sgChecks, keyChecks, triageChecks, gatewayChec
 import { placeArtifact, readFinding, labChecks, PHASES } from '../src/sim/report';
 import { parseVector, METRICS } from '../src/engine/cvss';
 import { initialGvm, runGvm } from '../src/sim/gvm';
+import { initialCapture, runCapture } from '../src/sim/pcap';
+import { evaluateCapture, judgeCapture } from '../src/game/evaluateCapture';
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => (i + 1) * 2654435761);
 const allPass = (checks: Record<string, boolean>, ids: string[]) => ids.every((id) => checks[id] === true);
@@ -67,6 +69,16 @@ function solve(v: ChallengeVariant): { before: Record<string, boolean>; after: R
   const l = v.level;
   const sol = v.solution;
   switch (l.kind) {
+    case 'capture': {
+      if (sol.kind !== 'capture') throw new Error('wrong solution kind');
+      for (const a of sol.actions) {
+        if (a.t === 'answer') expect(judgeCapture(l, a.text).correct, `${l.id}: ${a.text} is accepted`).toBe(true);
+        if (a.t === 'select') expect(l.packets.some((p) => p.no === a.no), `${l.id}: packet ${a.no} exists`).toBe(true);
+      }
+      const st = runCapture(l.packets, sol.actions);
+      expect(st.error, `${l.id}: every filter parses`).toBeNull();
+      return { before: evaluateCapture(l, initialCapture()), after: evaluateCapture(l, st) };
+    }
     case 'scanner': {
       if (sol.kind !== 'scanner') throw new Error('wrong solution kind');
       const r = runGvm(l.setup, sol.actions);

@@ -6,6 +6,12 @@ import type { Evidence } from './types';
 
 export const EVIDENCE: Evidence[] = [
   {
+    id: 'ev-cafe-pcap',
+    from: 'pcap-stream',
+    title: "Café Wi-Fi capture: Mara's session cookie, used from a second laptop",
+    body: "22:40:12  10.20.0.14 -> shop.lantern.example  GET /account  Cookie: sid=a7f3c21e9b04 (plain HTTP)\n22:40:55  10.20.0.37 -> shop.lantern.example  GET /account/orders  Cookie: sid=a7f3c21e9b04  User-Agent: curl/8.5.0",
+  },
+  {
     id: 'ev-sqli-request',
     from: 'arena-sqli',
     title: 'Login bypass: the request and the response',

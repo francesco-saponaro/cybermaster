@@ -14,6 +14,7 @@ import { TerminalSandbox } from '../game/sandboxes/TerminalSandbox';
 import { CloudSandbox } from '../game/sandboxes/CloudSandbox';
 import { ReportSandbox } from '../game/sandboxes/ReportSandbox';
 import { ScannerSandbox } from '../game/sandboxes/ScannerSandbox';
+import { CaptureSandbox } from '../game/sandboxes/CaptureSandbox';
 import type { ShellApi } from '../game/LevelShell';
 
 function Sandbox({ level, api }: { level: Level; api: ShellApi }) {
@@ -31,6 +32,8 @@ function Sandbox({ level, api }: { level: Level; api: ShellApi }) {
       return <ReportSandbox level={level} {...props} act={api.act as never} />;
     case 'scanner':
       return <ScannerSandbox level={level} {...props} act={api.act as never} />;
+    case 'capture':
+      return <CaptureSandbox level={level} {...props} act={api.act as never} />;
   }
 }
 

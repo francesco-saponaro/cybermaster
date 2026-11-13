@@ -1,3 +1,5 @@
+import { CAPTURE_LEVELS } from '../src/content/levels/capture';
+import type { CaptureAct } from '../src/content/types';
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
 // Every level of every zone is played the way a beginner would: by reading the
@@ -304,6 +306,60 @@ test('The Basics: enabling the firewall too early locks you out, and the prompt 
   await expect(page.getByText(/You just locked yourself out/).first()).toBeVisible();
   await terminal(page, 'cd /home/deploy');
   await expect(page.locator('.term-input .prompt')).toHaveText('deploy@lab-01:~$');
+});
+
+// ---- The Capture --------------------------------------------------------------------
+
+async function captureAct(page: Page, a: CaptureAct) {
+  const cap = page.getByRole('region', { name: 'Capture' });
+  if (a.filter !== undefined) {
+    await page.getByLabel('Display filter').fill(a.filter);
+    await page.getByLabel('Display filter').press('Enter');
+    await expect(page.locator('.ws-status')).toContainText('Displayed');
+  }
+  if (a.select !== undefined) await page.locator(`.ws-table tbody tr:has(td:first-child:text-is("${a.select}"))`).click();
+  if (a.follow) {
+    await cap.getByRole('button', { name: 'Follow TCP Stream' }).click();
+    await expect(page.getByRole('region', { name: 'Follow TCP Stream' })).toBeVisible();
+  }
+  if (a.stats) {
+    await cap.getByRole('button', { name: 'Conversations' }).click();
+    await expect(page.locator('.ws-conv tbody tr').first()).toBeVisible();
+  }
+  if (a.answer) {
+    await page.locator('#ws-answer').fill(a.answer);
+    await page.locator('.ws-answer button[type=submit]').click();
+    await expect(page.locator('.ws-ok')).toContainText(a.answer);
+  }
+}
+
+test('The Capture: all six levels, through the filter bar, the packet list and the answer box', async ({ page }) => {
+  const errors = watchConsole(page);
+  await seed(page, { ...OPEN_ALL, zones: ['capture'] });
+  for (const l of CAPTURE_LEVELS) {
+    await page.goto(`/play/${l.id}`);
+    if (l.boss) await incidentRunning(page);
+    await expect(page.locator('.ws-status')).toContainText(`of ${l.packets.length}`);
+    for (const st of l.showMe) await captureAct(page, st.act!);
+    if (l.boss) await bossCleared(page);
+    else await cleared(page);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('The Capture: a wrong filter turns red and says why, and Apply as Filter writes the filter', async ({ page }) => {
+  await seed(page, { ...OPEN_ALL, zones: ['capture'] });
+  await page.goto('/play/pcap-filter');
+  const bar = page.getByLabel('Display filter');
+  await bar.fill('ip.addr = 10.20.0.14');
+  await expect(bar).toHaveAttribute('data-valid', 'no');
+  await expect(page.locator('.ws-status')).toContainText('use two: ==');
+  await bar.fill('ip.source == 10.20.0.14');
+  await expect(page.locator('.ws-status')).toContainText('neither a field nor a protocol name');
+  await page.locator('.ws-table tbody tr', { hasText: 'Standard query response' }).first().click();
+  await page.getByRole('button', { name: /^Apply as filter: dns\.qry\.name == / }).click();
+  await expect(bar).toHaveValue(/^dns\.qry\.name == "/);
+  await expect(page.locator('.ws-status')).toContainText(/Displayed \d+ of \d+ with dns\.qry\.name == /);
 });
 
 // ---- The Cloud ------------------------------------------------------------------

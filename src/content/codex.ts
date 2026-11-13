@@ -73,6 +73,73 @@ export const CODEX: CodexEntry[] = [
       'auth.log (/var/log/auth.log on Ubuntu) records every SSH login attempt. Hundreds of "Failed password" lines from one address within minutes is a brute-force attack; reading that log is one of the first things to do on an incident.',
     ],
   },
+  // The Capture
+  {
+    id: 'pcap-filters',
+    title: 'Packet captures and display filters',
+    zone: 'capture',
+    short: 'A capture records every packet on a network; a display filter like http && ip.src == 10.20.0.14 hides everything else.',
+    body: [
+      'Wireshark (or tcpdump on a server) records packets from a network card into a .pcap or .pcapng file. The packet list shows one row per packet: number, time, source, destination, protocol, length and a one-line summary. Click a row and the details pane shows each layer: frame, IP, TCP or UDP, then the application (HTTP, DNS, TLS).',
+      'Display filters choose which rows you see; they never delete anything. A protocol name on its own is a filter (http, dns, tls, arp). A field compares with == != > < or contains: ip.addr == 10.20.0.14, tcp.port == 443, http.request.method == "POST", dns.qry.name contains "lantern". Combine with && (and), || (or), ! (not), and parentheses. An address with a prefix matches a range: ip.dst == 10.0.8.0/24. Strings go in double quotes.',
+      'Every line in the details pane is a field with a filter name; right-click > Apply as Filter writes the filter for you, which is how you learn the names. In Wireshark 4, ip.addr != X means "neither end is X". Capture filters (set before recording, in a different syntax, like "port 80") are another thing: display filters are what you use to read.',
+    ],
+  },
+  {
+    id: 'tcp-handshake',
+    title: 'The TCP handshake, RST and port scans',
+    zone: 'capture',
+    short: 'SYN, SYN-ACK, ACK opens a TCP connection; a closed port answers SYN with RST, and a scan is many SYNs from one address.',
+    body: [
+      'Before any data, the client sends SYN, the server answers SYN-ACK and the client confirms with ACK. Data then flows with PSH, ACK, each side acknowledging what it received, and FIN-ACK from each side closes it. Wireshark numbers each connection: tcp.stream == 0 shows the first one from start to finish.',
+      'A SYN to a port where nothing listens is answered with RST (reset). A SYN-ACK means the port is open. A firewall that drops the SYN gives no answer at all, which is why scanners report "filtered".',
+      'A port scan in a capture: many SYNs from one address, to many ports, within a second, with SYN-ACKs from the open ones and RSTs from the closed ones; nmap\'s default scan answers an open port\'s SYN-ACK with its own RST instead of finishing the handshake. The filter tcp.flags.syn == 1 && tcp.flags.ack == 0 shows only first packets. On a public Wi-Fi, port 445 (SMB, Windows file sharing) answering a stranger is a finding: Windows should treat that network as public and close it.',
+    ],
+  },
+  {
+    id: 'lookalike-domains',
+    title: 'Lookalike domains and DNS in a capture',
+    zone: 'capture',
+    short: 'Phishing uses names one character away from the real one; every name a computer visits shows up as a DNS lookup.',
+    body: [
+      'shop-lantern.example and shop.lantern.example look alike but are unrelated: the first is its own domain, registered by anyone; the second is a name inside lantern.example, which only Lantern controls. Other tricks: swapped letters (lantren), extra words (lantern-secure), another ending (.co instead of .com) and characters from other alphabets that look identical.',
+      'Before a computer connects to a name it asks DNS, and on most networks that lookup is not encrypted, so the capture shows every name visited, even for HTTPS sites. The filter dns.qry.name contains "lantern" finds every variant, and dns.flags.response == 1 shows the answers with their addresses.',
+      'Defences: password managers refuse to fill on a lookalike, companies watch for new registrations close to their name, and email filters check links. In a report, the lookalike name, its address and the time of the lookup are the evidence.',
+    ],
+  },
+  {
+    id: 'follow-stream',
+    title: 'Follow TCP Stream and session hijacking',
+    zone: 'capture',
+    short: 'Follow TCP Stream rebuilds a whole conversation as text; over plain HTTP that shows cookies, forms and passwords.',
+    body: [
+      'A request and its answer are split across several packets. Select any packet of a connection and choose Follow > TCP Stream: Wireshark sets the filter tcp.stream eq N and shows the conversation as the two programs saw it, the client in red and the server in blue.',
+      'Over plain HTTP everything is readable: headers, cookies, form fields. A session cookie read this way can be replayed by anyone, which is session hijacking: in the capture it shows as the same Cookie value sent from a second address. The fixes are HTTPS everywhere, the Secure flag so the cookie is never sent over HTTP, HSTS so the browser never tries HTTP, and binding or rotating sessions.',
+      'Over HTTPS, Follow shows only encrypted bytes. To read your own TLS traffic in a lab, a browser can write its session keys to a file (SSLKEYLOGFILE) and Wireshark can use them to decrypt.',
+    ],
+  },
+  {
+    id: 'tls-visibility',
+    title: 'What HTTPS hides, and what it does not',
+    zone: 'capture',
+    short: 'TLS encrypts the content, but the addresses, the timing, the sizes and the server name (SNI) still show.',
+    body: [
+      'With TLS, a capture shows the handshake and then only "Application Data". The URL path, the headers, the cookies, the form fields and the page are all encrypted.',
+      'Still visible: both IP addresses and ports, when and how much was sent, the DNS lookup before it, and the server name in the Client Hello (the SNI extension, field tls.handshake.extensions_server_name), which the server needs to pick the right certificate. Encrypted Client Hello (ECH) hides the SNI where both sides support it, but most traffic still sends it in clear.',
+      'So an observer learns where you went and roughly how much, not what you did. Sending a login form over plain HTTP gives away the password itself, which is why any login page must be HTTPS and why browsers mark HTTP forms "Not secure".',
+    ],
+  },
+  {
+    id: 'exfiltration',
+    title: 'Spotting data exfiltration',
+    zone: 'capture',
+    short: 'Exfiltration is data leaving the network for somewhere it should not go; look at direction and destination, not only size.',
+    body: [
+      'Statistics > Conversations lists each pair of addresses with packets and bytes in each direction. Sort by bytes, then ask for each big one: does it leave the network, and is the destination known? A backup between two internal machines is large and normal; a few megabytes to an unknown outside address at 3 a.m. is not.',
+      'Filters for it: ip.src == 10.0.8.0/24 && !(ip.dst == 10.0.8.0/24) shows traffic leaving the range. Then look at the DNS lookup before the connection (what name the machine asked for) and, if it is plain HTTP, follow the stream: the request may name the file.',
+      'In real networks, exfiltration often hides inside HTTPS to common cloud storage, or in DNS queries themselves, so captures are paired with flow logs (NetFlow, VPC Flow Logs) and alerts on unusual volumes per host. The evidence for a report: source host, destination, time window, bytes and, if visible, what was sent.',
+    ],
+  },
   // The Wire
   {
     id: 'http-anatomy',

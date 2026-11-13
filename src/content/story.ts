@@ -43,6 +43,14 @@ export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
       { who: 'Ines', text: "We start at the front door: the shop's own traffic. Find how they got close." },
     ],
   },
+  capture: {
+    title: 'Monday, 11:00',
+    lines: [
+      { who: 'Bruno', text: 'The café on the quai keeps a capture of its guest Wi-Fi for its internet provider. The owner sent us Sunday night.' },
+      { who: 'Ines', text: "If Mara's session was copied there, the copy is in that file. So is whoever made it." },
+      { who: 'Yasmin', text: 'And Harbor just sent theirs from the core switch. Something big left the warehouse around four.' },
+    ],
+  },
   arena: {
     title: 'Monday, 13:30',
     lines: [
@@ -87,6 +95,12 @@ export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
 
 /** One line in the level header, from a teammate, about what the case has turned up so far. */
 export const REMARKS: Record<string, Line & { needs?: string }> = {
+  'pcap-filter': { who: 'Bruno', text: 'Forty minutes of café Wi-Fi. Start by finding Mara in it.' },
+  'pcap-handshake': { who: 'Bruno', text: "Something knocked on every door of Mara's laptop at 22:38. Let's see who." },
+  'pcap-dns': { who: 'Yasmin', text: 'Mara says she clicked an email about her account just before. Her laptop looked something up.' },
+  'pcap-stream': { who: 'Ines', text: 'This is the one: her cookie, in the clear, and whoever picked it up.', needs: 'wire-replay' },
+  'pcap-creds': { who: 'Bruno', text: "Theo was at the same café on Sunday. He logged in to something from there." },
+  'pcap-boss': { who: 'Yasmin', text: "Harbor's capture from 03:40. Whatever left the warehouse is in here." },
   'net-subnet': { who: 'Yasmin', text: 'Your notes have two blocks in them. Find out where each one starts and ends.' },
   'net-dns-nat': { who: 'Ines', text: "Lantern's IT wants an address to allow-list. Make sure you send the right one." },
   'net-tcp-udp': { who: 'Bruno', text: 'The router has something on it the last audit missed. They only scanned TCP.' },
@@ -133,6 +147,12 @@ export const REMARKS: Record<string, Line & { needs?: string }> = {
 
 /** What each cleared level pins to the case board: the evidence, and what it proved. */
 export const PINS: Record<string, { title: string; proved: string }> = {
+  'pcap-filter': { title: 'Shop pages over HTTP', proved: "Mara's laptop sent three requests the whole café could read." },
+  'pcap-handshake': { title: 'A scan from the next table', proved: "10.20.0.37 knocked on ten ports of Mara's laptop; 445 answered." },
+  'pcap-dns': { title: 'The lookalike shop', proved: 'shop-lantern.example: the phishing page Mara was sent to.' },
+  'pcap-stream': { title: 'Her session, copied', proved: 'Her cookie crossed the Wi-Fi in clear and was replayed from .37.' },
+  'pcap-creds': { title: "Theo's password in the clear", proved: 'The old admin login was posted over plain HTTP on Sunday.' },
+  'pcap-boss': { title: 'The upload at 03:52', proved: 'files.harbor.lan sent its shared folder to an outside address.' },
   'net-subnet': { title: 'Printer on the guest Wi-Fi', proved: 'Every visitor can reach it: the /27 includes .201.' },
   'net-dns-nat': { title: 'Our public address', proved: 'Tests leave the office from 203.0.113.45, behind NAT.' },
   'net-tcp-udp': { title: 'SNMP on the router', proved: 'UDP 161 answers with "public", missed by TCP scans.' },
@@ -179,7 +199,9 @@ export const PINS: Record<string, { title: string; proved: string }> = {
 
 /** The incident as it happened, revealed as the levels that prove each moment are cleared. */
 export const TIMELINE: { time: string; text: string; levelId?: string }[] = [
+  { time: 'Sun 22:38', text: "A laptop at the café scans Mara's.", levelId: 'pcap-handshake' },
   { time: 'Sun 22:40', text: "Mara's session is copied on the café Wi-Fi.", levelId: 'wire-replay' },
+  { time: 'Sun 22:52', text: "Theo logs in to the old admin over plain HTTP; the password crosses the café.", levelId: 'pcap-creds' },
   { time: 'Mon 01:05', text: "The attacker reads Theo's unlinked staff notes.", levelId: 'wire-robots' },
   { time: 'Mon 01:30', text: 'API v1 accepts their unsigned admin token.', levelId: 'wire-jwt' },
   { time: 'Mon 02:14', text: 'Login bypass on /admin-old, no password.', levelId: 'arena-sqli' },
@@ -187,6 +209,7 @@ export const TIMELINE: { time: string; text: string; levelId?: string }[] = [
   { time: 'Mon 02:50', text: 'The link preview leaks cloud credentials.', levelId: 'arena-ssrf' },
   { time: 'Mon 03:10', text: 'Foothold on files.harbor.lan through the vsftpd backdoor.', levelId: 'perimeter-versions' },
   { time: 'Mon 03:40', text: 'The deploy key from git history is used from the warehouse.', levelId: 'cloud-keys' },
+  { time: 'Mon 03:52', text: "files.harbor.lan uploads its shared folder to an outside address.", levelId: 'pcap-boss' },
   { time: 'Mon 04:05', text: 'The invoices bucket is read without credentials.', levelId: 'cloud-bucket' },
   { time: 'Mon 04:20', text: '48,211 customers exported through the open route.', levelId: 'cloud-gateway' },
   { time: 'Mon 08:00', text: 'Claire calls the Watch.' },
@@ -203,6 +226,7 @@ export const ENDING: Line[] = [
 
 /** The boss levels run as live incidents: what the attacker is after, and what they leave with if they win. */
 export const INCIDENTS: Record<string, { threat: string; records: number; unit: string; loot: string }> = {
+  'pcap-boss': { threat: 'The upload from files.harbor.lan is still running.', records: 37600, unit: 'KB sent', loot: "Harbor's whole shared folder, on a stranger's server" },
   'linux-firewall': { threat: 'An address on the internet is trying passwords on lab-01 over SSH, several a second.', records: 1800, unit: 'passwords tried', loot: 'a shell on lab-01, and from there the office network' },
   'wire-cors': { threat: 'A page on another site is reading customer accounts right now.', records: 1204, unit: 'accounts read', loot: 'account details, IBANs and balances, read through the customers\' own browsers' },
   'arena-mass': { threat: 'Someone is signing up accounts with roles the form never offers, as you watch.', records: 312, unit: 'accounts made', loot: 'new accounts with staff rights, each one a way back in' },

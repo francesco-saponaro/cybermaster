@@ -4,6 +4,7 @@ import { ARCADE_BY_ID, type GameId } from '../../content/arcade';
 import type { CardLine } from '../../content/arcade/forgery';
 import { FIX_BY_ID, FIX_PAIRS } from '../../content/arcade/fixfirst';
 import { HARDEN_BY_ID, HARDEN_PAIRS } from '../../content/arcade/harden';
+import { SNIFF_BY_ID, SNIFF_PAIRS } from '../../content/arcade/sniffed';
 import { actForgery, LIVES, multiplier, ROUNDS, roundMs, secondsLeft, startForgery, stepForgery, type ForgeryAction, type ForgeryState, type Side } from '../forgery';
 import { ArcadeShell, Lives, score, TimeBar } from '../ui/Shell';
 import { useGameKeys, useLoop, useRun } from '../ui/useRun';
@@ -75,6 +76,28 @@ const HARDEN_TEXT: PairGameText = {
   review: (p) => p.topic,
   wrongNote: 'You picked the open one.',
 };
+
+const SNIFF_TEXT: PairGameText = {
+  id: 'sniffed',
+  pairs: SNIFF_PAIRS,
+  byId: SNIFF_BY_ID,
+  tag: 'sniff',
+  question: 'Which capture gives more away?',
+  right: 'That one leaks.',
+  wrong: 'The other one leaks more.',
+  tip: 'The same thing seen in two captures, as Wireshark shows it. Pick the one a listener on the network learns more from.',
+  pickTag: 'Leaks',
+  leaveTag: 'Keeps it',
+  ariaPick: 'this one gives more away',
+  how: 'Click or tap the one that leaks more.',
+  overWon: 'All twelve leaks caught',
+  review: (p) => p.topic,
+  wrongNote: 'You picked the safer one.',
+};
+
+export function SniffedPage() {
+  return <PairGame text={SNIFF_TEXT} />;
+}
 
 export function FixFirstPage() {
   return <PairGame text={FIX_TEXT} />;

@@ -1,0 +1,68 @@
+/* The packet capture in The Capture zone, laid out like Wireshark: filter bar,
+   packet list, packet details; the stream, conversations and notes beside it. */
+.pane-body.flush { overflow: hidden; display: flex; flex-direction: column; }
+.ws { display: flex; flex-direction: column; height: 100%; min-height: 0; flex: 1; }
+.ws-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.ws-bar-label { font-size: 0.8125rem; color: var(--muted); font-weight: 600; }
+.ws-filter { flex: 1; min-width: 0; font-size: 0.9375rem; }
+.ws-filter[data-valid='yes'] { background: #13261a; border-color: #2f7a46; }
+.ws-filter[data-valid='no'] { background: #2a1214; border-color: #a33a40; }
+.ws-apply { flex-shrink: 0; }
+.ws-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; flex-shrink: 0; }
+.ws-status { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
+.ws-status b { color: var(--ink); }
+.ws-status code { color: var(--ink); }
+.ws-err { color: #ff8d8d; }
+.ws-tool-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.ws-list { flex: 1 1 52%; min-height: 140px; overflow: auto; border-bottom: 1px solid var(--line); }
+.ws-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.ws-table thead th { position: sticky; top: 0; z-index: 1; background: #151515; text-align: left; font-weight: 600; color: var(--muted); padding: 5px 8px; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
+.ws-table td { padding: 3px 8px; white-space: nowrap; border-bottom: 1px solid #161616; }
+.ws-table td.ws-info { white-space: nowrap; max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ws-table tbody tr { cursor: pointer; }
+.ws-table tbody tr[data-tone='http'] { background: #12201a; }
+.ws-table tbody tr[data-tone='dns'] { background: #121a24; }
+.ws-table tbody tr[data-tone='tls'] { background: #17141f; }
+.ws-table tbody tr[data-tone='ctl'] { background: #181818; color: #cfcfcf; }
+.ws-table tbody tr[data-tone='rst'] { background: #2a1416; color: #ffc9c9; }
+.ws-table tbody tr[data-tone='misc'] { color: #a9a9a3; }
+.ws-table tbody tr:hover { filter: brightness(1.25); }
+.ws-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ws-table tbody tr[data-on='true'] { background: #2b3c63; color: #fff; filter: none; }
+.ws-none { padding: 12px; margin: 0; color: var(--muted); }
+.ws-details { flex: 1 1 40%; min-height: 120px; overflow: auto; padding: 6px 10px 12px; font-size: 0.8125rem; }
+.ws-details details { border-bottom: 1px solid #1d1d1d; padding: 3px 0; }
+.ws-details summary { cursor: pointer; font-weight: 600; padding: 3px 0; }
+.ws-details ul { list-style: none; margin: 0; padding: 0 0 4px 18px; }
+.ws-details li { display: flex; align-items: baseline; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+.ws-field { color: #7f8f86; font-size: 0.75rem; }
+.ws-asf { background: none; border: 1px solid #333; color: #cfd8d2; border-radius: 4px; font: inherit; font-size: 0.6875rem; padding: 0 6px; cursor: pointer; }
+.ws-asf:hover { border-color: var(--accent); color: #fff; }
+.ws-side { display: grid; gap: 12px; padding: 12px; align-content: start; }
+.ws-card { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px; display: grid; gap: 8px; background: #121212; min-width: 0; }
+.ws-card h3 { margin: 0; font-size: 0.9375rem; overflow-wrap: anywhere; }
+.ws-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ws-legend { margin: 0; }
+.ws-c { color: #ff9b9b; }
+.ws-s { color: #9cc2ff; }
+.ws-stream { margin: 0; max-height: 320px; overflow: auto; background: #0b0b0b; border: 1px solid #222; border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 0.8125rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ws-conv-wrap { overflow-x: auto; }
+.ws-conv { border-collapse: collapse; font-size: 0.8125rem; width: 100%; }
+.ws-conv th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid #2a2a2a; white-space: nowrap; }
+.ws-conv td { padding: 4px 6px; border-bottom: 1px solid #1b1b1b; white-space: nowrap; }
+.ws-notes { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 0.875rem; line-height: 1.45; }
+.ws-answer { display: grid; gap: 6px; margin-top: 4px; }
+.ws-answer .row { display: flex; gap: 8px; }
+.ws-answer input { min-width: 0; }
+.ws-ok { margin: 0; color: #7fd69a; }
+.ws-topics { display: flex; gap: 4px; flex-wrap: wrap; }
+.ws-topic { background: none; border: 1px solid #2a2a2a; color: var(--muted); border-radius: 99px; font: inherit; font-size: 0.75rem; font-weight: 600; padding: 4px 10px; cursor: pointer; }
+.ws-topic[aria-selected='true'] { color: var(--ink); border-color: var(--accent); }
+.ws-help { margin: 0; display: grid; gap: 6px; }
+.ws-help > div { display: grid; gap: 1px; }
+.ws-help dt { font-size: 0.8125rem; color: #e9e9e4; overflow-wrap: anywhere; }
+.ws-help dd { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+@media (max-width: 900px) {
+  .ws-list { min-height: 220px; }
+  .ws-bar-label { display: none; }
+}

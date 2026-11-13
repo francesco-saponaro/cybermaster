@@ -16,6 +16,13 @@ export const ZONES: Zone[] = [
     levelIds: ['wire-robots', 'wire-cookie-role', 'wire-replay', 'wire-httponly', 'wire-jwt', 'wire-cors'],
   },
   {
+    id: 'capture',
+    name: 'The Capture',
+    tagline: 'Wireshark: filters, handshakes, DNS, streams, cleartext and exfiltration',
+    intro: 'A packet capture with a display filter, packet details and Follow TCP Stream. Filter the café Wi-Fi down to what happened to Mara, then find what left Harbor in the night.',
+    levelIds: ['pcap-filter', 'pcap-handshake', 'pcap-dns', 'pcap-stream', 'pcap-creds', 'pcap-boss'],
+  },
+  {
     id: 'arena',
     name: 'The Arena',
     tagline: 'The OWASP Top 10, attacked and then fixed',

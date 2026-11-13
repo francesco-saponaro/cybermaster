@@ -16,8 +16,8 @@ function sentences(text: string): number {
 }
 
 describe('content integrity', () => {
-  it('has seven zones and between 5 and 7 levels in each, about thirty-five in all', () => {
-    expect(ZONES.length).toBe(7);
+  it('has eight zones and between 5 and 7 levels in each, about thirty-five in all', () => {
+    expect(ZONES.length).toBe(8);
     for (const z of ZONES) expect(z.levelIds.length).toBeGreaterThanOrEqual(5), expect(z.levelIds.length).toBeLessThanOrEqual(7);
     expect(ALL_LEVELS.length).toBeGreaterThanOrEqual(28);
   });
@@ -61,6 +61,7 @@ describe('content integrity', () => {
           expect(SERVERS[l.server]).toBeTruthy();
         }
         if (l.kind === 'terminal') expect(Object.keys(evaluateTerminal(l, [], [])).sort()).toEqual(ids);
+        if (l.kind === 'capture') expect(l.goals.map((g) => g.id).sort()).toEqual(ids);
         if (l.kind === 'arena') {
           expect(ids).toEqual(['blocked', 'found', 'works']);
           expect(ARENA_APPS[l.app]).toBeTruthy();

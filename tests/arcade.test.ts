@@ -61,7 +61,7 @@ describe('arcade stars, XP and unlocks', () => {
     expect(arcadeUnlocked(s, shapes, 'wire')).toBe(false);
     expect(arcadeUnlocked({ ...s, levels: { 'wire-cors': run } }, shapes, 'wire')).toBe(true);
     expect(arcadeUnlocked({ ...s, levels: { 'wire-robots': run } }, shapes, 'wire')).toBe(false);
-    expect(arcadeUnlocked({ ...s, zones: ['arena'] }, shapes, 'wire')).toBe(true);
+    expect(arcadeUnlocked({ ...s, zones: ['capture'] }, shapes, 'wire')).toBe(true);
     expect(arcadeUnlocked({ ...s, levels: { 'report-lab': run } }, shapes, 'report')).toBe(true);
     expect(arcadeUnlocked(s, shapes, 'nowhere')).toBe(false);
   });

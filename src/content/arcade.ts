@@ -5,7 +5,7 @@
 import type { ZoneId } from './types';
 import type { Speaker } from './story';
 
-export type GameId = 'harden-up' | 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
+export type GameId = 'harden-up' | 'sniffed' | 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
 
 export interface ArcadeGame {
   id: GameId;
@@ -131,6 +131,47 @@ export const ARCADE: ArcadeGame[] = [
       },
     ],
     words: ['get', 'post', 'delete', 'options', 'cookie', 'sid', 'role-cookie', 'robots', 'token', 'alg', 'hs256', 'alg-none', 'signature', 'exp', 'origin', 'https', 'replay'],
+  },
+  {
+    id: 'sniffed',
+    zone: 'capture',
+    title: 'Sniffed',
+    tagline: 'Two captures of the same thing: which one gives more away?',
+    teaches: 'What a listener on the network can read: passwords and cookies over plain protocols, names in DNS and SNI, and volume even when everything is encrypted.',
+    speaker: 'Bruno',
+    line: 'Everything you did on that café Wi-Fi, someone could have recorded. Learn to see it the way they would.',
+    howTo: [
+      'Each round shows the same action seen in two captures: the protocol, the Info column and what Follow TCP Stream shows.',
+      'Click or tap the one that gives more away before the round clock runs out. You then see why.',
+      'Twelve rounds, getting harder. A wrong call or running out of time costs one of three lives.',
+    ],
+    controls: [
+      { keys: 'Left arrow or 1', does: 'Card A leaks more' },
+      { keys: 'Right arrow or 2', does: 'Card B leaks more' },
+      { keys: 'Enter or Space', does: 'Next round' },
+      { keys: 'P or Esc', does: 'Pause' },
+    ],
+    stars: [800, 1800, 3000],
+    seconds: 120,
+    touch: 'On a touch screen, tap the card that leaks more.',
+    board: [
+      'Two cards, A and B, show one action, such as a login or a lookup, as it appears in two different captures.',
+      'Protocol and Info are the columns of the packet list; Follow TCP Stream is what you read when you put the conversation back together.',
+      'The first rounds are plain against encrypted. From round 5 you need to know what still shows (DNS, cookies without Secure). From round 9 both look alike and one detail decides.',
+      'The bar under the question is the round clock. It stops while the answer is explained.',
+    ],
+    rules: [
+      {
+        title: 'What a listener can read',
+        items: [
+          { label: 'Plain protocols', text: 'HTTP, FTP, Telnet, SMTP without STARTTLS, SNMP v1/v2c: everything, passwords included.' },
+          { label: 'Still visible with HTTPS', text: 'The DNS lookup, the server name (SNI), addresses, timing and volume.' },
+          { label: 'Hidden by HTTPS', text: 'The path, headers, cookies, forms and the page.' },
+          { label: 'Encoding is not encryption', text: 'Base64 in Basic auth is readable by anyone.' },
+        ],
+      },
+    ],
+    words: ['cleartext', 'sni', 'client-hello', 'cookie', 'sid', 'dns', 'tls', 'snmp', 'follow', 'hsts'],
   },
   {
     id: 'tower-defence',

@@ -10,8 +10,9 @@ import type { SgRule, ScanFinding, Verdict, BucketSetup, IamSetup, SgSetup, KeyS
 import type { Artifact, FindingDraft, FindingSpec } from '../sim/report';
 import type { Vector } from '../engine/cvss';
 import type { GvmAction, GvmSetup, GvmState, Tab as ScanTab } from '../sim/gvm';
+import type { Packet } from '../sim/pcap';
 
-export type ZoneId = 'basics' | 'wire' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
+export type ZoneId = 'basics' | 'wire' | 'capture' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
 
 export interface Zone {
   id: ZoneId;
@@ -261,4 +262,46 @@ export interface ScannerLevel extends LevelBase<ScannerAct> {
   evaluate: (s: GvmState) => Record<string, boolean>;
 }
 
-export type Level = WireLevel | ArenaLevel | TerminalLevel | CloudLevel | ReportLevel | ScannerLevel;
+// ---- The Capture --------------------------------------------------------------
+
+export interface CaptureAct {
+  /** Type this filter into the bar and apply it. */
+  filter?: string;
+  /** Click this packet in the list. */
+  select?: number;
+  follow?: boolean;
+  stats?: boolean;
+  answer?: string;
+}
+
+export interface CaptureGoal {
+  id: string;
+  /** Passes when an applied filter shows exactly the packets this reference filter shows. */
+  shows?: string;
+  /** Passes when a selected packet matches this filter. */
+  selectWhere?: string;
+  /** Passes when this TCP stream has been followed. */
+  follow?: number;
+  /** Passes when Statistics > Conversations has been opened. */
+  stats?: boolean;
+  /** Passes when one of these answers was submitted. */
+  answers?: string[];
+}
+
+export interface CaptureLevel extends LevelBase<CaptureAct> {
+  kind: 'capture';
+  /** The help topic open beside the capture: filters, flags, dns or follow. */
+  manual?: 'filters' | 'flags' | 'dns' | 'follow';
+  /** The file name shown in the title bar, like cafe-sunday.pcapng. */
+  file: string;
+  packets: Packet[];
+  /** What the team knows about the addresses, shown beside the capture. */
+  notes: string[];
+  /** The question the answer box asks. */
+  question: string;
+  goals: CaptureGoal[];
+  wrong: { answers: string[]; reason: string }[];
+  otherwise: string;
+}
+
+export type Level = WireLevel | ArenaLevel | TerminalLevel | CloudLevel | ReportLevel | ScannerLevel | CaptureLevel;

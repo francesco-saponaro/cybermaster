@@ -4,6 +4,7 @@ import { PAIR_BY_ID } from '../src/content/arcade/forgery';
 import { startForgery, ROUNDS } from '../src/arcade/forgery';
 import { FIX_BY_ID, FIX_PAIRS } from '../src/content/arcade/fixfirst';
 import { HARDEN_BY_ID, HARDEN_PAIRS } from '../src/content/arcade/harden';
+import { SNIFF_BY_ID, SNIFF_PAIRS } from '../src/content/arcade/sniffed';
 import { FIXES } from '../src/content/arcade/defence';
 import { startTower, COLS as TD_COLS } from '../src/arcade/tower';
 import { startSweeper, targets, COLS as SW_COLS } from '../src/arcade/sweeper';
@@ -94,14 +95,15 @@ async function shot(page: Page, name: string) {
 
 // ---- The arcade page and its locks -------------------------------------------------
 
-test('The arcade lists all seven games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
+test('The arcade lists all eight games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
   const errors = watchConsole(page);
   await open(page, '/arcade', { ...base, levels: { 'wire-cors': run() }, arcade: { 'spot-the-forgery': { best: 4200, stars: 1, plays: 2, lastPlayedAt: 'x' } } });
   await expect(page.getByRole('heading', { name: 'The arcade' })).toBeVisible();
-  await expect(page.locator('.arcade-row')).toHaveCount(7);
+  await expect(page.locator('.arcade-row')).toHaveCount(8);
   await expect(page.locator('.arcade-row').first()).toContainText('Harden Up');
   await expect(page.locator('.arcade-row').nth(1)).toContainText('Best 4,200');
-  await expect(page.locator('.arcade-row').nth(2)).toContainText('Opens when you beat Sign up as anyone, the boss of The Arena');
+  await expect(page.locator('.arcade-row').nth(2)).toContainText('Sniffed');
+  await expect(page.locator('.arcade-row').nth(3)).toContainText('Opens when you beat Sign up as anyone, the boss of The Arena');
   await page.goto('/arcade/tower-defence');
   await expect(page.getByRole('heading', { name: 'Hold the Line is still locked' })).toBeVisible();
   // The zone page offers the bonus round once the boss is beaten.
@@ -365,6 +367,7 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
     ['triage-rush', 'triage', async (p) => tick(p, 2000)],
     ['fix-first', 'fixfirst', async (p) => tick(p, 3000)],
     ['harden-up', 'harden', async (p) => tick(p, 3000)],
+    ['sniffed', 'sniffed', async (p) => tick(p, 3000)],
   ];
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
@@ -422,5 +425,22 @@ test('Harden Up: twelve boxes hardened, with the reason after each one', async (
     await page.keyboard.press('Enter');
   }
   await gameOver(page, 'harden-up', /All twelve boxes hardened/);
+  expect(errors).toEqual([]);
+});
+
+test('Sniffed: twelve leaks caught, with the reason after each one', async ({ page }) => {
+  const errors = watchConsole(page);
+  const dealt = startForgery(8, SNIFF_PAIRS);
+  await open(page, '/arcade/sniffed?seed=8');
+  await start(page, /café Wi-Fi/);
+  for (let r = 0; r < ROUNDS; r++) {
+    const pair = SNIFF_BY_ID[dealt.rounds[r]!]!;
+    await expect(page.locator('.sf-topic')).toContainText(pair.topic);
+    await tick(page, 1000);
+    await page.getByTestId(`card-${dealt.sides[r]}`).click();
+    await expect(page.getByTestId('sf-explain')).toContainText(pair.rule);
+    await page.keyboard.press('Enter');
+  }
+  await gameOver(page, 'sniffed', /All twelve leaks caught/);
   expect(errors).toEqual([]);
 });
