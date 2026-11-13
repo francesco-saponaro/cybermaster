@@ -5,7 +5,7 @@
 import type { ZoneId } from './types';
 import type { Speaker } from './story';
 
-export type GameId = 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush';
+export type GameId = 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
 
 export interface ArcadeGame {
   id: GameId;
@@ -268,6 +268,48 @@ export const ARCADE: ArcadeGame[] = [
       },
     ],
     words: ['finding', 'severity', 'cvss', 'cvss-av', 'cvss-ac', 'cvss-pr', 'cvss-ui', 'cia'],
+  },
+  {
+    id: 'fix-first',
+    zone: 'scanner',
+    title: 'Fix First',
+    tagline: 'Two real results, one patch window. Which goes first?',
+    teaches: 'Prioritising scan results: severity first, then proof over guesses, then who can reach the machine and what it holds.',
+    speaker: 'Ines',
+    line: "Monday morning, the weekly report is in and Claire's team can patch one thing before lunch. Pick it, every time.",
+    howTo: [
+      'Each round shows two real results from the scans. Both need fixing; you choose which comes first.',
+      'Click or tap the one to fix first before the round clock runs out. You then see why.',
+      'Twelve rounds, getting harder. A wrong call or running out of time costs one of three lives.',
+    ],
+    controls: [
+      { keys: 'Left arrow or 1', does: 'Card A first' },
+      { keys: 'Right arrow or 2', does: 'Card B first' },
+      { keys: 'Enter or Space', does: 'Next round' },
+      { keys: 'P or Esc', does: 'Pause' },
+    ],
+    stars: [800, 1800, 3000],
+    seconds: 120,
+    touch: 'On a touch screen, tap the card to fix first.',
+    board: [
+      'Two cards, A and B, are two results from Lantern\'s OpenVAS reports.',
+      'Each card shows the finding, the host, its score (severity), the QoD (how sure the scanner is) and who can reach the machine.',
+      'From round 5 the scores are close or equal, so the other lines decide. From round 9 the cards look almost the same: read every line.',
+      'The bar under the question is the round clock. It stops while the answer is explained.',
+    ],
+    rules: [
+      {
+        title: 'Fix first, in this order',
+        items: [
+          { label: 'Higher severity', text: 'High (7.0 and up) before Medium (4.0 and up) before Low. Log results are information, not problems.' },
+          { label: 'Proof over guesses', text: 'QoD 97% (checked from inside) beats 30% (a version read from a banner that may already be patched). Verify the guess, fix the proof.' },
+          { label: 'Who can reach it', text: 'The internet beats the office, and no login needed beats a login needed.' },
+          { label: 'What it holds', text: 'Same flaw, same proof: the machine with customer data before the empty test box.' },
+          { label: 'Already handled', text: 'A result overridden as a false positive, with a reason, has been dealt with.' },
+        ],
+      },
+    ],
+    words: ['gvm-qod-word', 'severity', 'cvss', 'false-positive', 'banner', 'gvm-override-word', 'eol', 'telnet-word'],
   },
 ];
 

@@ -59,11 +59,12 @@ export function multiplier(streak: number): number {
   return Math.min(3, 1 + Math.floor(streak / 3));
 }
 
-export function startForgery(seed: number): ForgeryState {
+/** Deals a run from a pool of pairs, four per tier. Fix First uses the same rules with its own pairs. */
+export function startForgery(seed: number, pairs: readonly { id: string; tier: 1 | 2 | 3 }[] = FORGERY_PAIRS): ForgeryState {
   const rng = makeRng(seed);
   const rounds: string[] = [];
   for (const tier of [1, 2, 3] as const) {
-    const pool = FORGERY_PAIRS.filter((p) => p.tier === tier).map((p) => p.id);
+    const pool = pairs.filter((p) => p.tier === tier).map((p) => p.id);
     const picked = rng.shuffle(pool).slice(0, PER_TIER);
     rounds.push(...picked);
   }
