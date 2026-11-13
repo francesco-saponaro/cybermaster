@@ -3,6 +3,8 @@ import type { ChallengeGenerator, ChallengeVariant } from './types';
 import { BASICS_CHALLENGES } from './basics';
 import { WIRE_CHALLENGES } from './wire';
 import { CAPTURE_CHALLENGES } from './capture';
+import { VALIDATION_CHALLENGES } from './validation';
+import { AUDIT_CHALLENGES } from './audit';
 import { ARENA_CHALLENGES } from './arena';
 import { PERIMETER_CHALLENGES } from './perimeter';
 import { CLOUD_CHALLENGES } from './cloud';
@@ -17,6 +19,8 @@ export const CHALLENGES: Record<string, ChallengeGenerator> = {
   ...BASICS_CHALLENGES,
   ...WIRE_CHALLENGES,
   ...CAPTURE_CHALLENGES,
+  ...VALIDATION_CHALLENGES,
+  ...AUDIT_CHALLENGES,
   ...ARENA_CHALLENGES,
   ...PERIMETER_CHALLENGES,
   ...CLOUD_CHALLENGES,

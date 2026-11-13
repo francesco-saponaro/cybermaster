@@ -11,7 +11,7 @@ import { useStore } from '../state/store';
  * over, the first mention of each glossary word is underlined too and explains
  * itself on hover or tap, so no jargon goes unexplained.
  */
-export function Rich({ text, gloss = true }: { text: string; gloss?: boolean }) {
+export function Rich({ text, gloss = true, hideCode = false }: { text: string; gloss?: boolean; hideCode?: boolean }) {
   const parts: ReactNode[] = [];
   const seen = new Set<string>();
   const re = /\[\[([\w-]+)\|([^\]]+)\]\]|`([^`]+)`/g;
@@ -35,7 +35,8 @@ export function Rich({ text, gloss = true }: { text: string; gloss?: boolean }) 
   };
   for (let m = re.exec(text); m; m = re.exec(text)) {
     if (m.index > last) pushPlain(text.slice(last, m.index));
-    if (m[3] !== undefined) parts.push(<code key={i++} className={m[3].length > 24 ? 'kbd kbd-long' : 'kbd'}>{m[3]}</code>);
+    if (m[3] !== undefined && hideCode) parts.push(<span key={i++} className="kbd kbd-hidden" aria-label="hidden: type it from memory">{'•'.repeat(Math.min(14, Math.max(4, m[3].length)))}</span>);
+    else if (m[3] !== undefined) parts.push(<code key={i++} className={m[3].length > 24 ? 'kbd kbd-long' : 'kbd'}>{m[3]}</code>);
     else parts.push(<Term key={i++} id={m[1]!}>{m[2]}</Term>);
     last = m.index + m[0].length;
   }

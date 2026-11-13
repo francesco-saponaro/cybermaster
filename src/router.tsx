@@ -52,6 +52,8 @@ const forgeryRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcad
 const packetRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/packet-runner', beforeLoad: () => { throw redirect({ to: '/arcade/spot-the-forgery', search: {} }); } });
 const fixRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/fix-first', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/FixFirst'), 'FixFirstPage') });
 const sniffRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/sniffed', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/FixFirst'), 'SniffedPage') });
+const saferunRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/safe-to-run', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/FixFirst'), 'SafeToRunPage') });
+const passfailRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/pass-or-fail', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/FixFirst'), 'PassOrFailPage') });
 const hardenRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/harden-up', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/FixFirst'), 'HardenUpPage') });
 const towerRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/tower-defence', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/TowerDefence'), 'TowerDefencePage') });
 const sweeperRoute = createRoute({ getParentRoute: () => rootRoute, path: 'arcade/network-sweeper', validateSearch: seedSearch, component: lazyRouteComponent(() => import('./arcade/games/Sweeper'), 'SweeperPage') });
@@ -69,7 +71,7 @@ const oldMission = createRoute({
 
 const routeTree = rootRoute.addChildren([site.addChildren([indexRoute, zoneRoute, codexRoute, studyRoute, profileRoute, caseRoute, endingRoute, arcadeRoute]), levelRoute, forgeryRoute,
   packetRoute, towerRoute, sweeperRoute, lockdownRoute, triageRoute, fixRoute,
-  hardenRoute, sniffRoute, challengeRoute, dailyRoute, oldMission]);
+  hardenRoute, passfailRoute, saferunRoute, sniffRoute, challengeRoute, dailyRoute, oldMission]);
 
 export const router = createRouter({
   routeTree,

@@ -4,6 +4,8 @@ import { ARCADE_BY_ID, type GameId } from '../../content/arcade';
 import type { CardLine } from '../../content/arcade/forgery';
 import { FIX_BY_ID, FIX_PAIRS } from '../../content/arcade/fixfirst';
 import { HARDEN_BY_ID, HARDEN_PAIRS } from '../../content/arcade/harden';
+import { AUDIT_BY_ID, AUDIT_PAIRS } from '../../content/arcade/passfail';
+import { SAFE_BY_ID, SAFE_PAIRS } from '../../content/arcade/saferun';
 import { SNIFF_BY_ID, SNIFF_PAIRS } from '../../content/arcade/sniffed';
 import { actForgery, LIVES, multiplier, ROUNDS, roundMs, secondsLeft, startForgery, stepForgery, type ForgeryAction, type ForgeryState, type Side } from '../forgery';
 import { ArcadeShell, Lives, score, TimeBar } from '../ui/Shell';
@@ -97,6 +99,50 @@ const SNIFF_TEXT: PairGameText = {
 
 export function SniffedPage() {
   return <PairGame text={SNIFF_TEXT} />;
+}
+
+const SAFE_TEXT: PairGameText = {
+  id: 'safe-to-run',
+  pairs: SAFE_PAIRS,
+  byId: SAFE_BY_ID,
+  tag: 'saferun',
+  question: "Which one does the engagement allow?",
+  right: "Allowed.",
+  wrong: "That one breaks the rules of engagement.",
+  tip: "Dock signed for verification only. Two things you could type next: pick the one the rules allow.",
+  pickTag: "Allowed",
+  leaveTag: "Not allowed",
+  ariaPick: "this one is allowed",
+  how: "Click or tap the allowed one.",
+  overWon: "Twelve calls by the rules",
+  review: (p) => p.topic,
+  wrongNote: "You picked the one the rules forbid.",
+};
+
+export function SafeToRunPage() {
+  return <PairGame text={SAFE_TEXT} />;
+}
+
+const PASSFAIL_TEXT: PairGameText = {
+  id: 'pass-or-fail',
+  pairs: AUDIT_PAIRS,
+  byId: AUDIT_BY_ID,
+  tag: 'passfail',
+  question: "Which one passes the control?",
+  right: "Passes.",
+  wrong: "That one fails the control.",
+  tip: "One control from a standard at the top, two pieces of evidence below. Pick the one an auditor would mark as passing.",
+  pickTag: "Pass",
+  leaveTag: "Fail",
+  ariaPick: "this evidence passes",
+  how: "Click or tap the evidence that passes.",
+  overWon: "Twelve controls audited",
+  review: (p) => p.topic,
+  wrongNote: "You passed the failing one.",
+};
+
+export function PassOrFailPage() {
+  return <PairGame text={PASSFAIL_TEXT} />;
 }
 
 export function FixFirstPage() {

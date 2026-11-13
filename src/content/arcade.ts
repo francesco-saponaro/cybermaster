@@ -5,7 +5,7 @@
 import type { ZoneId } from './types';
 import type { Speaker } from './story';
 
-export type GameId = 'harden-up' | 'sniffed' | 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
+export type GameId = 'pass-or-fail' | 'safe-to-run' | 'harden-up' | 'sniffed' | 'spot-the-forgery' | 'tower-defence' | 'network-sweeper' | 'lockdown' | 'triage-rush' | 'fix-first';
 
 export interface ArcadeGame {
   id: GameId;
@@ -265,6 +265,48 @@ export const ARCADE: ArcadeGame[] = [
     words: ['ip', 'host', 'ping', 'port', 'port-scan', 'service', 'banner', 'version', 'cve', 'scope', 'scanner', 'false-positive'],
   },
   {
+    id: 'safe-to-run',
+    zone: 'validation',
+    title: 'Safe to Run',
+    tagline: 'Two commands you could type next: which one do the rules allow?',
+    teaches: 'Working inside rules of engagement: check before run, safe scripts before intrusive ones, scope before everything, and proving access without taking data.',
+    speaker: 'Ines',
+    line: 'Dock trusted us with their network on one condition: nothing breaks. Every command you type, ask whether the paper allows it.',
+    howTo: [
+      'Each round shows two commands you could type next on the dock network, with what each one does.',
+      'Click or tap the one the verification-only engagement allows before the round clock runs out. You then see why.',
+      'Twelve rounds, getting harder. A wrong call or running out of time costs one of three lives.',
+    ],
+    controls: [
+      { keys: 'Left arrow or 1', does: 'Card A is allowed' },
+      { keys: 'Right arrow or 2', does: 'Card B is allowed' },
+      { keys: 'Enter or Space', does: 'Next round' },
+      { keys: 'P or Esc', does: 'Pause' },
+    ],
+    stars: [800, 1800, 3000],
+    seconds: 120,
+    touch: 'On a touch screen, tap the allowed card.',
+    board: [
+      'Two cards, A and B, are two commands for the same goal on Dock\'s network, with a line on what each one does.',
+      'The scope allows discovery, version detection, safe NSE scripts, auxiliary scanners and check. It forbids exploits, intrusive scripts and anything that may change or crash a system.',
+      'From round 5 both look like scans and you need the rule (vuln against "vuln and safe", a login scanner). From round 9 both are harmless-looking and one detail decides, such as the address or the number of threads.',
+      'The bar under the question is the round clock. It stops while the answer is explained.',
+    ],
+    rules: [
+      {
+        title: 'Verification only means',
+        items: [
+          { label: 'check, not run', text: 'On an exploit module, check asks; run (or exploit) fires it.' },
+          { label: 'Read the categories', text: 'NSE scripts tagged exploit or intrusive are out. "vuln and safe" keeps only harmless checks.' },
+          { label: 'Scope first', text: 'Even a harmless check needs the machine to be in the signed range.' },
+          { label: 'Prove, do not take', text: 'List what is exposed; do not download the client\'s data.' },
+          { label: 'Gently', text: 'Few threads on old networks. Password guessing needs its own permission.' },
+        ],
+      },
+    ],
+    words: ['msf-check-word', 'exploit', 'auxiliary', 'nse-word', 'nse-categories', 'rhosts', 'scope', 'roe', 'eternalblue', 'rank'],
+  },
+  {
     id: 'lockdown',
     zone: 'cloud',
     title: 'Lockdown',
@@ -303,6 +345,47 @@ export const ARCADE: ArcadeGame[] = [
       },
     ],
     words: ['firewall', 'bucket', 'policy', 'iam', 'least-privilege', 'ci', 'foothold'],
+  },
+  {
+    id: 'pass-or-fail',
+    zone: 'audit',
+    title: 'Pass or Fail',
+    tagline: 'One control, two pieces of evidence: which one passes?',
+    teaches: 'Reading evidence against a control the way an auditor does: the exact value, the direction of a limit, the running configuration and what a gate really measures.',
+    speaker: 'Yasmin',
+    line: 'An audit is a thousand small yes-or-no calls. Get fast and exact at them.',
+    howTo: [
+      'Each round shows one control from CIS, ASVS, Prowler or a release policy, and two pieces of evidence from a command or a file.',
+      'Click or tap the evidence that passes before the round clock runs out. You then see why.',
+      'Twelve rounds, getting harder. A wrong call or running out of time costs one of three lives.',
+    ],
+    controls: [
+      { keys: 'Left arrow or 1', does: 'Card A passes' },
+      { keys: 'Right arrow or 2', does: 'Card B passes' },
+      { keys: 'Enter or Space', does: 'Next round' },
+      { keys: 'P or Esc', does: 'Pause' },
+    ],
+    stars: [800, 1800, 3000],
+    seconds: 120,
+    touch: 'On a touch screen, tap the evidence that passes.',
+    board: [
+      'The line above the cards is the control: the standard and what it requires.',
+      'Each card is one piece of evidence: where it came from (a command such as sshd -T, a header, a file) and what it shows.',
+      'From round 5 you need the rule behind the control (the direction of a limit, what a gate measures). From round 9 both look like passes and one value decides.',
+      'The bar under the question is the round clock. It stops while the answer is explained.',
+    ],
+    rules: [
+      {
+        title: 'How an auditor reads evidence',
+        items: [
+          { label: 'The exact value', text: '"Disabled" means no, not without-password. SameSite=None does not limit anything.' },
+          { label: 'The direction', text: '"4 or less" fails at 6. "At least TLS 1.2" fails with TLS 1.0 on.' },
+          { label: 'What is running', text: 'sshd -T, not a commented line in a file. Missing configuration is not a pass.' },
+          { label: 'What it measures', text: 'A production gate ignores dev tools; management events are not data events.' },
+        ],
+      },
+    ],
+    words: ['cis-word', 'asvs', 'prowler-word', 'npm-audit', 'dockerfile', 'cloudtrail-word', 'cookie', 'samesite', 'dev-dep', 'eol-word'],
   },
   {
     id: 'triage-rush',

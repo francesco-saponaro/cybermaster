@@ -8,11 +8,12 @@ import type { ZoneId } from './types';
 
 export type Speaker = 'Ines' | 'Bruno' | 'Yasmin' | 'Claire';
 
-export const CAST: Record<Speaker, { role: string }> = {
-  Ines: { role: 'Your lead' },
-  Bruno: { role: 'Logs and forensics' },
-  Yasmin: { role: 'Cloud and infrastructure' },
-  Claire: { role: "Lantern & Co.'s CTO" },
+/** `role` stands alone under a name; `after` follows a name and a comma. */
+export const CAST: Record<Speaker, { role: string; after: string }> = {
+  Ines: { role: 'Your lead', after: 'your lead' },
+  Bruno: { role: 'Logs and forensics', after: 'logs and forensics' },
+  Yasmin: { role: 'Cloud and infrastructure', after: 'cloud and infrastructure' },
+  Claire: { role: "Lantern & Co.'s CTO", after: "Lantern & Co.'s CTO" },
 };
 
 export const CLIENT = {
@@ -67,12 +68,28 @@ export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
       { who: 'Ines', text: 'Stay inside the signed scope. We prove things, we do not guess.' },
     ],
   },
+  validation: {
+    title: 'Tuesday, 15:00',
+    lines: [
+      { who: 'Claire', text: 'Before I pay for new servers at the docks: can that FTP hole really be used, or is it a guess?' },
+      { who: 'Ines', text: 'We prove it without breaking anything. Dock signed for verification only: scan, ask, check. Nothing gets fired.' },
+      { who: 'Bruno', text: 'And someone over there is knocking on port 445 across the whole network. Find out why before they do.' },
+    ],
+  },
   cloud: {
     title: 'Wednesday, 10:20',
     lines: [
       { who: 'Yasmin', text: 'Got the trail. The invoices left through a public bucket and an export nobody locked.' },
       { who: 'Ines', text: "Close every door they used without breaking the shop. Claire's team is watching." },
       { who: 'Bruno', text: 'And find where that key came from. Someone committed it.' },
+    ],
+  },
+  audit: {
+    title: 'Wednesday, 14:00',
+    lines: [
+      { who: 'Claire', text: 'My developers want a checklist they can build against, not just a list of holes.' },
+      { who: 'Yasmin', text: 'And I want the whole cloud account checked in one pass, plus the logs of who made that key.' },
+      { who: 'Ines', text: 'Then we audit it properly: the app against OWASP, the server against CIS, the code, the image, the logs and the account.' },
     ],
   },
   report: {
@@ -95,6 +112,20 @@ export const BEATS: Record<ZoneId, { title: string; lines: Line[] }> = {
 
 /** One line in the level header, from a teammate, about what the case has turned up so far. */
 export const REMARKS: Record<string, Line & { needs?: string }> = {
+  'audit-summary': { who: 'Claire', text: 'My board meets on Monday and will read one page. Make it the right page.' },
+  'audit-wstg': { who: 'Ines', text: 'Claire\'s developers will search the report by test id. Give them the ids.' },
+  'audit-asvs': { who: 'Claire', text: 'Do not tell my team the cookie is "weak". Tell them which requirement it fails.' },
+  'audit-cis': { who: 'Yasmin', text: 'lab-01 has a firewall now. Its SSH settings are another story.' },
+  'audit-deps': { who: 'Bruno', text: 'The API has four hundred packages in it and nobody chose most of them.' },
+  'audit-docker': { who: 'Yasmin', text: 'The API runs in a container built two years ago and never rebuilt.' },
+  'audit-cloudtrail': { who: 'Bruno', text: 'The key from git was used at 03:40. CloudTrail will say what it did next.', needs: 'cloud-keys' },
+  'audit-prowler': { who: 'Yasmin', text: 'Someone is reading the invoices bucket again. Check the whole account, fix the right thing first.' },
+  'msf-modules': { who: 'Ines', text: 'Monday we read a version off a banner. Today we find the tool that can ask the server itself.' },
+  'msf-auxiliary': { who: 'Bruno', text: 'Dock has more than one FTP server. Read them all before you pick one.' },
+  'msf-nse': { who: 'Yasmin', text: "nmap can answer half of this on its own. Just read a script's label before you run it." },
+  'msf-exploit-payload': { who: 'Ines', text: 'You will not fire it, but you should know exactly what you are not firing.' },
+  'msf-check': { who: 'Claire', text: 'I need a yes or a no on the FTP server, not a maybe. And do not break it.' },
+  'msf-boss': { who: 'Bruno', text: 'The 445 probes are getting faster. If it is a worm, it is looking for one machine.' },
   'pcap-filter': { who: 'Bruno', text: 'Forty minutes of café Wi-Fi. Start by finding Mara in it.' },
   'pcap-handshake': { who: 'Bruno', text: "Something knocked on every door of Mara's laptop at 22:38. Let's see who." },
   'pcap-dns': { who: 'Yasmin', text: 'Mara says she clicked an email about her account just before. Her laptop looked something up.' },
@@ -147,6 +178,20 @@ export const REMARKS: Record<string, Line & { needs?: string }> = {
 
 /** What each cleared level pins to the case board: the evidence, and what it proved. */
 export const PINS: Record<string, { title: string; proved: string }> = {
+  'audit-summary': { title: 'The page for the board', proved: 'Critical overall: the export link, the public invoices, the old login.' },
+  'audit-wstg': { title: 'Findings filed under WSTG', proved: 'SESS-02, ATHZ-04, INPV-05: tests anyone can repeat.' },
+  'audit-asvs': { title: 'Cookie fails ASVS L1', proved: '3.4.1 (Secure) and 3.4.2 (HttpOnly) are not met.' },
+  'audit-cis': { title: 'lab-01 fails CIS SSH', proved: 'Root login, six tries and X11 forwarding: three controls fail.' },
+  'audit-deps': { title: 'A critical in the API', proved: 'minimist, pulled in by mkdirp; fixed, production clean.' },
+  'audit-docker': { title: 'An unsupported, root container', proved: 'node:14 on Debian 10, no USER, privileged.' },
+  'audit-cloudtrail': { title: 'The second key', proved: 'deploy-bot made a key for export-job at 03:40; it opened the bucket at 04:02.' },
+  'audit-prowler': { title: 'Account review', proved: 'Two criticals: the public invoices bucket first, root MFA next.' },
+  'msf-modules': { title: 'A module with a check', proved: 'proftpd_modcopy_exec can verify CVE-2015-3306 safely.' },
+  'msf-auxiliary': { title: 'Two ProFTPD servers', proved: 'ftp.dock.lan runs 1.3.5; backup-ftp runs the fixed 1.3.5a.' },
+  'msf-nse': { title: 'Anonymous FTP and MS17-010', proved: 'Anonymous login on ftp.dock.lan; SMBv1 flaw on 10.0.9.40.' },
+  'msf-exploit-payload': { title: 'Exploit against payload', proved: 'The flaw opens the door; the payload decides what walks in.' },
+  'msf-check': { title: 'FTP hole confirmed', proved: 'check: 10.0.9.9 appears vulnerable; 10.0.9.11 does not.' },
+  'msf-boss': { title: 'The worm\'s target', proved: 'scanstation.dock.lan, Windows 7, vulnerable to MS17-010.' },
   'pcap-filter': { title: 'Shop pages over HTTP', proved: "Mara's laptop sent three requests the whole café could read." },
   'pcap-handshake': { title: 'A scan from the next table', proved: "10.20.0.37 knocked on ten ports of Mara's laptop; 445 answered." },
   'pcap-dns': { title: 'The lookalike shop', proved: 'shop-lantern.example: the phishing page Mara was sent to.' },
@@ -210,6 +255,7 @@ export const TIMELINE: { time: string; text: string; levelId?: string }[] = [
   { time: 'Mon 03:10', text: 'Foothold on files.harbor.lan through the vsftpd backdoor.', levelId: 'perimeter-versions' },
   { time: 'Mon 03:40', text: 'The deploy key from git history is used from the warehouse.', levelId: 'cloud-keys' },
   { time: 'Mon 03:52', text: "files.harbor.lan uploads its shared folder to an outside address.", levelId: 'pcap-boss' },
+  { time: 'Mon 04:02', text: 'The new key rewrites the invoices bucket policy: public.', levelId: 'audit-cloudtrail' },
   { time: 'Mon 04:05', text: 'The invoices bucket is read without credentials.', levelId: 'cloud-bucket' },
   { time: 'Mon 04:20', text: '48,211 customers exported through the open route.', levelId: 'cloud-gateway' },
   { time: 'Mon 08:00', text: 'Claire calls the Watch.' },
@@ -226,6 +272,8 @@ export const ENDING: Line[] = [
 
 /** The boss levels run as live incidents: what the attacker is after, and what they leave with if they win. */
 export const INCIDENTS: Record<string, { threat: string; records: number; unit: string; loot: string }> = {
+  'audit-prowler': { threat: 'An address nobody knows is reading the invoices bucket again, one invoice at a time.', records: 3800, unit: 'invoices read', loot: 'every invoice Lantern has issued this year' },
+  'msf-boss': { threat: 'Something on the dock network is probing port 445 on every machine, faster each minute.', records: 254, unit: 'machines probed', loot: 'a worm on scanstation.dock.lan, and from there every unpatched machine on the docks' },
   'pcap-boss': { threat: 'The upload from files.harbor.lan is still running.', records: 37600, unit: 'KB sent', loot: "Harbor's whole shared folder, on a stranger's server" },
   'linux-firewall': { threat: 'An address on the internet is trying passwords on lab-01 over SSH, several a second.', records: 1800, unit: 'passwords tried', loot: 'a shell on lab-01, and from there the office network' },
   'wire-cors': { threat: 'A page on another site is reading customer accounts right now.', records: 1204, unit: 'accounts read', loot: 'account details, IBANs and balances, read through the customers\' own browsers' },

@@ -5,6 +5,8 @@ import { startForgery, ROUNDS } from '../src/arcade/forgery';
 import { FIX_BY_ID, FIX_PAIRS } from '../src/content/arcade/fixfirst';
 import { HARDEN_BY_ID, HARDEN_PAIRS } from '../src/content/arcade/harden';
 import { SNIFF_BY_ID, SNIFF_PAIRS } from '../src/content/arcade/sniffed';
+import { SAFE_BY_ID, SAFE_PAIRS } from '../src/content/arcade/saferun';
+import { AUDIT_BY_ID, AUDIT_PAIRS } from '../src/content/arcade/passfail';
 import { FIXES } from '../src/content/arcade/defence';
 import { startTower, COLS as TD_COLS } from '../src/arcade/tower';
 import { startSweeper, targets, COLS as SW_COLS } from '../src/arcade/sweeper';
@@ -51,7 +53,7 @@ function watchConsole(page: Page): string[] {
 async function open(page: Page, path: string, save: object = base) {
   await page.clock.install();
   await page.goto('/');
-  await page.evaluate(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(save)] as const);
+  await page.evaluate(([k, v]) => { localStorage.setItem(k, v); localStorage.setItem('cybermaster.recall', 'off'); }, [SAVE_KEY, JSON.stringify(save)] as const);
   await page.goto(path);
 }
 
@@ -95,11 +97,11 @@ async function shot(page: Page, name: string) {
 
 // ---- The arcade page and its locks -------------------------------------------------
 
-test('The arcade lists all eight games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
+test('The arcade lists all ten games with their bests, and locks a game until its boss is beaten', async ({ page }) => {
   const errors = watchConsole(page);
   await open(page, '/arcade', { ...base, levels: { 'wire-cors': run() }, arcade: { 'spot-the-forgery': { best: 4200, stars: 1, plays: 2, lastPlayedAt: 'x' } } });
   await expect(page.getByRole('heading', { name: 'The arcade' })).toBeVisible();
-  await expect(page.locator('.arcade-row')).toHaveCount(8);
+  await expect(page.locator('.arcade-row')).toHaveCount(10);
   await expect(page.locator('.arcade-row').first()).toContainText('Harden Up');
   await expect(page.locator('.arcade-row').nth(1)).toContainText('Best 4,200');
   await expect(page.locator('.arcade-row').nth(2)).toContainText('Sniffed');
@@ -368,6 +370,8 @@ test('Every game mid-run at 390 and 1440: on screen, nothing wider than the scre
     ['fix-first', 'fixfirst', async (p) => tick(p, 3000)],
     ['harden-up', 'harden', async (p) => tick(p, 3000)],
     ['sniffed', 'sniffed', async (p) => tick(p, 3000)],
+    ['safe-to-run', 'saferun', async (p) => tick(p, 3000)],
+    ['pass-or-fail', 'passfail', async (p) => tick(p, 3000)],
   ];
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: width < 500 ? 844 : 900 });
@@ -444,3 +448,25 @@ test('Sniffed: twelve leaks caught, with the reason after each one', async ({ pa
   await gameOver(page, 'sniffed', /All twelve leaks caught/);
   expect(errors).toEqual([]);
 });
+
+for (const [id, pairs, byId, line, won] of [
+  ['safe-to-run', SAFE_PAIRS, SAFE_BY_ID, /nothing breaks/, /Twelve calls by the rules/],
+  ['pass-or-fail', AUDIT_PAIRS, AUDIT_BY_ID, /small yes-or-no calls/, /Twelve controls audited/],
+] as const) {
+  test(`${id}: twelve rounds won, with the reason after each one`, async ({ page }) => {
+    const errors = watchConsole(page);
+    const dealt = startForgery(6, pairs);
+    await open(page, `/arcade/${id}?seed=6`);
+    await start(page, line);
+    for (let r = 0; r < ROUNDS; r++) {
+      const pair = byId[dealt.rounds[r]!]!;
+      await expect(page.locator('.sf-topic')).toContainText(pair.topic);
+      await tick(page, 1000);
+      await page.getByTestId(`card-${dealt.sides[r]}`).click();
+      await expect(page.getByTestId('sf-explain')).toContainText(pair.rule);
+      await page.keyboard.press('Enter');
+    }
+    await gameOver(page, id, won);
+    expect(errors).toEqual([]);
+  });
+}

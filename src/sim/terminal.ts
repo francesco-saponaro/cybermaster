@@ -3,6 +3,9 @@
 // real tools' formats closely enough that it reads the same on a real job.
 
 import { boxCommand, replayBox, ipcalc } from './linux';
+import { msfLine, msfPrompt, replayMsf, MSF_BANNER, MODULES, PAYLOADS, MODULE_BY_PATH } from './msf';
+import { npm, trivy, docker, aws, prowler, sshdT, type AuditSetup } from './audit';
+import { expandScripts, isIntrusive, scriptHelp, NSE_BY_NAME, type NseScript } from './nse';
 
 export interface HttpService {
   status: number;
@@ -23,6 +26,8 @@ export interface Port {
   udp?: boolean;
   /** UDP ports that never answer show as open|filtered: nmap cannot tell. */
   state?: 'open|filtered';
+  /** What the NSE scripts and Metasploit checks find here: anon-ftp, ms17-010, smbv1. */
+  flags?: string[];
 }
 
 export interface Host {
@@ -42,6 +47,10 @@ export interface Network {
   files: Record<string, string>;
   /** The machine you are logged in to, for the Linux levels. */
   box?: LinuxBox;
+  /** The engagement allows non-destructive checks only: no intrusive scripts, no exploits. */
+  roe?: 'check-only';
+  /** The project, image, cloud account and server the audit tools look at. */
+  audit?: AuditSetup;
 }
 
 export interface BoxFile {
@@ -160,11 +169,13 @@ export interface NmapOptions {
   noPing: boolean;
   udp: boolean;
   ports: number[] | 'all' | null;
+  scripts: string | null;
+  scriptHelp: string | null;
   targets: string[];
 }
 
 export function parseNmap(args: string[]): { ok: true; opts: NmapOptions } | { ok: false; error: string } {
-  const opts: NmapOptions = { pingOnly: false, versions: false, noPing: false, udp: false, ports: null, targets: [] };
+  const opts: NmapOptions = { pingOnly: false, versions: false, noPing: false, udp: false, ports: null, targets: [], scripts: null, scriptHelp: null };
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === '-sn') opts.pingOnly = true;
@@ -172,6 +183,16 @@ export function parseNmap(args: string[]): { ok: true; opts: NmapOptions } | { o
     else if (a === '-A') opts.versions = true;
     else if (a === '-Pn') opts.noPing = true;
     else if (a === '-sU') opts.udp = true;
+    else if (a === '-sC') opts.scripts = opts.scripts ? `${opts.scripts},default` : 'default';
+    else if (a === '--script' || a.startsWith('--script=')) {
+      const spec = a === '--script' ? args[++i] : a.slice(9);
+      if (!spec) return { ok: false, error: 'nmap: --script needs a script name or category, like --script ftp-anon' };
+      opts.scripts = spec;
+    } else if (a === '--script-help' || a.startsWith('--script-help=')) {
+      const spec = a === '--script-help' ? args[++i] : a.slice(14);
+      if (!spec) return { ok: false, error: 'nmap: --script-help needs a script name, like --script-help ftp-anon' };
+      opts.scriptHelp = spec;
+    }
     else if (a === '-sS' || a === '-sT' || a === '-v' || a === '-n' || /^-T[0-5]$/.test(a) || a === '--open' || a === '-sC') continue;
     else if (a === '-p-') opts.ports = 'all';
     else if (a === '-p' || a.startsWith('-p')) {
@@ -183,7 +204,7 @@ export function parseNmap(args: string[]): { ok: true; opts: NmapOptions } | { o
     } else if (a.startsWith('-')) return { ok: false, error: `nmap: unrecognized option '${a}'. Copy the command from the step, or type man nmap for the options.` };
     else opts.targets.push(a);
   }
-  if (opts.targets.length === 0) return { ok: false, error: 'nmap: no target given. Example: nmap 10.0.8.12' };
+  if (opts.targets.length === 0 && !opts.scriptHelp) return { ok: false, error: 'nmap: no target given. Example: nmap 10.0.8.12' };
   return { ok: true, opts };
 }
 
@@ -271,6 +292,11 @@ export interface CommandResult {
 export const COMMANDS = ['help', 'man', 'ls', 'cat', 'clear', 'history', 'nmap', 'curl', 'nc', 'dig', 'whois', 'vulndb', 'searchsploit', 'submit', 'whoami', 'pwd', 'echo'];
 
 /** Extra commands on a box you are logged in to. */
+/** The audit tools, on the levels that have a project and an account to audit. */
+export const AUDIT_COMMANDS = ['npm', 'trivy', 'docker', 'aws', 'prowler', 'sshd'];
+
+export const MSF_COMMANDS = ['msfconsole', 'search', 'use', 'info', 'show', 'set', 'check', 'run', 'back'];
+
 export const BOX_COMMANDS = ['sudo', 'ipcalc', 'ip', 'id', 'chmod', 'ps', 'ss', 'systemctl', 'ufw', 'tail', 'grep', 'cd', 'hostname'];
 
 export const MAN: Record<string, { synopsis: string; lines: string[] }> = {
@@ -283,6 +309,8 @@ export const MAN: Record<string, { synopsis: string; lines: string[] }> = {
       '-p <list> ports to scan: -p 22,80 or -p 1-1024. -p- scans all 65535.',
       '-sV       ask each open port what it is and which version it runs.',
       '-Pn       skip host discovery and scan anyway (for hosts that ignore pings).',
+      '--script <name or category>  run NSE scripts: --script ftp-anon, --script "vuln and safe". -sC runs the default set.',
+      '--script-help <name>         what a script does and its categories (safe, intrusive, exploit, vuln ...).',
       '-sU       scan UDP instead of TCP. Needs root (sudo) and is slow: UDP has no handshake, so nmap waits for answers.',
       'Without -p, nmap scans the 1,000 most common TCP ports.',
     ],
@@ -367,6 +395,53 @@ export const MAN: Record<string, { synopsis: string; lines: string[] }> = {
       'sudo ufw status numbered then sudo ufw delete 2 removes rule number 2.',
     ],
   },
+  npm: {
+    synopsis: 'npm audit | npm audit fix | npm audit --omit=dev | npm ls <package>',
+    lines: [
+      'npm audit compares every installed package, direct or pulled in by another, with the GitHub advisory database and prints each vulnerable one with its severity and the advisory link.',
+      'npm audit fix upgrades within the versions package.json allows. npm audit fix --force also installs breaking major versions: agree that with the developers first.',
+      '--omit=dev leaves out development tools (test runners, build watchers) that never run in production.',
+      'npm ls <package> shows which of your dependencies pulls a package in.',
+    ],
+  },
+  trivy: {
+    synopsis: 'trivy image [--severity CRITICAL,HIGH] <image> | trivy config <folder>',
+    lines: [
+      'Trivy, by Aqua Security, scans container images for known vulnerabilities in the operating system packages and the app\'s libraries, and Dockerfiles and other configuration for risky settings.',
+      '--severity keeps only the levels you list. A warning that the OS is no longer supported means its flaws will never be patched in place: rebuild on a current base.',
+      'trivy config . checks the Dockerfile in this folder: DS002 means the image runs as root.',
+    ],
+  },
+  docker: { synopsis: 'docker ps | docker inspect <container>', lines: ['docker ps lists running containers and their published ports; 0.0.0.0:3000->3000 means every network can reach port 3000.', 'docker inspect shows how a container runs: the user (empty means root), whether it is Privileged, and its port bindings.'] },
+  aws: {
+    synopsis: 'aws cloudtrail lookup-events --lookup-attributes AttributeName=<name>,AttributeValue=<value>',
+    lines: [
+      'lookup-events searches the last 90 days of management events: who called which API, when, from which address, with which access key.',
+      'Attribute names: EventName (CreateAccessKey, PutBucketPolicy ...), Username, AccessKeyId, ResourceName.',
+      'aws cloudtrail describe-trails shows whether the trail covers every region; get-event-selectors --trail-name <name> shows whether data events, such as S3 object reads, are recorded at all.',
+      'aws sts get-caller-identity shows which account and identity you are using.',
+    ],
+  },
+  prowler: {
+    synopsis: 'prowler aws [--severity critical high] [--service s3] [--check <id>]',
+    lines: [
+      'Prowler runs hundreds of security checks against an AWS account (and Azure, GCP, Kubernetes), based on CIS, AWS best practice and other frameworks.',
+      'Each result is PASS or FAIL with a severity, a check id such as s3_bucket_level_public_access_block, and the resource.',
+      'Filter with --severity, --service or --check to focus. The full results go to CSV, JSON and HTML files for the report.',
+    ],
+  },
+  sshd: { synopsis: 'sudo sshd -T', lines: ['Prints the configuration the SSH server is really using, after every config file and default, one setting per line in lower case.', 'Pipe it into grep to pick settings: sudo sshd -T | grep -i permitrootlogin.'] },
+  msfconsole: {
+    synopsis: 'msfconsole',
+    lines: [
+      'Opens the Metasploit Framework console. The prompt becomes msf6 >.',
+      'search <words> finds modules (search proftpd, search type:auxiliary smb, search cve:2017-0143); use <name or number> selects one; info shows its rank, whether it supports check, its options and references.',
+      'show options lists what the module needs; set RHOSTS 10.0.9.9 fills one in. Auxiliary modules (scanners) gather information with run.',
+      'check asks the target whether it looks vulnerable, without exploiting it. "Appears to be vulnerable" is a strong hint, not proof of impact.',
+      'An exploit is the code that abuses the flaw; a payload is what runs on the target afterwards. In this game exploits are never fired: the engagements allow checks only.',
+      'back leaves a module, exit leaves msfconsole. Anything else is passed to the shell.',
+    ],
+  },
   sudo: { synopsis: 'sudo <command>', lines: ['Runs one command as root, the administrator. Changing services, the firewall or files you do not own needs it. Use it only for the commands that need it.'] },
   tail: { synopsis: 'tail [-n N] <file>', lines: ['Prints the last lines of a file, 10 unless you say -n. Logs grow at the bottom, so this is where the latest events are.'] },
   grep: { synopsis: 'grep [-c] [-i] <text> <file>', lines: ['Prints the lines of a file that contain the text. -c prints how many instead, -i ignores upper and lower case.', 'Example: grep "Failed password" /var/log/auth.log'] },
@@ -382,6 +457,26 @@ function versionString(p: Port): string {
 
 const TOP_PORTS = new Set([67, 69, 123, 137, 161, 500, 514, 1900, 5353, 21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 445, 993, 995, 1723, 3000, 3306, 3389, 5432, 5900, 6379, 8080, 8443, 2121, 8081, 9200, 10000, 27017]);
 
+/** --script accepts names and categories separated by commas, and "a and b" for both. */
+function selectScripts(spec: string): { scripts: NseScript[]; unknown: string[] } {
+  const parts = spec.split(',').map((x) => x.trim()).filter(Boolean);
+  const out = new Set<NseScript>();
+  const unknown: string[] = [];
+  for (const part of parts) {
+    const words = part.split(/\s+and\s+/i);
+    let set: NseScript[] | null = null;
+    for (const w of words) {
+      const not = /^not\s+/i.test(w);
+      const ex = expandScripts(w.replace(/^not\s+/i, ''));
+      unknown.push(...ex.unknown);
+      if (not) set = (set ?? Object.values(NSE_BY_NAME)).filter((s) => !ex.scripts.includes(s));
+      else set = set ? set.filter((s) => ex.scripts.includes(s)) : ex.scripts;
+    }
+    for (const s of set ?? []) out.add(s);
+  }
+  return { scripts: [...out], unknown };
+}
+
 function nmap(args: string[], net: Network, root = false): CommandResult {
   const parsed = parseNmap(args);
   if (!parsed.ok) return { out: [parsed.error], facts: [], fail: parsed.error };
@@ -394,6 +489,25 @@ function nmap(args: string[], net: Network, root = false): CommandResult {
     };
   }
   const proto = opts.udp ? 'udp' : 'tcp';
+  if (opts.scriptHelp) {
+    const help = scriptHelp(opts.scriptHelp);
+    if (!help) return { out: [`NSE: No script named "${opts.scriptHelp}".`], facts: [] };
+    return { out: ['Starting Nmap 7.95 ( https://nmap.org ) at 2026-11-09 10:14 CET', ...help], facts: [`nse-help:${opts.scriptHelp}`] };
+  }
+  let scripts: NseScript[] = [];
+  if (opts.scripts) {
+    const ex = selectScripts(opts.scripts);
+    if (ex.unknown.length) return { out: [`NSE: failed to initialize the script engine:`, `'${ex.unknown[0]}' did not match a category, filename, or directory`], facts: [], fail: `There is no NSE script or category called ${ex.unknown[0]}. nmap --script-help <name> shows one.` };
+    scripts = ex.scripts;
+    const bad = scripts.filter(isIntrusive);
+    if (net.roe === 'check-only' && bad.length) {
+      return {
+        out: [`Stopped: ${bad.map((b) => b.name).join(', ')} ${bad.length === 1 ? 'is' : 'are'} in the ${[...new Set(bad.flatMap((b) => b.categories.filter((c) => ['intrusive', 'exploit', 'dos'].includes(c))))].join('/')} category.`, 'This engagement allows non-destructive checks only.'],
+        facts: ['nse-refused'],
+        fail: 'Intrusive and exploit scripts can change or crash the target, and this engagement allows checks only. Pick safe scripts, or a category like "vuln and safe".',
+      };
+    }
+  }
   const out: string[] = ['Starting Nmap 7.95 ( https://nmap.org ) at 2026-11-09 10:14 CET'];
   const facts: string[] = ['nmap'];
   let addresses = 0;
@@ -429,6 +543,19 @@ function nmap(args: string[], net: Network, root = false): CommandResult {
       const notShown = scanned - open.length - (closed.length <= 5 ? closed.length : 0);
       if (notShown > 0) out.push(`Not shown: ${notShown} closed ${proto} ports (${opts.udp ? 'port-unreach' : 'reset'})`);
       const rows: string[][] = open.map((p) => [`${p.port}/${proto}`, p.state ?? 'open', p.service, opts.versions ? versionString(p) : '']);
+      const scriptOut = new Map<number, string[]>();
+      for (const p of open) {
+        const lines: string[] = [];
+        for (const sc of scripts) {
+          const o = sc.port?.(h, p);
+          if (!o?.length) continue;
+          facts.push(`nse:${sc.name}:${h.ip}`);
+          for (const m of o.join(' ').matchAll(/CVE-\d{4}-\d+/g)) facts.push(`nse-vuln:${h.ip}:${m[0]}`);
+          if (o.length === 1) lines.push(`|_${sc.name}: ${o[0]}`);
+          else lines.push(`| ${sc.name}: ${o[0]}`, ...o.slice(1, -1).map((l) => `| ${l}`), `|_${o[o.length - 1]}`);
+        }
+        if (lines.length) scriptOut.set(p.port, lines);
+      }
       if (closed.length <= 5) for (const c of closed) rows.push([`${c}/${proto}`, 'closed', SERVICE_NAMES[c] ?? 'unknown', '']);
       rows.sort((a, b) => parseInt(a[0]!) - parseInt(b[0]!));
       if (rows.length === 0) {
@@ -438,8 +565,21 @@ function nmap(args: string[], net: Network, root = false): CommandResult {
         const w1 = Math.max(5, ...rows.map((r) => r[1]!.length));
         const w2 = Math.max(7, ...rows.map((r) => r[2]!.length));
         out.push(pad('PORT', w0) + pad('STATE', w1) + (opts.versions ? pad('SERVICE', w2) + 'VERSION' : 'SERVICE'));
-        for (const r of rows) out.push(pad(r[0]!, w0) + pad(r[1]!, w1) + (opts.versions ? pad(r[2]!, w2) + r[3] : r[2]));
+        for (const r of rows) {
+          out.push(pad(r[0]!, w0) + pad(r[1]!, w1) + (opts.versions ? pad(r[2]!, w2) + r[3] : r[2]));
+          out.push(...(scriptOut.get(parseInt(r[0]!)) ?? []));
+        }
       }
+      const hostLines: string[] = [];
+      for (const sc of scripts) {
+        const o = sc.host?.(h);
+        if (!o?.length) continue;
+        facts.push(`nse:${sc.name}:${h.ip}`);
+        for (const m of o.join(' ').matchAll(/CVE-\d{4}-\d+/g)) facts.push(`nse-vuln:${h.ip}:${m[0]}`);
+        hostLines.push(`| ${sc.name}: `, ...o.slice(0, -1).map((l) => `|${l}`), `|_${o[o.length - 1]}`);
+      }
+      if (hostLines.length) out.push('', 'Host script results:', ...hostLines);
+      for (const sc of scripts) facts.push(`nse-ran:${sc.name}`);
       for (const p of open) {
         if (opts.udp) facts.push(p.state ? `udp-maybe:${h.ip}:${p.port}` : `udp:${h.ip}:${p.port}`);
         else facts.push(`port:${h.ip}:${p.port}`);
@@ -585,10 +725,49 @@ export function boxNow(ctx: TermContext): LinuxBox | undefined {
   return ctx.net.box ? replayBox(ctx.net.box, ctx.history.slice(0, -1), splitArgs) : undefined;
 }
 
+/** `command | grep [-i] [-v] [-c] [-E] text`: the one pipe an audit needs. */
+function pipeGrep(r: CommandResult, grepArgs: string[]): CommandResult {
+  const flags = grepArgs.filter((a) => /^-[ivcE]+$/.test(a)).join('');
+  const pattern = grepArgs.find((a) => !/^-[ivcE]+$/.test(a)) ?? '';
+  let test: (l: string) => boolean;
+  if (flags.includes('E')) {
+    let re: RegExp;
+    try {
+      re = new RegExp(pattern, flags.includes('i') ? 'i' : '');
+    } catch {
+      return { out: ['grep: Unmatched ( or \\('], facts: [] };
+    }
+    test = (l) => re.test(l);
+  } else test = (l) => (flags.includes('i') ? l.toLowerCase().includes(pattern.toLowerCase()) : l.includes(pattern));
+  const kept = r.out.filter((l) => (flags.includes('v') ? !test(l) : test(l)));
+  const facts = r.facts.filter((f) => !f.startsWith('sshd:') || kept.some((l) => l === f.slice(5).replace(/:/, ' ')));
+  return { ...r, out: flags.includes('c') ? [String(kept.length)] : kept, facts: [...facts, 'grep'] };
+}
+
 export function execute(line: string, ctx: TermContext): CommandResult {
+  const pipe = /^(.*?)\s*\|\s*(grep\b.*)$/.exec(line.trim());
+  if (pipe && !/['"][^'"]*\|/.test(pipe[1]!)) {
+    const left = execute(pipe[1]!, ctx);
+    if (left.fail || left.clear) return left;
+    return pipeGrep(left, splitArgs(pipe[2]!).slice(1));
+  }
   const box = boxNow(ctx);
   const net = box ? { ...ctx.net, box } : ctx.net;
+  const msf = replayMsf(ctx.history.slice(0, -1), ctx.net);
+  if (msf.active) {
+    const r = msfLine(msf, line, ctx.net);
+    if (r) return r;
+    // msfconsole hands anything it does not know to the shell.
+    const shell = run(splitArgs(line.trim()), { ...ctx, net }, false);
+    return { ...shell, out: [`[*] exec: ${line.trim()}`, '', ...shell.out] };
+  }
   return run(splitArgs(line.trim()), { ...ctx, net }, false);
+}
+
+/** The prompt to show now: msfconsole's, the box's, or the analyst's. */
+export function promptNow(ctx: TermContext): string | null {
+  const msf = replayMsf(ctx.history, ctx.net);
+  return msf.active ? msfPrompt(msf) : null;
 }
 
 function run(args: string[], ctx: TermContext, root: boolean): CommandResult {
@@ -659,6 +838,27 @@ function run(args: string[], ctx: TermContext, root: boolean): CommandResult {
       return nmap(rest, ctx.net, root);
     case 'ipcalc':
       return ipcalc(rest);
+    case 'npm':
+      if (!ctx.net.audit) break;
+      return npm(ctx.net.audit, rest, ctx.history.slice(0, -1).some((h) => /^npm audit fix\s*$/.test(h.trim())));
+    case 'trivy':
+      if (!ctx.net.audit) break;
+      return trivy(ctx.net.audit, rest);
+    case 'docker':
+      if (!ctx.net.audit) break;
+      return docker(ctx.net.audit, rest);
+    case 'aws':
+      if (!ctx.net.audit) break;
+      return aws(ctx.net.audit, rest);
+    case 'prowler':
+      if (!ctx.net.audit) break;
+      return prowler(ctx.net.audit, rest);
+    case 'sshd':
+      if (!ctx.net.audit) break;
+      return sshdT(ctx.net.audit, rest, root);
+    case 'msfconsole':
+      if (!ctx.net.roe) return { out: ['msfconsole: command not found. Type help for the list.'], facts: [] };
+      return { out: MSF_BANNER, facts: ['msf-start'], delay: 500 };
     case 'curl':
       return curl(rest, ctx.net);
     case 'nc':
@@ -682,8 +882,9 @@ function run(args: string[], ctx: TermContext, root: boolean): CommandResult {
       if (rest[0] === 'sudo' || rest[0] === 'su' || rest[0] === '-i' || rest[0] === '-s') return { out: ['Run one command at a time with sudo in front of it.'], facts: [] };
       return run(rest, ctx, true);
     default:
-      return { out: [`${cmd}: command not found. Type help for the list.`], facts: [] };
+      break;
   }
+  return { out: [`${cmd}: command not found. Type help for the list.`], facts: [] };
 }
 
 // ---- Tab completion ---------------------------------------------------------
@@ -698,11 +899,28 @@ export function complete(line: string, ctx: TermContext): { line: string; option
   const index = endsWithSpace ? words.length : Math.max(0, words.length - 1);
   const cmd = words[0] ?? '';
   let pool: string[];
+  const msf = replayMsf(ctx.history, ctx.net);
+  if (msf.active) {
+    const mod = msf.module ? MODULE_BY_PATH[msf.module] : undefined;
+    if (index === 0) pool = [...MSF_COMMANDS.filter((c) => c !== 'msfconsole'), 'exit', 'sessions', 'help'];
+    else if (cmd === 'use' || cmd === 'info') pool = MODULES.map((m) => m.path);
+    else if (cmd === 'show') pool = ['options', 'payloads'];
+    else if (cmd === 'set' && index === 1) pool = [...(mod?.options.map((o) => o.name) ?? []), ...(mod?.payloads ? ['PAYLOAD', 'LHOST', 'LPORT'] : [])];
+    else if (cmd === 'set' && (words[1] ?? '').toUpperCase() === 'PAYLOAD' && mod?.payloads) pool = PAYLOADS[mod.payloads].map((p) => p.name);
+    else if (cmd === 'set') pool = [ctx.net.cidr, ...ctx.net.hosts.map((h) => h.ip)];
+    else pool = [];
+    const matches = [...new Set(pool.filter((p) => p.startsWith(current)))].sort();
+    if (matches.length === 0) return { line, options: [] };
+    const prefix = commonPrefix(matches);
+    const head = endsWithSpace ? line : line.slice(0, line.length - current.length);
+    if (matches.length === 1) return { line: head + matches[0] + ' ', options: [] };
+    return { line: head + prefix, options: prefix === current ? matches : [] };
+  }
   const box = boxNow({ ...ctx, history: [...ctx.history, ''] });
   const sub = cmd === 'sudo' ? (words[1] ?? '') : cmd;
   const subIndex = cmd === 'sudo' ? index - 1 : index;
   const boxFiles = box ? Object.keys(box.files).filter((f) => f.startsWith(box.cwd + '/')).map((f) => f.slice(box.cwd.length + 1)).filter((f) => !f.includes('/')) : [];
-  if (index === 0 || (cmd === 'sudo' && subIndex === 0)) pool = box ? [...COMMANDS, ...BOX_COMMANDS] : COMMANDS;
+  if (index === 0 || (cmd === 'sudo' && subIndex === 0)) pool = [...(box ? [...COMMANDS, ...BOX_COMMANDS] : COMMANDS), ...(ctx.net.roe ? ['msfconsole'] : [])];
   else if (cmd === 'man') pool = Object.keys(MAN);
   else if (box && ['cat', 'ls', 'chmod', 'tail', 'grep'].includes(sub)) pool = [...boxFiles, ...Object.keys(box.files)];
   else if (box && sub === 'systemctl') pool = subIndex === 1 ? ['status', 'stop', 'start', 'disable', 'enable', 'is-enabled', 'list-units'] : box.services.map((s) => s.unit);

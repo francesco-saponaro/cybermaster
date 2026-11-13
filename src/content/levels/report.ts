@@ -1,5 +1,5 @@
 import type { ReportLevel } from '../types';
-import type { Artifact } from '../../sim/report';
+import type { Artifact, SummarySpec } from '../../sim/report';
 import { FINDING_TARGET_VECTOR } from '../../sim/report';
 
 export const ARTIFACTS: Artifact[] = [
@@ -48,6 +48,29 @@ const LAB_FIXED = `services:
 networks:
   scan:
 `;
+
+export const JARGON = ['CVE', 'CVSS', 'SQL', 'SQLi', 'injection', 'XSS', 'IDOR', 'BOLA', 'SSRF', 'S3', 'IAM', 'API', 'JWT', 'cookie', 'HttpOnly', 'SMB', 'SMBv1', 'MS17-010', 'exploit', 'payload', 'RCE', 'CIS', 'ASVS', 'WSTG', 'MFA', 'bucket', 'endpoint', 'gateway', 'npm', 'Docker', 'container', 'KEV', 'OWASP', 'CloudTrail', 'Metasploit'];
+
+export const SUMMARY_SPEC: SummarySpec = {
+  audience: "Claire and Lantern's board",
+  findings: [
+    { id: 'export', title: 'Unauthenticated export route on the API gateway (BOLA)', plain: "48,211 customers' names, emails and addresses left through an export link that needed no login.", severity: 'Critical', active: true },
+    { id: 'bucket', title: 'S3 bucket lantern-invoices public (Block Public Access off, PutBucketPolicy at 04:02)', plain: 'Every customer invoice could be downloaded by anyone, and someone is still reading them.', severity: 'Critical', active: true },
+    { id: 'sqli', title: 'SQL injection in /admin-old login (WSTG-INPV-05)', plain: 'The old staff login let anyone in without a password; it is how the attacker started.', severity: 'Critical' },
+    { id: 'mfa', title: 'No MFA on the AWS root account', plain: 'The master account of the cloud is protected by a password alone.', severity: 'High' },
+    { id: 'session', title: 'Session cookie without Secure and HttpOnly (ASVS 3.4.1, 3.4.2)', plain: 'Customer logins could be copied on public Wi-Fi, as happened to Mara.', severity: 'High' },
+    { id: 'ms17', title: 'MS17-010 on scanstation.dock.lan (Windows 7, in KEV)', plain: 'An old PC at the docks can be taken over from the network.', severity: 'High' },
+    { id: 'ssh', title: 'SSH root login and 6 tries on lab-01 (CIS)', plain: "The Watch's own practice server allowed password guessing on its master account.", severity: 'Medium' },
+    { id: 'deps', title: 'Vulnerable npm dependencies in lantern-api (fixed)', plain: 'Outdated building blocks in the shop\'s code, already updated.', severity: 'Low' },
+  ],
+  overall: 'Critical',
+  top: ['export', 'bucket', 'sqli'],
+  jargon: JARGON,
+  maxWords: 120,
+  retestAfter: '2026-11-13',
+};
+
+export const SUMMARY_EXAMPLE = "Lantern's customer data was exposed this week. Anyone could download customer invoices, and an attacker copied the names and addresses of 48,211 customers through an export link that needed no login. They got in through an old staff login page that asked for no password. All three are being closed this week, and we will test them again on 19 November.";
 
 export const REPORT_LEVELS: ReportLevel[] = [
   {
@@ -201,6 +224,35 @@ export const REPORT_LEVELS: ReportLevel[] = [
     didWhat: 'You wrote a finding with every field a client needs to understand, reproduce and fix it.',
     codex: ['finding-format', 'scanner-principle'],
     xp: 130,
+    par: 300,
+  },
+  {
+    id: 'audit-summary',
+    zone: 'report',
+    kind: 'report',
+    panel: 'summary',
+    summary: SUMMARY_SPEC,
+    title: 'One page for the board',
+    goal: "Write the executive summary for Claire's board: the overall risk, the top three, plain words and a retest date.",
+    instruction: 'The [[executive-summary|executive summary]] is the only page most of the client will read, so it says what happened, what it means for the business and what is being done, without a single technical term. The technical findings stay in the rest of the report.',
+    checks: [
+      { id: 'overall', label: 'Set the overall risk', do: 'In the Summary panel, open `Overall risk` and choose the level of the worst confirmed finding, `Critical`.', learned: 'The overall level is set by the worst confirmed risk, not by the average.' },
+      { id: 'top', label: 'Pick the top three', do: 'In the Findings panel, tick the three Critical findings: the export link, the public invoices and the old staff login. Two are marked `Happening now`.', learned: 'Rank by severity, then by what is being used right now.' },
+      { id: 'plain', label: 'Write it in plain words', do: 'In the text box, write 30 to 120 words a board member understands: no `CVE`, no `bucket`, no `cookie`. The line under the box lists any jargon it finds.', learned: 'If the reader has to ask what a word means, the summary failed.' },
+      { id: 'impact', label: 'Say who, what and what next', do: 'Make sure it says who is affected (`customers`), what of theirs was exposed (`invoices`, `addresses`) and what is being done (`closed`, `fixed`).', learned: 'Who is hurt, how, and what we are doing about it: the three questions a board asks.' },
+      { id: 'retest', label: 'Commit to a retest date', do: 'Set `Retest date` to a day after this week, such as `2026-11-19`.', learned: 'A date turns "we will fix it" into something someone can check.' },
+    ],
+    stepsTogether: true,
+    showMe: [
+      { say: 'The worst confirmed risk.', act: { summary: { overall: 'Critical' } } },
+      { say: 'The three that hurt the most.', act: { summary: { top: ['export', 'bucket', 'sqli'] } } },
+      { say: 'In plain words.', act: { summary: { text: SUMMARY_EXAMPLE } } },
+      { say: 'When we check again.', act: { summary: { retest: '2026-11-19' } } },
+    ],
+    realName: 'Writing an executive summary',
+    didWhat: "You turned a week of technical findings into one page Lantern's board can act on.",
+    codex: ['executive-summary'],
+    xp: 120,
     par: 300,
   },
   {

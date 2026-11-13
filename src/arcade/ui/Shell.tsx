@@ -212,7 +212,7 @@ function StartPanel({ game, best, stars, onStart, onPractice }: { game: ArcadeGa
       <blockquote className="ar-line">
         <p>{game.line}</p>
         <footer>
-          {game.speaker}, {CAST[game.speaker].role.toLowerCase()}
+          {game.speaker}, {CAST[game.speaker].after}
         </footer>
       </blockquote>
       <section className="ar-board-help" aria-labelledby="ar-what">

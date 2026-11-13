@@ -37,6 +37,13 @@ export const ZONES: Zone[] = [
     levelIds: ['perimeter-sweep', 'perimeter-ports', 'perimeter-versions', 'perimeter-false-positive', 'perimeter-scope', 'perimeter-boss'],
   },
   {
+    id: 'validation',
+    name: 'The Validation',
+    tagline: 'Metasploit and NSE: modules, scanners, exploit and payload, check without firing',
+    intro: 'The same terminal, now with msfconsole and nmap\'s scripts. Prove Monday\'s findings on the dock network the safe way: scan, read, check, and never fire.',
+    levelIds: ['msf-modules', 'msf-auxiliary', 'msf-nse', 'msf-exploit-payload', 'msf-check', 'msf-boss'],
+  },
+  {
     id: 'cloud',
     name: 'The Cloud',
     tagline: 'Buckets, IAM, firewalls, keys, code and APIs',
@@ -44,11 +51,18 @@ export const ZONES: Zone[] = [
     levelIds: ['cloud-bucket', 'cloud-iam', 'cloud-sg', 'cloud-keys', 'cloud-scan', 'cloud-gateway'],
   },
   {
+    id: 'audit',
+    name: 'The Audit',
+    tagline: 'WSTG, ASVS, CIS, npm audit, Trivy, CloudTrail and Prowler',
+    intro: "The auditor's terminal on Lantern's API project, its container, its AWS account and lab-01. Check each against the standard that covers it, and put what matters first.",
+    levelIds: ['audit-wstg', 'audit-asvs', 'audit-cis', 'audit-deps', 'audit-docker', 'audit-cloudtrail', 'audit-prowler'],
+  },
+  {
     id: 'report',
     name: 'The Report',
     tagline: 'The method, the score, the write-up and the lab',
     intro: 'Turn what you found into something a client can act on: order the work, score it, write it, retest it, and build the lab to keep practising.',
-    levelIds: ['report-phases', 'report-cvss', 'report-finding', 'report-retest', 'report-lab'],
+    levelIds: ['report-phases', 'report-cvss', 'report-finding', 'audit-summary', 'report-retest', 'report-lab'],
   },
   {
     id: 'scanner',

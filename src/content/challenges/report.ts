@@ -4,7 +4,8 @@ import { asChallenge } from './types';
 import { LEVEL_BY_ID } from '../index';
 import type { Rng } from '../../engine/rng';
 import { CATEGORY, MARK } from '../../sim/arena';
-import { SQLI_SPEC, type Artifact, type FindingDraft, type FindingSpec } from '../../sim/report';
+import { SQLI_SPEC, type Artifact, type FindingDraft, type FindingSpec, type SummaryFinding, type RiskLevel } from '../../sim/report';
+import { SUMMARY_SPEC, SUMMARY_EXAMPLE } from '../levels/report';
 import { parseVector, type Vector } from '../../engine/cvss';
 
 const guided = (id: string) => LEVEL_BY_ID[id] as ReportLevel;
@@ -328,7 +329,40 @@ const lab: ChallengeGenerator = (rng) => {
   };
 };
 
+// ---- Executive summary -------------------------------------------------------------
+
+const SUMMARY_POOL: SummaryFinding[] = [
+  ...SUMMARY_SPEC.findings,
+  { id: 'ransom', title: 'Ransomware note found on backup-ftp.dock.lan', plain: 'Part of the dock backups has been locked by criminals asking for money.', severity: 'Critical', active: true },
+  { id: 'rdp', title: 'RDP open to the internet on files-win.dock.lan', plain: 'A dock file server can be reached for remote login from anywhere.', severity: 'High' },
+  { id: 'logs', title: 'CloudTrail without data events or all regions', plain: 'Cloud records miss which files were read and some regions entirely.', severity: 'Medium' },
+  { id: 'tls', title: 'TLS 1.0 enabled on mail.dock.lan', plain: 'The dock mail server still accepts an outdated way of encrypting.', severity: 'Low' },
+];
+
+const RANK: Record<RiskLevel, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+
+const summary: ChallengeGenerator = (rng) => {
+  let picked: SummaryFinding[];
+  let ordered: SummaryFinding[];
+  // Deal until the top three are clear-cut: no tie across the third place.
+  do {
+    picked = rng.sample(SUMMARY_POOL, rng.int(6, 8));
+    ordered = [...picked].sort((a, b) => RANK[b.severity] * 2 + (b.active ? 1 : 0) - (RANK[a.severity] * 2 + (a.active ? 1 : 0)));
+  } while (ordered.length < 4 || RANK[ordered[2]!.severity] * 2 + (ordered[2]!.active ? 1 : 0) === RANK[ordered[3]!.severity] * 2 + (ordered[3]!.active ? 1 : 0));
+  const top = ordered.slice(0, 3).map((f) => f.id);
+  const overall = ordered[0]!.severity;
+  const spec = { ...SUMMARY_SPEC, findings: rng.shuffle(picked), top, overall };
+  const level = asChallenge(LEVEL_BY_ID['audit-summary'] as ReportLevel, { goal: 'Write the executive summary: overall risk, top three, plain words, retest date.', instruction: 'Rank by severity, then by what is happening now.', summary: spec } as Partial<ReportLevel> & { goal: string; instruction: string });
+  return {
+    level,
+    signature: `${top.join(',')}:${picked.map((p) => p.id).sort().join(',')}`,
+    hints: ['The overall level is the worst confirmed finding.', 'Top three: highest severity first; among equals, the ones happening now.', 'Plain words only: customers, what of theirs, what is being done, and a date after this week.'],
+    solution: { kind: 'report', act: [{ summary: { overall, top, text: SUMMARY_EXAMPLE, retest: '2026-11-20' } }] },
+  };
+};
+
 export const REPORT_CHALLENGES: Record<string, ChallengeGenerator> = {
+  'audit-summary': summary,
   'report-phases': phases,
   'report-cvss': cvss,
   'report-finding': finding,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TerminalAct, TerminalLevel } from '../../content/types';
-import { execute, complete, MAN, boxNow, BOX_COMMANDS, COMMANDS } from '../../sim/terminal';
+import { execute, complete, MAN, boxNow, BOX_COMMANDS, COMMANDS, MSF_COMMANDS, AUDIT_COMMANDS, promptNow } from '../../sim/terminal';
 import { evaluateTerminal, judgeAnswer } from '../evaluate';
 import { play } from '../../engine/audio';
 import { Panes } from '../Panes';
@@ -20,6 +20,8 @@ const PROMPT = 'analyst@watch:~$';
 
 /** The prompt for where you are: user, machine and folder, as bash prints it. */
 function promptFor(level: TerminalLevel, history: string[]): string {
+  const msf = promptNow({ net: level.network, history });
+  if (msf) return msf;
   const box = boxNow({ net: level.network, history: [...history, ''] });
   if (!box) return PROMPT;
   const dir = box.cwd === box.home ? '~' : box.cwd.startsWith(box.home + '/') ? '~' + box.cwd.slice(box.home.length) : box.cwd;
@@ -105,7 +107,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
   useStepChips(
     (code) => {
       const first = code.trim().split(/\s+/)[0] ?? '';
-      return (COMMANDS.includes(first) || BOX_COMMANDS.includes(first)) && first !== 'man' && !(first === 'submit' && code.trim() === 'submit');
+      return (COMMANDS.includes(first) || BOX_COMMANDS.includes(first) || MSF_COMMANDS.includes(first) || AUDIT_COMMANDS.includes(first)) && first !== 'man' && !(first === 'submit' && code.trim() === 'submit');
     },
     (code) => {
       setInput(code.trim());
@@ -209,7 +211,7 @@ export function TerminalSandbox({ level, onChecks, fail, act }: SandboxProps<Ter
   const manual = (
     <div className="pane-pad man">
       <div className="wrap-row" style={{ marginBottom: 12 }}>
-        {Object.keys(MAN).filter((k) => level.network.box || !BOX_COMMANDS.includes(k)).map((k) => (
+        {Object.keys(MAN).filter((k) => (level.network.box || !BOX_COMMANDS.includes(k)) && (level.network.roe || k !== 'msfconsole') && (level.network.audit || !AUDIT_COMMANDS.includes(k))).map((k) => (
           <button key={k} type="button" className="tab" aria-selected={k === man} style={{ padding: '6px 8px' }} onClick={() => setMan(k)}>
             {k}
           </button>

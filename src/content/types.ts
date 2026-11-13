@@ -7,12 +7,12 @@ import type { WireServerId, WireParams } from '../sim/wire';
 import type { ArenaAppId, ArenaApp } from '../sim/arena';
 import type { Network } from '../sim/terminal';
 import type { SgRule, ScanFinding, Verdict, BucketSetup, IamSetup, SgSetup, KeySetup, GatewaySetup } from '../sim/cloud';
-import type { Artifact, FindingDraft, FindingSpec } from '../sim/report';
+import type { Artifact, FindingDraft, FindingSpec, SummaryDraft, SummarySpec } from '../sim/report';
 import type { Vector } from '../engine/cvss';
 import type { GvmAction, GvmSetup, GvmState, Tab as ScanTab } from '../sim/gvm';
 import type { Packet } from '../sim/pcap';
 
-export type ZoneId = 'basics' | 'wire' | 'capture' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
+export type ZoneId = 'basics' | 'wire' | 'capture' | 'validation' | 'audit' | 'arena' | 'perimeter' | 'cloud' | 'report' | 'scanner';
 
 export interface Zone {
   id: ZoneId;
@@ -222,6 +222,7 @@ export interface ReportAct {
   status?: 'open' | 'fixed' | 'not-fixed';
   text?: string;
   run?: boolean;
+  summary?: Partial<SummaryDraft>;
 }
 
 export type ReportLevel = LevelBase<ReportAct> & { kind: 'report' } & (
@@ -235,6 +236,7 @@ export type ReportLevel = LevelBase<ReportAct> & { kind: 'report' } & (
         retest?: { attack: Record<string, string>; variants: Record<string, string>[]; labels: [string, string, string]; fixWorks: boolean; title: string };
       }
     | { panel: 'lab'; compose: string }
+    | { panel: 'summary'; summary: SummarySpec }
   );
 
 // ---- The Scanner (OpenVAS) -------------------------------------------------------

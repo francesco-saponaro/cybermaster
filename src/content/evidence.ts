@@ -6,6 +6,18 @@ import type { Evidence } from './types';
 
 export const EVIDENCE: Evidence[] = [
   {
+    id: 'ev-cloudtrail',
+    from: 'audit-cloudtrail',
+    title: 'CloudTrail: the second key, and the bucket made public',
+    body: '2026-11-09T03:40:11Z  CreateAccessKey  user deploy-bot  from 203.0.113.77  (new key for export-job)\n2026-11-09T04:02:47Z  PutBucketPolicy  user export-job  from 203.0.113.77  lantern-invoices: s3:GetObject to Principal "*"\nS3 data events not recorded: which invoices were read cannot be shown.',
+  },
+  {
+    id: 'ev-msf-check',
+    from: 'msf-check',
+    title: 'Metasploit check on ftp.dock.lan, non-destructive',
+    body: "msf6 exploit(unix/ftp/proftpd_modcopy_exec) > check\n[+] 10.0.9.9:21 - The target appears to be vulnerable. Unauthenticated SITE CPFR command was successful\n(10.0.9.11, ProFTPD 1.3.5a: The target is not exploitable.)",
+  },
+  {
     id: 'ev-cafe-pcap',
     from: 'pcap-stream',
     title: "Café Wi-Fi capture: Mara's session cookie, used from a second laptop",

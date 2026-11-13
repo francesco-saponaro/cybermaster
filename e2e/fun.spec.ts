@@ -4,6 +4,7 @@ import { listing } from '../src/sim/arena';
 import { METRIC_LABELS, METRICS, parseVector } from '../src/engine/cvss';
 import { dailyPick, shareText, utcDay } from '../src/engine/daily';
 import { openLevels } from '../src/engine/progress';
+import { EXAM } from '../src/content/exam';
 import { ZONES } from '../src/content/zones';
 import { LEVEL_BY_ID } from '../src/content/index';
 
@@ -45,7 +46,7 @@ function watchConsole(page: Page): string[] {
 
 async function seed(page: Page, save: object) {
   await page.goto('/');
-  await page.evaluate(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(save)] as const);
+  await page.evaluate(([k, v]) => { localStorage.setItem(k, v); localStorage.setItem('cybermaster.recall', 'off'); }, [SAVE_KEY, JSON.stringify(save)] as const);
 }
 
 const readSave = (page: Page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}'), SAVE_KEY);
@@ -480,4 +481,38 @@ test('Installable and offline: a manifest, and after one visit the game loads an
   await page.goto('/arcade/harden-up');
   await expect(page.locator('[data-start=true]')).toBeVisible();
   await context.setOffline(false);
+});
+
+// ---- The exam and the review ------------------------------------------------------------------
+
+test('The final exam: 27 questions from every area, readiness per area, and the misses go to Review', async ({ page }) => {
+  const errors = watchConsole(page);
+  await seed(page, { ...base, levels: cleared(ZONES.find((z) => z.id === 'basics')!.levelIds) });
+  await page.goto('/study?tab=exam');
+  await page.getByRole('button', { name: 'Start the exam' }).click();
+  for (let n = 0; n < 27; n++) {
+    await expect(page.locator('.ex-progress')).toContainText(`Question ${n + 1} of 27`);
+    const text = (await page.locator('.ex-q').textContent())!.trim();
+    const q = EXAM.find((x) => x.q === text)!;
+    expect(q, text).toBeDefined();
+    if (q.options) {
+      // Miss the first question on purpose, answer the rest right.
+      const pick = n === 0 ? q.options[(q.answer! + 1) % 4]! : q.options[q.answer!]!;
+      await page.getByRole('button', { name: pick, exact: true }).click();
+    } else {
+      await page.getByLabel('Your answer').fill(n === 0 ? 'no idea' : q.accept![0]!);
+      await page.getByRole('button', { name: 'Check', exact: true }).click();
+    }
+    await expect(page.locator('.ex-why')).toContainText(n === 0 ? 'Not quite.' : 'Right.');
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+  }
+  await expect(page.getByRole('status')).toContainText('96%');
+  await expect(page.locator('.ex-area-row')).toHaveCount(9);
+  await expect(page.locator('.ex-area-row').first()).toContainText('Networks, Linux, HTTP and Wireshark');
+  await noSideScroll(page, 'exam results');
+  await page.reload();
+  await expect(page.getByRole('tab', { name: /Review/ }).locator('.study-due')).toHaveText(/\d+/);
+  await page.getByRole('tab', { name: /Review/ }).click();
+  await expect(page.locator('.ex-progress')).toContainText(/Card 1 of \d+ due today/);
+  expect(errors).toEqual([]);
 });

@@ -16,12 +16,36 @@ export function currentStep(steps: LevelCheck[], checks: Record<string, CheckSta
   return steps.findIndex((c) => !checks[c.id]?.pass);
 }
 
-function StepDo({ step, detail }: { step: LevelCheck; detail?: string }) {
+/** Recall mode: on a replay of a cleared level the commands in the steps start hidden. */
+const RECALL_KEY = 'cybermaster.recall';
+export function recallOn(): boolean {
+  try {
+    return localStorage.getItem(RECALL_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+export function setRecall(on: boolean): void {
+  try {
+    localStorage.setItem(RECALL_KEY, on ? 'on' : 'off');
+  } catch {
+    // Not remembered in this browser; the toggle still works for this visit.
+  }
+}
+
+function StepDo({ step, detail, recall }: { step: LevelCheck; detail?: string; recall?: boolean }) {
+  const [shown, setShown] = useState(false);
+  const hide = !!recall && !shown && /`[^`]+`/.test(step.do);
   return (
     <div className="step-do slide-in">
       <p>
-        <Rich text={step.do} />
+        <Rich text={step.do} hideCode={hide} />
       </p>
+      {hide ? (
+        <button type="button" className="step-reveal" onClick={() => setShown(true)}>
+          Show the command
+        </button>
+      ) : null}
       {step.hint ? (
         <>
           <p className="step-hint-label">It should look like this:</p>
@@ -40,7 +64,7 @@ function StepDo({ step, detail }: { step: LevelCheck; detail?: string }) {
  * exactly what to do; done steps show a tick and the one line they taught;
  * later steps show their label and open on a tap.
  */
-export function StepList({ steps, checks, together, currentRef, burst }: { steps: LevelCheck[]; checks: Record<string, CheckState>; together?: boolean; currentRef?: Ref<HTMLLIElement>; burst?: { id: string; nonce: number } | null }) {
+export function StepList({ steps, checks, together, currentRef, burst, recall }: { steps: LevelCheck[]; checks: Record<string, CheckState>; together?: boolean; currentRef?: Ref<HTMLLIElement>; burst?: { id: string; nonce: number } | null; recall?: boolean }) {
   const [opened, setOpened] = useState<Record<string, boolean>>({});
   const [fresh, setFresh] = useState<string | null>(null);
   const prev = useRef<Record<string, boolean> | null>(null);
@@ -93,7 +117,7 @@ export function StepList({ steps, checks, together, currentRef, burst }: { steps
                 <Rich text={c.learned} />
               </p>
             ) : null}
-            {showDo ? <StepDo step={c} detail={pass ? undefined : checks[c.id]?.detail} /> : null}
+            {showDo ? <StepDo step={c} detail={pass ? undefined : checks[c.id]?.detail} recall={recall && !pass} /> : null}
           </li>
         );
       })}
@@ -106,7 +130,7 @@ export function StepList({ steps, checks, together, currentRef, burst }: { steps
  * view, this bar stays at the top of the screen with the current step; a tap
  * opens what to do.
  */
-export function StepBar({ steps, checks, visible, failure }: { steps: LevelCheck[]; checks: Record<string, CheckState>; visible: boolean; failure?: { text: string; nonce: number } | null }) {
+export function StepBar({ steps, checks, visible, failure, recall }: { steps: LevelCheck[]; checks: Record<string, CheckState>; visible: boolean; failure?: { text: string; nonce: number } | null; recall?: boolean }) {
   const [open, setOpen] = useState(false);
   const [failShown, setFailShown] = useState<number | null>(null);
   // A failed attempt shows here too for a while, since the full message sits
@@ -136,7 +160,7 @@ export function StepBar({ steps, checks, visible, failure }: { steps: LevelCheck
           <strong>Not yet.</strong> {failure.text}
         </p>
       ) : null}
-      {open && step ? <StepDo step={step} detail={checks[step.id]?.detail} /> : null}
+      {open && step ? <StepDo key={step.id} step={step} detail={checks[step.id]?.detail} recall={recall} /> : null}
     </div>
   );
 }

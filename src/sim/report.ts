@@ -295,3 +295,65 @@ export function labChecks(src: string): { valid: boolean; error?: string; checks
     ],
   };
 }
+
+// ---- The executive summary ---------------------------------------------------------
+
+export type RiskLevel = 'Critical' | 'High' | 'Medium' | 'Low';
+export const RISK_LEVELS: RiskLevel[] = ['Critical', 'High', 'Medium', 'Low'];
+
+export interface SummaryFinding {
+  id: string;
+  /** How the technical report names it. */
+  title: string;
+  /** What it means for the business, in plain words. */
+  plain: string;
+  severity: RiskLevel;
+  /** Being used against the client right now. */
+  active?: boolean;
+}
+
+export interface SummarySpec {
+  audience: string;
+  findings: SummaryFinding[];
+  overall: RiskLevel;
+  top: string[];
+  /** Words a board member will not know: each one in the text is flagged. */
+  jargon: string[];
+  maxWords: number;
+  /** The earliest acceptable retest date, YYYY-MM-DD. */
+  retestAfter: string;
+}
+
+export interface SummaryDraft {
+  overall: RiskLevel | '';
+  top: string[];
+  text: string;
+  retest: string;
+}
+
+export const EMPTY_SUMMARY: SummaryDraft = { overall: '', top: [], text: '', retest: '' };
+
+const words = (t: string) => t.trim().split(/\s+/).filter(Boolean);
+
+/** The jargon words a text uses, as written in the spec. */
+export function jargonIn(text: string, jargon: string[]): string[] {
+  return jargon.filter((j) => new RegExp(`(^|[^\\w-])${j.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^\\w-])`, 'i').test(text));
+}
+
+const WHO = /\b(customers?|clients?|people|buyers?|shoppers?)\b/i;
+const WHAT = /\b(invoices?|addresses|names|emails?|data|records|orders|details)\b/i;
+const DOING = /\b(fix|fixed|fixing|close|closed|closing|patch|patched|stop|stopped|block|blocked|lock|locked|remove|removed)\b/i;
+
+/** How Claire, and her board, would read the summary: one check per part. */
+export function summaryChecks(d: SummaryDraft, spec: SummarySpec): Check[] {
+  const n = words(d.text).length;
+  const used = jargonIn(d.text, spec.jargon);
+  const top = [...d.top].sort().join(',') === [...spec.top].sort().join(',');
+  return [
+    { id: 'overall', pass: d.overall === spec.overall, detail: d.overall === spec.overall ? `${spec.overall}: the worst confirmed risk sets the overall level.` : d.overall ? 'The overall level is the worst confirmed risk in the list, not the average.' : 'Pick an overall risk level.' },
+    { id: 'top', pass: top, detail: top ? 'The three that hurt the business most, active ones first.' : d.top.length !== 3 ? `Pick exactly three (you have ${d.top.length}).` : 'Not those three: rank by severity, and among equals put what is being used right now first.' },
+    { id: 'plain', pass: n >= 30 && n <= spec.maxWords && used.length === 0, detail: n < 30 ? `${n} words: say what happened, what it means and what you are doing, in at least 30.` : n > spec.maxWords ? `${n} words: a board reads ${spec.maxWords} at most.` : used.length ? `Words ${spec.audience} will not know: ${used.join(', ')}.` : `${n} words, no jargon.` },
+    { id: 'impact', pass: WHO.test(d.text) && WHAT.test(d.text) && DOING.test(d.text), detail: !WHO.test(d.text) ? 'Say who is affected: customers.' : !WHAT.test(d.text) ? 'Say what of theirs was exposed: invoices, names, addresses.' : !DOING.test(d.text) ? 'Say what is being done: fixed, closed, blocked.' : 'Who, what, and what is being done.' },
+    { id: 'retest', pass: /^\d{4}-\d{2}-\d{2}$/.test(d.retest) && d.retest > spec.retestAfter, detail: !d.retest ? 'Set the date you will test the fixes again.' : d.retest <= spec.retestAfter ? 'Too soon: the fixes need a few days. Pick a date after the fix deadline.' : `Retest on ${d.retest}.` },
+  ];
+}

@@ -1,4 +1,7 @@
 import { CAPTURE_LEVELS } from '../src/content/levels/capture';
+import { LEVEL_BY_ID } from '../src/content/index';
+import { SUMMARY_EXAMPLE } from '../src/content/levels/report';
+import type { TerminalLevel } from '../src/content/types';
 import type { CaptureAct } from '../src/content/types';
 import { test, expect, type Page, type Locator } from '@playwright/test';
 
@@ -22,7 +25,7 @@ function watchConsole(page: Page): string[] {
 
 async function seed(page: Page, save: object = OPEN_ALL) {
   await page.goto('/');
-  await page.evaluate(([k, v]) => localStorage.setItem(k, v), [SAVE_KEY, JSON.stringify(save)] as const);
+  await page.evaluate(([k, v]) => { localStorage.setItem(k, v); localStorage.setItem('cybermaster.recall', 'off'); }, [SAVE_KEY, JSON.stringify(save)] as const);
 }
 
 async function cleared(page: Page) {
@@ -362,6 +365,77 @@ test('The Capture: a wrong filter turns red and says why, and Apply as Filter wr
   await expect(page.locator('.ws-status')).toContainText(/Displayed \d+ of \d+ with dns\.qry\.name == /);
 });
 
+// ---- The Validation and The Audit ---------------------------------------------------
+
+async function playTerminalByShowMe(page: Page, ids: string[], boss: string) {
+  for (const id of ids) {
+    const l = LEVEL_BY_ID[id] as TerminalLevel;
+    await page.goto(`/play/${id}`);
+    if (id === boss) await incidentRunning(page);
+    for (const st of l.showMe) await terminal(page, st.act!.type);
+    if (id === boss) await bossCleared(page);
+    else await cleared(page);
+  }
+}
+
+test('The Validation: all six levels, msfconsole and NSE, nothing fired', async ({ page }) => {
+  const errors = watchConsole(page);
+  await seed(page, { ...OPEN_ALL, zones: ['validation'] });
+  await playTerminalByShowMe(page, ['msf-modules', 'msf-auxiliary', 'msf-nse', 'msf-exploit-payload', 'msf-check', 'msf-boss'], 'msf-boss');
+  expect(errors).toEqual([]);
+});
+
+test('The Validation: the prompt follows msfconsole and an exploit run is refused', async ({ page }) => {
+  await seed(page, { ...OPEN_ALL, zones: ['validation'], levels: { 'msf-modules': { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' }, 'msf-auxiliary': { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' }, 'msf-nse': { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' }, 'msf-exploit-payload': { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' } } });
+  await page.goto('/play/msf-check');
+  await terminal(page, 'msfconsole');
+  await expect(page.locator('.term-input .prompt')).toHaveText('msf6 >');
+  await terminal(page, 'use exploit/unix/ftp/proftpd_modcopy_exec');
+  await expect(page.locator('.term-input .prompt')).toHaveText('msf6 exploit(unix/ftp/proftpd_modcopy_exec) >');
+  await terminal(page, 'set RHOSTS 10.0.9.9');
+  await terminal(page, 'run');
+  await expect(page.locator('.term')).toContainText('Not run. The signed rules of engagement');
+});
+
+test('The Audit: all seven levels, from standards to the cloud account', async ({ page }) => {
+  const errors = watchConsole(page);
+  await seed(page, { ...OPEN_ALL, zones: ['audit'] });
+  await playTerminalByShowMe(page, ['audit-wstg', 'audit-asvs', 'audit-cis', 'audit-deps', 'audit-docker', 'audit-cloudtrail', 'audit-prowler'], 'audit-prowler');
+  expect(errors).toEqual([]);
+});
+
+test('The Report: the executive summary flags jargon and clears with plain words', async ({ page }) => {
+  const errors = watchConsole(page);
+  const won = { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' };
+  await seed(page, { ...OPEN_ALL, levels: { 'report-phases': won, 'report-cvss': won, 'report-finding': won } });
+  await page.goto('/play/audit-summary');
+  await page.getByLabel('Overall risk').selectOption('Critical');
+  for (const name of [/48,211 customers/, /Every customer invoice/, /old staff login/]) await page.getByRole('checkbox', { name }).check();
+  const box = page.getByLabel(/In plain words/);
+  await box.fill('Customer invoices were exposed through an S3 bucket and an IDOR, and we fixed it. '.repeat(3));
+  await expect(page.locator('.sum-jargon')).toContainText('IDOR, S3, bucket');
+  await box.fill(SUMMARY_EXAMPLE);
+  await expect(page.locator('.sum-jargon')).toHaveCount(0);
+  await page.getByLabel('Retest date').fill('2026-11-19');
+  await cleared(page);
+  expect(errors).toEqual([]);
+});
+
+test('Recall mode: on a replay the commands in the steps are hidden until you ask', async ({ page }) => {
+  const won = { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' };
+  await seed(page, { ...OPEN_ALL, levels: { 'net-subnet': won } });
+  await page.evaluate(() => localStorage.setItem('cybermaster.recall', 'on'));
+  await page.goto('/play/net-subnet');
+  const step = page.locator('.lv-aside .step[data-state="current"]');
+  await expect(step.locator('.kbd-hidden').first()).toBeVisible();
+  await expect(step.locator('code.kbd')).toHaveCount(0);
+  await step.getByRole('button', { name: 'Show the command' }).click();
+  await expect(step.locator('code.kbd').first()).toHaveText('cat notes.txt');
+  await page.getByLabel(/Recall mode/).uncheck();
+  await page.goto('/play/net-subnet');
+  await expect(page.locator('.lv-aside .step[data-state="current"] code.kbd').first()).toBeVisible();
+});
+
 // ---- The Cloud ------------------------------------------------------------------
 
 async function sgRow(page: Page, ports: string): Promise<Locator> {
@@ -454,9 +528,10 @@ async function setMetrics(page: Page, text: string) {
 }
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
 
-test('The Report: all five levels, from the steps', async ({ page }) => {
+test('The Report: the five levels around the summary, from the steps', async ({ page }) => {
   const errors = watchConsole(page);
-  await seed(page);
+  // The executive summary between the finding and the retest has its own test.
+  await seed(page, { ...OPEN_ALL, levels: { 'audit-summary': { stars: 3, clears: 1, bestSeconds: 60, lastPlayedAt: '' } } });
 
   await page.goto('/play/report-phases');
   await page.getByRole('button', { name: /nmap -sV of the range/ }).click();
@@ -684,6 +759,22 @@ test('Phone: a first level played through the tabs, with the step bar in sight',
   await expect(bar).toContainText('Step 2 of 3');
   await noSideScroll(page, 'wire-robots with the bar open');
   expect(errors).toEqual([]);
+});
+
+test('Phone: a long msfconsole prompt keeps the command input usable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 667 });
+  await seed(page, { ...OPEN_ALL, zones: ['validation'] });
+  await page.goto('/play/msf-modules');
+  const input = page.getByRole('textbox', { name: 'Command' });
+  for (const c of ['msfconsole', 'use exploit/unix/ftp/proftpd_modcopy_exec']) {
+    await page.getByRole('tab', { name: /Terminal/ }).click();
+    await input.fill(c);
+    await input.press('Enter');
+  }
+  await page.getByRole('tab', { name: /Terminal/ }).click();
+  await expect(page.locator('.term-input .prompt')).toContainText('proftpd_modcopy_exec');
+  expect((await input.boundingBox())!.width).toBeGreaterThan(150);
+  await noSideScroll(page, 'msf prompt');
 });
 
 test('Phone and desktop: one level per zone, nothing wider than the screen', async ({ page }) => {

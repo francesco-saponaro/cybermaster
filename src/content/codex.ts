@@ -140,6 +140,140 @@ export const CODEX: CodexEntry[] = [
       'In real networks, exfiltration often hides inside HTTPS to common cloud storage, or in DNS queries themselves, so captures are paired with flow logs (NetFlow, VPC Flow Logs) and alerts on unusual volumes per host. The evidence for a report: source host, destination, time window, bytes and, if visible, what was sent.',
     ],
   },
+  // The Validation
+  {
+    id: 'msf-console',
+    title: 'Metasploit and msfconsole',
+    zone: 'validation',
+    short: 'Metasploit is a framework of modules, one per known flaw or task, driven from msfconsole with search, use, info, set and check.',
+    body: [
+      'The Metasploit Framework (open source, by Rapid7) holds thousands of modules: exploits (abuse a flaw), auxiliary (scanners and other tools that do not exploit), post (what to do after access) and payloads (what runs on the target). Kali Linux ships it; msfconsole is its console.',
+      'The everyday loop: search proftpd (or search cve:2015-3306, search type:auxiliary smb), info <module> to read its rank, whether it supports check, its options and references, use <module> to select it, show options and set RHOSTS to fill the required options, then check or run.',
+      'Rank is how reliable and safe the module is: excellent never crashes the service, average or lower may. In professional work Metasploit validates findings, it does not replace manual testing: a module exists only for known flaws, and a clean result does not prove a system is safe.',
+    ],
+  },
+  {
+    id: 'msf-auxiliary',
+    title: 'Auxiliary modules and scanners',
+    zone: 'validation',
+    short: 'Auxiliary modules gather information without exploiting: version scanners, detectors and login checkers, run against a whole range.',
+    body: [
+      'auxiliary/scanner/ftp/ftp_version, ssh/ssh_version and smb/smb_version read banners and protocol answers from every host in RHOSTS, which takes one address, a list or a range like 10.0.9.0/24. Detectors such as smb/smb_ms17_010 ask a single question whose answer reveals a missing patch.',
+      'They complement nmap: same idea, results that feed straight into the next module. Login scanners (ssh_login, ftp_login) try passwords and so lock accounts and fill logs: they need explicit permission even when the rest is allowed.',
+      'Read versions carefully: ProFTPD 1.3.5 and 1.3.5a are one letter apart and on opposite sides of the mod_copy fix. Backported fixes on Linux distributions can also leave an old version number on a patched package, which is why a check beats a banner.',
+    ],
+  },
+  {
+    id: 'nse',
+    title: 'NSE: the Nmap Scripting Engine',
+    zone: 'validation',
+    short: 'NSE scripts extend nmap; each has categories (safe, default, vuln, intrusive, exploit) that say how risky it is to run.',
+    body: [
+      'nmap --script ftp-anon runs one script, --script vuln a whole category, -sC the default set. nmap --script-help <name> prints what a script does and its categories, which you read before running anything on a client network.',
+      'safe scripts do not change or crash the target; intrusive ones may (heavy traffic, login attempts, crashes); exploit scripts use the flaw itself. The vuln category mixes safe and intrusive checks, so on a careful job you write --script "vuln and safe".',
+      'Useful safe ones: ftp-anon (anonymous FTP and what it exposes), http-title, ssh-hostkey, smb-os-discovery, smb-vuln-ms17-010, ssl-enum-ciphers, and vulners, which lists CVEs for the versions -sV found (still only a version match, not proof).',
+    ],
+  },
+  {
+    id: 'exploit-payload',
+    title: 'Exploit, payload, bind and reverse',
+    zone: 'validation',
+    short: 'The exploit abuses the flaw to run code; the payload is the code it runs. Reverse payloads call back to you, bind payloads wait for you.',
+    body: [
+      'An exploit is specific to one flaw in one product and version. A payload is independent: the same exploit can carry a single command, a shell or Meterpreter (Metasploit\'s own agent). Staged payloads send a small first stage that downloads the rest.',
+      'Bind payloads open a port on the target and wait for you; reverse payloads connect back to LHOST, your address. Reverse is the common choice because outgoing connections usually pass firewalls that block incoming ones, which is also why egress filtering matters.',
+      'Limits: exploits fail against patched or hardened systems, can crash services (EternalBlue in particular), leave traces in logs and may change data. That is why the roadmap asks for non-destructive verification and why firing an exploit needs explicit, written permission and a time window.',
+    ],
+  },
+  {
+    id: 'msf-check',
+    title: 'Non-destructive verification with check',
+    zone: 'validation',
+    short: 'check asks the target a harmless question only a vulnerable version answers a certain way; its answer is evidence without damage.',
+    body: [
+      'Many exploit modules implement check. ProFTPD mod_copy\'s check sends one SITE CPFR command without logging in and copies nothing; MS17-010\'s asks the SMBv1 server one question and reads the error code. The results: Vulnerable (proved), Appears (strong sign), Detected (the service is there), Safe (not vulnerable) and Unknown.',
+      'Some modules have no check (vsftpd 2.3.4\'s backdoor module, for example). Then you say so: the finding stays "unverified, based on version", or you verify another way that the rules allow, or you agree a controlled test with the client.',
+      'In the report, quote the exact check output, the module name and the time. Run it again in the retest: a fixed server answers Safe. This is the roadmap\'s "verifica non distruttiva".',
+    ],
+  },
+  {
+    id: 'ms17-010',
+    title: 'MS17-010, EternalBlue and old Windows',
+    zone: 'validation',
+    short: 'MS17-010 is a Windows SMBv1 flaw (CVE-2017-0143 to 0148) used by WannaCry and NotPetya; unpatched machines can be taken over remotely.',
+    body: [
+      'Microsoft patched it in March 2017. EternalBlue, the exploit leaked from the NSA in April 2017, powered the WannaCry ransomware worm in May 2017 and NotPetya in June, spreading machine to machine over port 445 with no user action. It is in CISA\'s KEV catalog.',
+      'Detection is safe and well established: Metasploit\'s smb_ms17_010 scanner and nmap\'s smb-vuln-ms17-010 script ask a question and read the error code. Exploitation is not safe: it can crash the machine (a blue screen), so it is never fired on a client network without an agreement.',
+      'Fix: apply the patch, disable SMBv1, block port 445 at network boundaries and between segments that do not need it, and replace systems out of support (Windows 7 ended in January 2020). A port 445 sweep across a network is a classic sign of a worm looking for its next machine.',
+    ],
+  },
+  // The Audit
+  {
+    id: 'executive-summary',
+    title: 'The executive summary',
+    zone: 'report',
+    short: 'One page for people who will not read the rest: what happened, what it means for the business, what is being done and when it will be checked.',
+    body: [
+      'Most readers of a security report read only this page: the CEO, the board, the CTO between meetings. It states the overall risk (set by the worst confirmed finding, not the average), the top three risks in business terms, what is being done about each and by when, and the date of the retest.',
+      'Plain words are the rule. Not "BOLA on the export endpoint" but "48,211 customers\' names and addresses left through a link that needed no login". Every technical term the reader would have to look up is a sign to rewrite. The technical findings, with WSTG and ASVS ids, CVSS scores and evidence, follow in the body of the report.',
+      'Good summaries also say what went well (the firewall stopped the brute force), what is still unknown (S3 reads were not logged, so it is not known which invoices were taken) and what decision is needed from the reader (budget for replacing the Windows 7 machine). The NIST Cybersecurity Framework\'s functions, Identify, Protect, Detect, Respond, Recover and Govern, are a common way to structure the recommendations for a board.',
+    ],
+  },
+  {
+    id: 'wstg-asvs',
+    title: 'OWASP WSTG and ASVS in practice',
+    zone: 'audit',
+    short: 'WSTG says how to test a web app, with ids like WSTG-SESS-02; ASVS says what a secure app must do, with requirements like 3.4.1.',
+    body: [
+      'The Web Security Testing Guide (WSTG, v4.2 is the stable release) is a methodology: categories such as INFO, CONF, ATHN, ATHZ, SESS, INPV, ERRH, CRYP, BUSL, CLNT and APIT, each with numbered tests. A finding filed under WSTG-ATHZ-04 tells any reader exactly which test found it and how to repeat it.',
+      'The Application Security Verification Standard (ASVS) is a list of verifiable requirements in chapters (V2 Authentication, V3 Session Management, V4 Access Control, V5 Validation, V8 Data Protection ...), each tagged with the level it starts at: L1 is the minimum for any app, L2 for apps handling sensitive data, L3 for critical ones. 4.0.3 is the version most audits still quote; 5.0 (May 2025) reorganised and renumbered it.',
+      'The roadmap\'s rule of thumb: OWASP Top 10 is which risks to know, ASVS is which requirements to meet, WSTG is how to test them. In a report: the WSTG id says how you found it, the ASVS id says what the fix must satisfy.',
+    ],
+  },
+  {
+    id: 'cis-benchmark',
+    title: 'CIS Benchmarks and Controls',
+    zone: 'audit',
+    short: 'CIS Benchmarks are hardening checklists per system, each control naming one setting and the value that passes; CIS Controls are priorities for a whole organisation.',
+    body: [
+      'The Center for Internet Security publishes free Benchmarks for operating systems, cloud accounts, databases, browsers and more. Each recommendation has a title ("Ensure sshd PermitRootLogin is disabled"), a rationale, an audit procedure and a remediation, and is Level 1 (sensible everywhere) or Level 2 (stricter, may affect function).',
+      'Auditing means comparing the effective configuration with each control: on Linux, sshd -T prints what SSH really runs with; tools such as Lynis, OpenSCAP, CIS-CAT, Prowler (for cloud) and Greenbone (which has CIS policy scans) automate the comparison. Numbering changes between Benchmark versions, so quote the title and version.',
+      'The CIS Controls (v8.1) are different: eighteen prioritised safeguards for an organisation (inventory, data protection, secure configuration, account and access control, vulnerability management, logging ...), grouped into Implementation Groups IG1 to IG3. IG1 is the essential hygiene every organisation should have.',
+    ],
+  },
+  {
+    id: 'container-scan',
+    title: 'Container image scanning and Dockerfile hardening',
+    zone: 'audit',
+    short: 'A container image carries an operating system; scanners like Trivy list its known flaws and the risky settings in its Dockerfile.',
+    body: [
+      'trivy image <image> reads the OS packages (Debian, Alpine ...) and the app\'s libraries (npm, pip ...) inside an image and matches them to advisories. A base image whose OS is out of support (Debian 10 in 2026, Node 14 since April 2023) will not get fixes: the remedy is rebuilding on a current, slim base, not patching inside.',
+      'trivy config reads Dockerfiles, Kubernetes manifests and Terraform for misconfigurations. DS002 means no USER line, so the app runs as root inside the container; DS026 means no HEALTHCHECK. At run time, docker inspect shows the user, whether the container is privileged (almost full access to the host) and which ports are published on 0.0.0.0.',
+      'Good practice: pin a current slim base, run as an unprivileged user, never --privileged, publish ports on 127.0.0.1 unless they must be public, scan in CI and rebuild regularly so fixes in the base image reach you.',
+    ],
+  },
+  {
+    id: 'cloudtrail',
+    title: 'AWS CloudTrail for investigations',
+    zone: 'audit',
+    short: 'CloudTrail logs every AWS API call (who, when, from where, with which key); it is how you rebuild what happened in an account.',
+    body: [
+      'Each event records the API name (CreateAccessKey, PutBucketPolicy, ConsoleLogin ...), the identity and access key used, the source IP address, the time and the parameters. aws cloudtrail lookup-events searches the last 90 days of management events by EventName, Username, AccessKeyId or ResourceName.',
+      'Gaps to check in an audit: a trail that covers every region (otherwise an attacker works where nobody logs), log file validation, logs in a separate protected bucket, and data events. Data events, such as S3 GetObject, are off by default and cost extra; without them you cannot say which objects were read, only that a policy made them readable.',
+      'In an incident: start from the key or user you know is compromised, list everything it did, look for persistence (new keys, users, roles, policies), then deactivate keys and roll back policies. Feed CloudTrail into a SIEM or CloudWatch alarms so the next CreateAccessKey at 3 a.m. raises an alert.',
+    ],
+  },
+  {
+    id: 'prowler',
+    title: 'Prowler and cloud security posture',
+    zone: 'audit',
+    short: 'Prowler runs hundreds of checks against a cloud account in one pass and reports PASS or FAIL with a severity and a check id.',
+    body: [
+      'Prowler is open source and checks AWS, Azure, Google Cloud and Kubernetes against CIS Benchmarks, AWS Foundational Security Best Practices and other frameworks. prowler aws --severity critical high shows the serious failures; --service and --check narrow it; results go to CSV, JSON and HTML for the report.',
+      'Common critical findings: S3 buckets without Block Public Access, no MFA on the root account, security groups open to the internet on SSH or RDP, CloudTrail not covering all regions, unused or old access keys. AWS Security Hub runs similar checks continuously inside the account.',
+      'The skill is ordering: active exposure (a bucket being read now) before latent risk (root MFA), then what is reachable from the internet, then hygiene. A posture tool lists configuration problems; it does not tell you whether you have already been breached, which is what CloudTrail is for.',
+    ],
+  },
   // The Wire
   {
     id: 'http-anatomy',

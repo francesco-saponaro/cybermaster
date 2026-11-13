@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReportAct, ReportLevel } from '../../content/types';
 import { METRICS, METRIC_LABELS, METRIC_VALUES, baseScore, severity, formatVector, parseVector, type Vector, type MetricName } from '../../engine/cvss';
-import { PHASES, placeArtifact, readFinding, labChecks, type FindingDraft } from '../../sim/report';
+import { PHASES, placeArtifact, readFinding, labChecks, summaryChecks, jargonIn, EMPTY_SUMMARY, RISK_LEVELS, type FindingDraft, type SummaryDraft, type RiskLevel } from '../../sim/report';
 import { ARENA_APPS, runApp, loginWithFilterEnv, listing, type Reply } from '../../sim/arena';
 import type { AppInput } from '../../sim/arena';
 import { EVIDENCE } from '../../content/evidence';
@@ -24,6 +24,8 @@ export function ReportSandbox(props: SandboxProps<ReportLevel, ReportAct>) {
       return <RetestPanel {...props} />;
     case 'lab':
       return <LabPanel {...props} />;
+    case 'summary':
+      return <SummaryPanel {...props} />;
   }
 }
 
@@ -520,6 +522,82 @@ function LabPanel({ level, onChecks, fail, act }: SandboxProps<ReportLevel, Repo
             </div>
           ),
           bodyClass: 'term-body',
+        },
+      ]}
+    />
+  );
+}
+
+// ---- The executive summary ------------------------------------------------------
+
+function SummaryPanel({ level, onChecks, act }: SandboxProps<ReportLevel, ReportAct>) {
+  const spec = level.panel === 'summary' ? level.summary : null;
+  const [d, setD] = useState<SummaryDraft>(EMPTY_SUMMARY);
+  const checks = useMemo(() => (spec ? summaryChecks(d, spec) : []), [d, spec]);
+  useEffect(() => {
+    onChecks(Object.fromEntries(checks.map((c) => [c.id, { pass: c.pass, detail: c.detail }])) as Record<string, CheckState>);
+  }, [checks, onChecks]);
+  useEffect(() => {
+    if (act?.act.summary) setD((x) => ({ ...x, ...act.act.summary }));
+  }, [act]);
+  if (!spec) return null;
+  const used = jargonIn(d.text, spec.jargon);
+  const n = d.text.trim() ? d.text.trim().split(/\s+/).length : 0;
+  const toggle = (id: string) => setD((x) => ({ ...x, top: x.top.includes(id) ? x.top.filter((t) => t !== id) : x.top.length >= 3 ? x.top : [...x.top, id] }));
+  return (
+    <Panes
+      hint="write"
+      grid={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)' }}
+      panes={[
+        {
+          id: 'findings',
+          label: 'Findings',
+          head: <h2>The week, finding by finding</h2>,
+          body: (
+            <div className="pane-pad">
+              <p className="small muted" style={{ marginTop: 0 }}>For: {spec.audience}. Tick the three that matter most.</p>
+              <ul className="sum-list">
+                {spec.findings.map((f) => (
+                  <li key={f.id}>
+                    <label className="sum-item" data-on={d.top.includes(f.id)}>
+                      <input type="checkbox" checked={d.top.includes(f.id)} onChange={() => toggle(f.id)} aria-label={`Top risk: ${f.plain}`} />
+                      <span>
+                        <span className="sum-sev" data-sev={f.severity.toLowerCase()}>{f.severity}</span>
+                        {f.active ? <span className="sum-active">Happening now</span> : null}
+                        <span className="sum-plain">{f.plain}</span>
+                        <span className="sum-tech mono small">{f.title}</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ),
+        },
+        {
+          id: 'write',
+          label: 'Summary',
+          head: <h2>Executive summary</h2>,
+          body: (
+            <div className="pane-pad sum-form">
+              <label className="lbl" htmlFor="sum-overall">Overall risk</label>
+              <select id="sum-overall" className="field" value={d.overall} onChange={(e) => setD((x) => ({ ...x, overall: e.target.value as RiskLevel }))}>
+                <option value="">Choose</option>
+                {RISK_LEVELS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <label className="lbl" htmlFor="sum-text">In plain words: what happened, what it means for customers, what is being done</label>
+              <StartHint text="Write it for someone who has never heard of a CVE." arrow="down" />
+              <textarea id="sum-text" className="field sum-text" rows={8} value={d.text} onChange={(e) => setD((x) => ({ ...x, text: e.target.value }))} placeholder="Lantern's customer data was exposed this week..." />
+              <p className="small" style={{ margin: 0 }}>
+                <span className="tnum">{n}</span> / {spec.maxWords} words
+                {used.length ? <span className="sum-jargon"> · jargon: {used.join(', ')}</span> : null}
+              </p>
+              <label className="lbl" htmlFor="sum-retest">Retest date</label>
+              <input id="sum-retest" type="date" className="field" value={d.retest} onChange={(e) => setD((x) => ({ ...x, retest: e.target.value }))} />
+            </div>
+          ),
         },
       ]}
     />

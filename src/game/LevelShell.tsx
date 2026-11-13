@@ -17,7 +17,7 @@ import { ChallengeResult } from './ChallengeResult';
 import { Scope } from '../components/Scope';
 import { MuteIcon } from '../components/Hud';
 import type { CheckState } from './types';
-import { StepList, StepBar } from './Steps';
+import { StepList, StepBar, recallOn, setRecall } from './Steps';
 import { StartHintContext, useStartHintState } from './StartHint';
 import { Burst, ComboChip, IncidentBar, IncidentLost, LockOn, useIncident } from './Live';
 
@@ -78,6 +78,7 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
   // ---- The live incident (boss levels) -------------------------------------
   const story = level.boss ? INCIDENTS[level.id] : undefined;
   const firstPlay = useRef((save.levels[level.id]?.stars ?? 0) < 1).current;
+  const [recall, setRecallState] = useState(recallOn);
   const pace: IncidentPace = !guided ? 'harsh' : firstPlay ? 'gentle' : 'normal';
   const cfg = useMemo(() => (story ? incidentConfig(pace, level.par, story.records) : null), [story, pace, level.par]);
   const incident = useIncident(cfg, !!outcome || locking || lost);
@@ -310,7 +311,7 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
                 <div className="brief-remark">
                   <p className="brief-who">
                     <Scope size={18} filled />
-                    {remark.who}, {CAST[remark.who].role.toLowerCase()}
+                    {remark.who}, {CAST[remark.who].after}
                   </p>
                   <p className="brief-line">{remark.text}</p>
                 </div>
@@ -332,7 +333,13 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
                     <p className="lv-label grow" style={{ margin: 0 }}>Steps</p>
                     <span className="small muted mono">{passed}/{level.checks.length} done</span>
                   </div>
-                  <StepList steps={level.checks} checks={checks} together={level.stepsTogether} currentRef={currentRef} burst={burst} />
+                  {!firstPlay ? (
+                    <label className="recall-toggle small">
+                      <input type="checkbox" checked={recall} onChange={(e) => { setRecall(e.target.checked); setRecallState(e.target.checked); }} />
+                      Recall mode: hide the commands, type them from memory
+                    </label>
+                  ) : null}
+                  <StepList steps={level.checks} checks={checks} together={level.stepsTogether} currentRef={currentRef} burst={burst} recall={!firstPlay && recall} />
                 </section>
               ) : (
                 <ChallengeChecks level={level} checks={checks} burst={burst} />
@@ -380,7 +387,7 @@ export function LevelShell({ level, mode = { kind: 'guided' }, children }: { lev
         </aside>
 
         <main className="lv-main" ref={mainRef} aria-label="Sandbox">
-          {guided ? <StepBar steps={level.checks} checks={checks} visible={barVisible && !outcome} failure={failMsg} /> : null}
+          {guided ? <StepBar steps={level.checks} checks={checks} visible={barVisible && !outcome} failure={failMsg} recall={!firstPlay && recall} /> : null}
           <StartHintContext.Provider value={hint}>
             <div key={runKey} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
               {children(api)}

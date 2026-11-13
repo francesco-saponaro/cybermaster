@@ -8,7 +8,7 @@ import { testFix, listing, runApp, loginWithFilterEnv, ARENA_APPS } from '../src
 import { execute } from '../src/sim/terminal';
 import { evaluateTerminal, judgeAnswer } from '../src/game/evaluate';
 import { bucketChecks, iamChecks, sgChecks, keyChecks, triageChecks, gatewayChecks, type KeyState } from '../src/sim/cloud';
-import { placeArtifact, readFinding, labChecks, PHASES } from '../src/sim/report';
+import { placeArtifact, readFinding, labChecks, PHASES, summaryChecks, EMPTY_SUMMARY } from '../src/sim/report';
 import { parseVector, METRICS } from '../src/engine/cvss';
 import { initialGvm, runGvm } from '../src/sim/gvm';
 import { initialCapture, runCapture } from '../src/sim/pcap';
@@ -168,6 +168,9 @@ function reportRun(l: ReportLevel, acts: import('../src/content/types').ReportAc
       expect(original.harmed, 'their filter blocks the recorded attack').toBe(false);
       expect(anyHarm, 'a variant gets in exactly when the fix does not work').toBe(!r.fixWorks);
       return { replayed: true, bypass: r.fixWorks ? true : anyHarm, verdict: status === (r.fixWorks ? 'fixed' : 'not-fixed') };
+    }
+    case 'summary': {
+      return Object.fromEntries(summaryChecks({ ...EMPTY_SUMMARY, ...acts[0]!.summary }, l.summary).map((c) => [c.id, c.pass]));
     }
     case 'lab': {
       const res = labChecks(acts[0]!.text!);

@@ -5,17 +5,22 @@ import { ROADMAP, type RoadmapItem } from '../content/roadmap';
 import { ACRONYMS, AREA_NAMES, type Acronym, type AcronymArea } from '../content/acronyms';
 import { LEVEL_BY_ID } from '../content/index';
 import { makeRng, randomSeed } from '../engine/rng';
+import { Exam, Review, reviewDueCount } from './StudyExam';
 import '../styles/study.css';
 
-type Tab = 'roadmap' | 'acronyms';
+type Tab = 'roadmap' | 'acronyms' | 'review' | 'exam';
 
 export function StudyPage() {
-  const [tab, setTab] = useState<Tab>('roadmap');
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get('tab');
+    return t === 'acronyms' || t === 'review' || t === 'exam' ? t : 'roadmap';
+  });
+  const [due] = useState(reviewDueCount);
   return (
     <div className="wrap study" style={{ paddingBlock: 'clamp(28px, 5vw, 56px)' }}>
       <header className="study-head">
         <h1>Study</h1>
-        <p className="muted">Your boss's roadmap line by line, and every acronym in it.</p>
+        <p className="muted">Your boss's roadmap line by line, every acronym in it, a daily review and the final exam.</p>
       </header>
       <div className="study-tabs" role="tablist" aria-label="Study sections">
         <button type="button" role="tab" aria-selected={tab === 'roadmap'} onClick={() => setTab('roadmap')}>
@@ -24,8 +29,14 @@ export function StudyPage() {
         <button type="button" role="tab" aria-selected={tab === 'acronyms'} onClick={() => setTab('acronyms')}>
           Acronyms
         </button>
+        <button type="button" role="tab" aria-selected={tab === 'review'} onClick={() => setTab('review')}>
+          Review{due ? <span className="study-due tnum">{due}</span> : null}
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'exam'} onClick={() => setTab('exam')}>
+          Exam
+        </button>
       </div>
-      {tab === 'roadmap' ? <Roadmap /> : <Acronyms />}
+      {tab === 'roadmap' ? <Roadmap /> : tab === 'acronyms' ? <Acronyms /> : tab === 'review' ? <Review /> : <Exam />}
     </div>
   );
 }
